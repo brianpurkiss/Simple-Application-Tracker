@@ -13,6 +13,7 @@ import { PillToggle } from "@/components/ui/pill-toggle";
 import { Segmented } from "@/components/ui/segmented";
 import { useJobs, useProfile } from "@/lib/api";
 import { applicationsNeeded, type Combo, comboBy, DIMENSIONS, type DimensionKey, type Metric, VERSION_MODES } from "@/lib/stats";
+import { GHOSTED_DAYS } from "@/lib/options";
 import { useParamUpdater } from "@/lib/useParamUpdater";
 import { useSettled } from "@/lib/useSettled";
 import { cn } from "@/lib/utils";
@@ -22,8 +23,8 @@ const DEFAULT_MIN_AGE = 8;
 const DEFAULT_MIN_SAMPLE = 10;
 
 const METRICS = [
-  { key: "interview", label: "Interview Rate" },
-  { key: "reply", label: "Reply Rate" },
+  { key: "interview", label: "Interviews" },
+  { key: "rejected", label: "Rejected, No Interview" },
 ] as const;
 // z-scores for the confidence a combo must clear to be called a standout / below average.
 const CONFIDENCE = [
@@ -44,7 +45,7 @@ const MAX_EXTRA = 2;
 const SALARY_LINES = 5;
 const TOO_FEW_PREVIEW = 5;
 
-const rateOf = (c: Combo, metric: Metric) => (metric === "interview" ? c.interviewRate : c.responseRate) ?? 0;
+const rateOf = (c: Combo, metric: Metric) => (metric === "interview" ? c.interviewRate : c.rejectedRate) ?? 0;
 
 export default function ResumePerformance() {
   const { data: jobs = [], isLoading, error } = useJobs();
@@ -54,11 +55,12 @@ export default function ResumePerformance() {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [showAllTooFew, setShowAllTooFew] = useState(false);
 
-  const metric: Metric = params.get("metric") === "reply" ? "reply" : "interview";
+  const metric: Metric = params.get("metric") === "rejected" ? "rejected" : "interview";
   const sort = (SORTS.find((s) => s.key === params.get("sort"))?.key ?? "confidence") as SortKey;
   const groupVersions = params.get("versions") === "grouped";
   const confidence = CONFIDENCE.find((c) => c.key === params.get("conf")) ?? CONFIDENCE[1];
   const minAge = Math.max(0, Number(params.get("recency") ?? DEFAULT_MIN_AGE) || 0);
+  const ghostDays = Math.max(1, Number(params.get("ghost") ?? GHOSTED_DAYS) || GHOSTED_DAYS);
   const minSample = Math.max(1, Number(params.get("min") ?? DEFAULT_MIN_SAMPLE) || 1);
   const extras = (params.get("with") ?? "")
     .split(",")
@@ -79,33 +81,34 @@ export default function ResumePerformance() {
 
   // Everything the results render comes from `view`, which lags the live params so the old results can
   // animate out (bars drop to zero) before the new ones swap in and refill.
-  const live = { metric, sort, groupVersions, conf: confidence.key, minAge, minSample, extras, heatDim };
+  const live = { metric, sort, groupVersions, conf: confidence.key, minAge, ghostDays, minSample, extras, heatDim };
   const { shown: view, phase } = useSettled(live, JSON.stringify(live));
   const vConfidence = CONFIDENCE.find((c) => c.key === view.conf) ?? CONFIDENCE[1];
   const dims: DimensionKey[] = ["resume_version", ...view.extras];
   const { combos, baseline, total, excluded } = useMemo(
-    () => comboBy(jobs, dims, { metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z }),
+    () => comboBy(jobs, dims, { metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z, ghostDays: view.ghostDays }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, view.extras.join(","), view.metric, view.minSample, view.minAge, view.groupVersions, vConfidence.z],
+    [jobs, view.extras.join(","), view.metric, view.minSample, view.minAge, view.groupVersions, vConfidence.z, view.ghostDays],
   );
 
   const resumeCount = useMemo(
-    () => comboBy(jobs, ["resume_version"], { metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z }).combos.length,
-    [jobs, view.metric, view.minSample, view.minAge, view.groupVersions, vConfidence.z],
+    () => comboBy(jobs, ["resume_version"], { metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z, ghostDays: view.ghostDays }).combos.length,
+    [jobs, view.metric, view.minSample, view.minAge, view.groupVersions, vConfidence.z, view.ghostDays],
   );
 
   const sorted = useMemo(() => {
     const by = {
-      confidence: (a: Combo, b: Combo) => b.lo - a.lo || b.n - a.n,
-      rate: (a: Combo, b: Combo) => rateOf(b, view.metric) - rateOf(a, view.metric) || b.n - a.n,
+      // For rejections a lower rate is better, so the "best" end flips.
+      confidence: (a: Combo, b: Combo) => (view.metric === "interview" ? b.lo - a.lo : a.hi - b.hi) || b.n - a.n,
+      rate: (a: Combo, b: Combo) => (view.metric === "interview" ? rateOf(b, view.metric) - rateOf(a, view.metric) : rateOf(a, view.metric) - rateOf(b, view.metric)) || b.n - a.n,
       volume: (a: Combo, b: Combo) => b.n - a.n,
     }[view.sort];
     return [...combos].sort(by);
   }, [combos, view.sort, view.metric]);
   const fade = cn("transition-opacity duration-200 motion-reduce:transition-none", phase === "out" && "opacity-0");
-  const interviewed = sorted.filter((c) => c.interviews > 0);
-  const enough = interviewed.filter((c) => c.tier !== "low");
-  const tooFew = interviewed.filter((c) => c.tier === "low");
+  const shown = sorted.filter((c) => (view.metric === "interview" ? c.interviews : c.rejected) > 0);
+  const enough = shown.filter((c) => c.tier !== "low");
+  const tooFew = shown.filter((c) => c.tier === "low");
   const visibleTooFew = showAllTooFew ? tooFew : tooFew.slice(0, TOO_FEW_PREVIEW);
   // The best few combos (in the chosen sort order) that have any salary data to plot.
   const salarySeries = enough
@@ -116,7 +119,7 @@ export default function ResumePerformance() {
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
   if (error) return <p className="text-destructive">Couldn't load applications.</p>;
 
-  const filtersActive = metric !== "interview" || groupVersions || minAge !== DEFAULT_MIN_AGE || confidence.key !== "balanced" || minSample !== DEFAULT_MIN_SAMPLE;
+  const filtersActive = metric !== "interview" || groupVersions || minAge !== DEFAULT_MIN_AGE || ghostDays !== GHOSTED_DAYS || confidence.key !== "balanced" || minSample !== DEFAULT_MIN_SAMPLE;
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
@@ -182,7 +185,7 @@ export default function ResumePerformance() {
           <Segmented options={EXTRA_DIMS} value={heatDim} onChange={(d) => setParam("heat", d)} />
         </div>
         <div className={fade}>
-          <ComboHeatmap jobs={jobs} dim={view.heatDim} metric={view.metric} minSample={view.minSample} minAge={view.minAge} groupVersions={view.groupVersions} />
+          <ComboHeatmap jobs={jobs} dim={view.heatDim} metric={view.metric} minSample={view.minSample} minAge={view.minAge} groupVersions={view.groupVersions} ghostDays={view.ghostDays} />
         </div>
       </section>
     </div>
@@ -197,7 +200,7 @@ export default function ResumePerformance() {
                 <Label>Metric</Label>
                 <div><Segmented options={METRICS} value={metric} onChange={(m) => setParam("metric", m)} /></div>
                 <p className="text-xs text-muted-foreground">
-                  Interview = at least one screen or interview, or an offer. Reply = any contact from them or an interview; a rejection on its own doesn't count.
+                  Interviews = at least one screen or interview, or an offer. Rejected, No Interview = rejected or ghosted without ever reaching a screen or interview; for this metric a lower rate is better.
                 </p>
               </div>
               <div className="space-y-1">
@@ -219,6 +222,16 @@ export default function ResumePerformance() {
                 </div>
                 <p className="text-xs text-muted-foreground">Very recent applications haven't had time to hear back, so they'd drag rates down unfairly.</p>
               </div>
+              {metric === "rejected" && (
+                <div className="space-y-1">
+                  <Label htmlFor="ghost">Count as Ghosted After</Label>
+                  <div className="flex items-center gap-2">
+                    <Input id="ghost" type="number" min={1} value={ghostDays} onChange={(e) => setParam("ghost", e.target.value === String(GHOSTED_DAYS) ? null : e.target.value)} className="w-20 bg-card" />
+                    <span className="text-sm text-muted-foreground">days of silence</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Only applications at least this old are counted, so pending ones don't flatter a resume. Lower it if you usually hear back sooner; it overrides the skip above when larger.</p>
+                </div>
+              )}
               <div className="space-y-1">
                 <Label>Standout Confidence</Label>
                 <div>
@@ -243,21 +256,21 @@ export default function ResumePerformance() {
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Bars</div>
                 <p>
-                  <span className="text-blue-400">Blue</span> = interview rate, <span className="text-amber-500">amber</span> = reply rate (rejections excluded), the vertical line = the overall average of {Math.round(baseline * 100)}%. The multiple (e.g. 1.6×) is the combo's rate divided by that average.
+                  <span className="text-blue-400">Blue</span> = interview rate (higher is better), <span className="text-orange-400">orange</span> = rate of rejected or ghosted with no interview (lower is better), the vertical line = the overall average of {Math.round(baseline * 100)}%. The multiple (e.g. 1.6×) is the combo's rate divided by that average.
                 </p>
-                <p>Bars run from 0% to 50%, so 25% fills half the bar and anything at 50% or more fills it. The faint ticks mark every 10%.</p>
+                <p>{metric === "interview" ? "Bars run from 0% to 50%, so 25% fills half the bar and anything at 50% or more fills it. The faint ticks mark every 10%." : "Bars run the full 0% to 100%. The faint ticks mark every 20%."}</p>
               </div>
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Badges</div>
-                <p><span className="text-emerald-400">Standout</span>: at least {minSample} applications and above average even at the pessimistic end of its range (at the confidence set above), so it's unlikely to be luck.</p>
-                <p><span className="text-blue-400">Promising</span>: at least {minSample} applications and above average, but the sample is still too small to rule out luck.</p>
-                <p><span className="text-red-400">Below average</span>: at least {minSample} applications and below average even at the optimistic end of its range.</p>
+                <p><span className="text-emerald-400">Standout</span>: at least {minSample} applications and {metric === "interview" ? "above" : "below"} average even at the pessimistic end of its range (at the confidence set above), so it's unlikely to be luck.</p>
+                <p><span className="text-blue-400">Promising</span>: at least {minSample} applications and better than average, but the sample is still too small to rule out luck.</p>
+                <p><span className="text-red-400">Below average</span>: at least {minSample} applications and {metric === "interview" ? "below" : "above"} average even at the optimistic end of its range.</p>
                 <p>Low volume: under {minSample} applications.</p>
               </div>
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Sorting</div>
                 <p><span className="text-foreground">Best Bet</span>: ranks by the pessimistic end of each combo's confidence range, so 1 of 1 doesn't beat 12 of 20.</p>
-                <p><span className="text-foreground">Raw Rate</span>: highest percentage first, regardless of sample size.</p>
+                <p><span className="text-foreground">Raw Rate</span>: {metric === "interview" ? "highest" : "lowest"} percentage first, regardless of sample size.</p>
                 <p><span className="text-foreground">Volume</span>: most applications first.</p>
               </div>
               <div className="space-y-1">
@@ -279,7 +292,7 @@ export default function ResumePerformance() {
               </div>
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Heatmap</div>
-                <p>Each cell is rate · applications. Darker blue = higher rate, green outline = standout, muted = low volume.</p>
+                <p>Each cell is rate · applications. Darker = higher rate, green outline = standout, muted = low volume.</p>
               </div>
             </FilterBox>
       </FilterPanel>

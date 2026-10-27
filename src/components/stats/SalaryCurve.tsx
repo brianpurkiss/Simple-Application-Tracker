@@ -51,7 +51,7 @@ export default function SalaryCurve({ series, target }: { series: SalarySeries[]
     <section className="space-y-4 rounded-lg border bg-card p-5">
       <div>
         <h2 className="font-medium">Salary Range</h2>
-        <p className="text-sm text-muted-foreground">Lowest to highest pay across each combo's roles, with the range of roles that reached an interview in solid blue.</p>
+        <p className="text-sm text-muted-foreground">Lowest to highest pay across each combo's roles, with the range of roles that reached an interview in solid green.</p>
       </div>
       {axis ? (
         <>
@@ -68,19 +68,19 @@ export default function SalaryCurve({ series, target }: { series: SalarySeries[]
                 <div className="relative h-4">
                   <div className="absolute inset-x-0 top-1/2 h-px bg-border" />
                   <div
-                    className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full bg-blue-500/25"
+                    className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full bg-emerald-500/25"
                     style={{ left: at(r.lo), width: width(r.lo, r.hi), minWidth: 6 }}
                     title={`All roles ${k(r.lo)}–${k(r.hi)}`}
                   />
                   {r.interviewed && (
                     <div
-                      className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full bg-blue-500"
+                      className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full bg-emerald-500"
                       style={{ left: at(r.interviewed.lo), width: width(r.interviewed.lo, r.interviewed.hi), minWidth: 6 }}
                       title={`Interviewed ${k(r.interviewed.lo)}–${k(r.interviewed.hi)}`}
                     />
                   )}
                   {r.interviewed && (
-                    <div className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-blue-500 bg-card" style={{ left: at(r.interviewed.mean) }} title={`Interviewed mean ${k(Math.round(r.interviewed.mean / 1000) * 1000)}`} />
+                    <div className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-500 bg-card" style={{ left: at(r.interviewed.mean) }} title={`Interviewed mean ${k(Math.round(r.interviewed.mean / 1000) * 1000)}`} />
                   )}
                   {target != null && (
                     <div className="absolute top-1/2 z-10 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500 ring-2 ring-card" style={{ left: at(target) }} title={`Salary target ${k(target)}`} />
@@ -99,10 +99,10 @@ export default function SalaryCurve({ series, target }: { series: SalarySeries[]
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            <span className="mr-1 inline-block h-2.5 w-5 translate-y-0.5 rounded-full bg-blue-500/25" /> All roles
-            <span className="ml-3 mr-1 inline-block h-2.5 w-5 translate-y-0.5 rounded-full bg-blue-500" /> Interviewed
+            <span className="mr-1 inline-block h-2.5 w-5 translate-y-0.5 rounded-full bg-emerald-500/25" /> All roles
+            <span className="ml-3 mr-1 inline-block h-2.5 w-5 translate-y-0.5 rounded-full bg-emerald-500" /> Interviewed
             <span className="ml-3 mr-1 inline-block h-3 w-0.5 translate-y-0.5 bg-foreground" /> Mean (all roles)
-            <span className="ml-3 mr-1 inline-block size-2.5 translate-y-0.5 rounded-full border-2 border-blue-500" /> Mean of interviewed roles
+            <span className="ml-3 mr-1 inline-block size-2.5 translate-y-0.5 rounded-full border-2 border-emerald-500" /> Mean of interviewed roles
             {target != null && <><span className="ml-3 mr-1 inline-block size-2.5 translate-y-0.5 rounded-full bg-amber-500" /> Salary target</>}
           </p>
         </>

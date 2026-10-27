@@ -1,5 +1,6 @@
 import type { ActivityEvent, Job } from "./api";
 import { categoryOf, weekStart } from "./activity";
+import { GHOSTED_DAYS } from "./options";
 import { DAY, daysBetween, daysSince, reachedInterview } from "./format";
 
 // Applications newer than this haven't had a fair chance to hear back, so they're left out of rates.
@@ -18,7 +19,7 @@ const median = (nums: number[]) => {
 };
 
 const hasOffer = (j: Job) => j.status === "Offer" || j.status === "Accepted";
-const interviewed = (j: Job) => reachedInterview(j) || hasOffer(j);
+export const interviewed = (j: Job) => reachedInterview(j) || hasOffer(j);
 const multipleInterviews = (j: Job) => j.interview_count >= 2 || hasOffer(j);
 const heardBack = (j: Job) => Boolean(j.first_contact || j.rejected_date) || interviewed(j);
 
@@ -104,7 +105,17 @@ export const VERSION_MODES = [
 
 export const resumeFamily = (label: string) => label.trim().replace(/\.\d+$/, ".x");
 
-export type Metric ="interview" | "reply";
+// Closed out without ever reaching a screen or interview: rejected outright, or silent for `ghostDays`.
+// The server's auto-ghost uses GHOSTED_DAYS, so jobs it ghosted sooner than a longer `ghostDays` count as still pending.
+export const noResponse = (j: Job, ghostDays = GHOSTED_DAYS) => {
+  if (interviewed(j)) return false;
+  if (j.status === "Rejected") return true;
+  const silent = daysSince(j.last_heard ?? j.applied_date) ?? 0;
+  if (j.status === "Ghosted") return !j.auto_ghosted || silent >= ghostDays;
+  return j.status === "Applied" && silent >= ghostDays;
+};
+
+export type Metric = "interview" | "rejected";
 export type Tier = "standout" | "watch" | "even" | "under" | "low";
 
 // Wilson score interval: a rate range that widens for small samples, so 1/1 doesn't outrank 12/20.
@@ -128,9 +139,9 @@ export type Combo = {
   key: string;
   parts: string[];
   n: number;
-  replied: number;
+  rejected: number;
   interviews: number;
-  responseRate: number | null;
+  rejectedRate: number | null;
   interviewRate: number | null;
   lift: number | null;
   lo: number;
@@ -140,6 +151,8 @@ export type Combo = {
   interviewSalaryMean: number | null;
   interviewSalaryMax: number | null;
   jobs: Job[];
+  // The jobs that count toward the chosen metric.
+  hits: Job[];
 };
 
 type ComboResult = { combos: Combo[]; baseline: number; total: number; excluded: number };
@@ -154,15 +167,17 @@ export function comboBy(
     minAge = MIN_AGE_DAYS,
     groupVersions = false,
     z = 1.645,
-  }: { metric: Metric; minSample?: number; minAge?: number; groupVersions?: boolean; z?: number },
+    ghostDays = GHOSTED_DAYS,
+  }: { metric: Metric; minSample?: number; minAge?: number; groupVersions?: boolean; z?: number; ghostDays?: number },
 ): ComboResult {
   // Jobs missing any grouped field are left out entirely, so they don't skew the average either.
+  // Rejections need the ghost window to have passed, or recent applications would look better than they are.
+  if (metric === "rejected") minAge = Math.max(minAge, ghostDays);
   const eligible = jobs.filter(
     (j) => j.applied_date && (daysSince(j.applied_date) ?? 0) >= minAge && dims.every((d) => j[d]?.trim()),
   );
-  // A rejection alone isn't a useful reply: only count contact that moved things forward.
-  const replied_ = (j: Job) => Boolean(j.first_contact) || interviewed(j);
-  const hit = metric === "interview" ? interviewed : replied_;
+  const rejected_ = (j: Job) => noResponse(j, ghostDays);
+  const hit = metric === "interview" ? interviewed : rejected_;
   const baseline = eligible.length ? eligible.filter(hit).length / eligible.length : 0;
 
   const groups = new Map<string, { parts: string[]; jobs: Job[] }>();
@@ -176,25 +191,27 @@ export function comboBy(
 
   const combos = [...groups.entries()].map(([key, g]): Combo => {
     const n = g.jobs.length;
-    const replied = g.jobs.filter(replied_).length;
+    const rejected = g.jobs.filter(rejected_).length;
     const interviews = g.jobs.filter(interviewed).length;
-    const k = metric === "interview" ? interviews : replied;
+    const k = metric === "interview" ? interviews : rejected;
     const { lo, hi } = wilson(k, n, z);
     const rate = k / n;
     let tier: Tier = "even";
+    // For rejections, a higher rate is the bad outcome, so the grading flips.
+    const flip = metric === "rejected";
     if (n < minSample) tier = "low";
-    else if (lo > baseline) tier = "standout";
-    else if (hi < baseline) tier = "under";
-    else if (rate > baseline) tier = "watch";
+    else if (flip ? hi < baseline : lo > baseline) tier = "standout";
+    else if (flip ? lo > baseline : hi < baseline) tier = "under";
+    else if (flip ? rate < baseline : rate > baseline) tier = "watch";
     const paid = g.jobs.filter(interviewed).filter((j) => j.salary_min != null || j.salary_max != null);
     const mids = paid.map((j) => ((j.salary_min ?? j.salary_max!) + (j.salary_max ?? j.salary_min!)) / 2);
     return {
       key,
       parts: g.parts,
       n,
-      replied,
+      rejected,
       interviews,
-      responseRate: pct(replied, n),
+      rejectedRate: pct(rejected, n),
       interviewRate: pct(interviews, n),
       lift: baseline ? rate / baseline : null,
       lo,
@@ -203,6 +220,7 @@ export function comboBy(
       interviewSalaryMean: mids.length ? mids.reduce((a, b) => a + b, 0) / mids.length : null,
       interviewSalaryMax: paid.length ? Math.max(...paid.map((j) => j.salary_max ?? j.salary_min!)) : null,
       jobs: g.jobs,
+      hits: g.jobs.filter(metric === "interview" ? interviewed : rejected_),
     };
   });
 

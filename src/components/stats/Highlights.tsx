@@ -9,10 +9,10 @@ const Card = ({ combo, metric, tone, fade }: { combo: Combo; metric: Metric; ton
       </div>
       <div className="mt-1 font-medium">{combo.parts.join(" + ")}</div>
       <div className="mt-1 text-sm tabular-nums">
-        <span className="text-lg font-semibold">{fmtPct(metric === "interview" ? combo.interviewRate : combo.responseRate)}</span>
+        <span className="text-lg font-semibold">{fmtPct(metric === "interview" ? combo.interviewRate : combo.rejectedRate)}</span>
         <span className="text-muted-foreground">
           {" "}
-          {metric === "interview" ? "interview" : "reply"} · {fmtLift(combo.lift)} average · {combo.n} apps
+          {metric === "interview" ? "interview" : "rejected or ghosted"} · {fmtLift(combo.lift)} average · {combo.n} apps
         </span>
       </div>
     </div>
@@ -21,9 +21,9 @@ const Card = ({ combo, metric, tone, fade }: { combo: Combo; metric: Metric; ton
 
 // `fade` is applied to the text only, so the card boxes stay put while their contents fade.
 export default function Highlights({ combos, metric, baseline, fade }: { combos: Combo[]; metric: Metric; baseline: number; fade?: string }) {
-  const score = (c: Combo) => c.lo;
+  const score = (c: Combo) => (metric === "interview" ? c.lo : -c.hi);
   const good = combos.filter((c) => c.tier === "standout").sort((a, b) => score(b) - score(a)).slice(0, 3);
-  const bad = combos.filter((c) => c.tier === "under").sort((a, b) => b.hi - a.hi).slice(-1);
+  const bad = combos.filter((c) => c.tier === "under").sort((a, b) => (metric === "interview" ? b.hi - a.hi : a.lo - b.lo)).slice(-1);
   const promising = combos.filter((c) => c.tier === "watch").sort((a, b) => score(b) - score(a));
 
   return (
@@ -37,17 +37,17 @@ export default function Highlights({ combos, metric, baseline, fade }: { combos:
           <span className={fade}>
           {promising.length ? (
             <>
-              {promising.length === 1 ? "One combo is" : `${promising.length} combos are`} above the {Math.round(baseline * 100)}% average, but there isn't enough data to rule out luck yet:{" "}
+              {promising.length === 1 ? "One combo is" : `${promising.length} combos are`} {metric === "interview" ? "above" : "below"} the {Math.round(baseline * 100)}% average, but there isn't enough data to rule out luck yet:{" "}
               {promising.map((c, i) => (
                 <span key={c.key}>
                   {i > 0 && ", "}
-                  <span className="text-foreground">{c.parts.join(" + ")}</span> ({metric === "interview" ? c.interviews : c.replied}/{c.n}, {fmtLift(c.lift)})
+                  <span className="text-foreground">{c.parts.join(" + ")}</span> ({metric === "interview" ? c.interviews : c.rejected}/{c.n}, {fmtLift(c.lift)})
                 </span>
               ))}
               . Keep sending to see if it holds.
             </>
           ) : (
-            <>No combo with enough volume is above the {Math.round(baseline * 100)}% average.</>
+            <>No combo with enough volume is {metric === "interview" ? "above" : "below"} the {Math.round(baseline * 100)}% average.</>
           )}
           </span>
         </p>

@@ -26,7 +26,7 @@ export const EVENT_COLORS: Record<string, { dot: string; text: string }> = {
   Note: { dot: "bg-neutral-400", text: "text-neutral-400" },
 };
 
-function EventFields({ value, onChange }: { value: EventInput; onChange: (v: EventInput) => void }) {
+function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void }) {
   return (
     <>
       <Input type="date" value={value.date} onChange={(e) => onChange({ ...value, date: e.target.value })} className="w-40" />
@@ -44,6 +44,9 @@ function EventFields({ value, onChange }: { value: EventInput; onChange: (v: Eve
       <Input
         value={value.description}
         onChange={(e) => onChange({ ...value, description: e.target.value })}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSubmit(); }
+        }}
         placeholder="Details (who, what, next steps…)"
         className="min-w-48 flex-1"
       />
@@ -57,14 +60,16 @@ function EventRow({ event }: { event: JobEvent }) {
   const update = useUpdateEvent();
   const remove = useDeleteEvent();
 
+  const save = () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    update.mutate({ id: event.id, ...draft }, { onSuccess: () => setEditing(false), onError: (e) => toast.error(e.message) });
+  };
+
   if (editing) {
     return (
       <li className="flex flex-wrap items-center gap-2 py-2">
-        <EventFields value={draft} onChange={setDraft} />
-        <Button
-          size="icon"
-          onClick={() => { (document.activeElement as HTMLElement | null)?.blur(); update.mutate({ id: event.id, ...draft }, { onSuccess: () => setEditing(false), onError: (e) => toast.error(e.message) }); }}
-        >
+        <EventFields value={draft} onChange={setDraft} onSubmit={save} />
+        <Button size="icon" onClick={save}>
           <Check />
         </Button>
         <Button size="icon" variant="ghost" onClick={() => { setDraft(event); setEditing(false); }}><X /></Button>
@@ -103,8 +108,8 @@ export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEven
   const add = useAddEvent(jobId);
   const addButton = useRef<HTMLButtonElement>(null);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     (document.activeElement as HTMLElement | null)?.blur();
     const { type } = draft;
     add.mutate(draft, {
@@ -120,7 +125,7 @@ export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEven
   return (
     <div className="space-y-3">
       <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
-        <EventFields value={draft} onChange={setDraft} />
+        <EventFields value={draft} onChange={setDraft} onSubmit={submit} />
         <Button ref={addButton} type="submit" disabled={add.isPending}>Add</Button>
       </form>
       {events.length ? (
