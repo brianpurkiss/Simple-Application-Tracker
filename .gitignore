@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+.vite
+data/*.db*
+data/backups/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+*.tsbuildinfo
+.claude/settings.local.json

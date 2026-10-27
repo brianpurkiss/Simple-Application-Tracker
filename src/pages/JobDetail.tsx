@@ -1,0 +1,210 @@
+import { useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, ExternalLink, Mail, Phone, RotateCcw, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ComboField, SelectField, TextAreaField, TextField } from "@/components/fields";
+import { HistoryPanel } from "@/components/HistoryPanel";
+import { StatusBadge } from "@/components/StatusBadge";
+import { type Job, type JobInput, useDeleteJob, useJob, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
+import { isEditable, useHotkey } from "@/lib/hotkeys";
+import { APPLIED_VIA, COMPANY_TYPES, FITS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES } from "@/lib/options";
+
+const EDITABLE = [
+  "title", "company", "company_type", "fit", "salary", "job_type", "resume_version", "work_mode", "applied_date",
+  "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "offer_info", "notes",
+  "job_description",
+] as const satisfies readonly (keyof JobInput)[];
+
+type Draft = Record<(typeof EDITABLE)[number], string>;
+
+const toDraft = (job: Job): Draft =>
+  Object.fromEntries(EDITABLE.map((k) => [k, job[k] ?? ""])) as Draft;
+
+export default function JobDetail() {
+  const id = Number(useParams().id);
+  const { data, isLoading } = useJob(id);
+  if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
+  if (!data) return <p>Job not found. <Link to="/" className="underline">Back to jobs</Link></p>;
+  return <JobEditor key={data.id} job={data} />;
+}
+
+function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]> }) {
+  const [draft, setDraft] = useState(() => toDraft(job));
+  const [saved, setSaved] = useState(() => toDraft(job));
+  const update = useUpdateJob(job.id);
+  const deleteJob = useDeleteJob();
+  const restoreJob = useRestoreJob();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const jobTypes = useSuggestions("job_type", JOB_TYPES);
+  const resumeVersions = useSuggestions("resume_version", RESUME_VERSIONS);
+  const agencyNames = useSuggestions("agency_name", []);
+
+  const set = (key: keyof Draft) => (value: string) => setDraft((d) => ({ ...d, [key]: value }));
+  const changed = EDITABLE.filter((k) => draft[k] !== saved[k]);
+
+  const save = () => {
+    const patch = Object.fromEntries(changed.map((k) => [k, k === "applied_date" ? draft[k] || null : draft[k]]));
+    update.mutate(patch, {
+      onSuccess: () => {
+        setSaved(draft);
+        toast.success("Saved");
+      },
+      onError: (err) => toast.error(err.message),
+    });
+  };
+
+  const remove = () => {
+    deleteJob.mutate(job.id, {
+      onSuccess: () => {
+        navigate("/");
+        toast.success("Moved to trash", {
+          description: job.title,
+          action: { label: "Undo", onClick: () => restoreJob.mutate(job.id) },
+          duration: 8000,
+        });
+      },
+    });
+  };
+
+  // Escape leaves a focused field first; a second press returns to the jobs list.
+  useHotkey("Escape", (e) => {
+    if (isEditable(e.target)) return (e.target as HTMLElement).blur();
+    if (changed.length > 0 && !window.confirm("Discard unsaved changes?")) return;
+    // Step back when we came from the list so its filters (kept in the URL) survive.
+    if ((location.state as { fromList?: boolean } | null)?.fromList) navigate(-1);
+    else navigate("/");
+  });
+
+  // Cmd+S saves from anywhere on the page, including inside a field, and never opens the browser's save dialog.
+  useHotkey("s", (e) => {
+    e.preventDefault();
+    if (changed.length > 0 && !update.isPending && draft.title.trim()) save();
+  }, { mod: true });
+
+  const restore = () => restoreJob.mutate(job.id, { onSuccess: () => toast.success("Restored from trash") });
+
+  return (
+    <div className="space-y-5 pb-20">
+      <title>{`${saved.title} | Application Tracker`}</title>
+      {job.deleted_at && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-200">
+          This job is in the trash.
+          <Button size="sm" variant="outline" className="ml-auto" onClick={restore}>
+            <RotateCcw /> Restore
+          </Button>
+        </div>
+      )}
+      <div className="flex flex-wrap items-start gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} title="Back"><ArrowLeft /></Button>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold">{saved.title}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-muted-foreground">
+            <span>{saved.company}</span>
+            <StatusBadge job={job} />
+            {saved.jd_link && (
+              <a href={saved.jd_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm hover:text-foreground">
+                Job description <ExternalLink className="size-3.5" />
+              </a>
+            )}
+          </div>
+        </div>
+        {!job.deleted_at && (
+          <Button variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={remove}>
+            <Trash2 /> Delete
+          </Button>
+        )}
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-5">
+        <div className="space-y-5 lg:col-span-3">
+          <Card>
+            <CardHeader><CardTitle>Role</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <TextField label="Job Title" value={draft.title} onChange={set("title")} className="sm:col-span-2" />
+              <TextField label="Company" value={draft.company} onChange={set("company")} />
+              <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
+              <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
+              <TextField label="Salary" value={draft.salary} onChange={set("salary")} />
+              <ComboField label="Job Type" value={draft.job_type} onChange={set("job_type")} options={jobTypes} />
+              <SelectField label="Location" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />
+              <TextField label="Job Description Link" value={draft.jd_link} onChange={set("jd_link")} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Application</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <TextField label="Applied Date" type="date" value={draft.applied_date} onChange={set("applied_date")} />
+              <ComboField label="Resume Version" value={draft.resume_version} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
+              <SelectField label="Applied Via" value={draft.applied_via} onChange={set("applied_via")} options={APPLIED_VIA} />
+              <ComboField label="Agency Name" value={draft.agency_name} onChange={set("agency_name")} options={agencyNames} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Point of Contact</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-3">
+              <TextField label="Name" value={draft.contact_name} onChange={set("contact_name")} />
+              <div className="flex items-end gap-1">
+                <TextField label="Email" type="email" value={draft.contact_email} onChange={set("contact_email")} className="flex-1" />
+                {saved.contact_email && (
+                  <Button asChild variant="ghost" size="icon" title="Send email">
+                    <a href={`mailto:${saved.contact_email}`}><Mail /></a>
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-end gap-1">
+                <TextField label="Phone" type="tel" value={draft.contact_phone} onChange={set("contact_phone")} className="flex-1" />
+                {saved.contact_phone && (
+                  <Button asChild variant="ghost" size="icon" title="Call">
+                    <a href={`tel:${saved.contact_phone}`}><Phone /></a>
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Offer & Notes</CardTitle></CardHeader>
+            <CardContent className="grid gap-4">
+              <TextAreaField label="Offer Info (base, bonus, equity, benefits, deadline…)" value={draft.offer_info} onChange={set("offer_info")} rows={3} />
+              <TextAreaField label="Notes" value={draft.notes} onChange={set("notes")} rows={5} />
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="h-fit lg:col-span-2">
+          <CardHeader><CardTitle>History</CardTitle></CardHeader>
+          <CardContent>
+            <HistoryPanel jobId={job.id} events={job.events} />
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-5">
+          <CardHeader><CardTitle>Job Description</CardTitle></CardHeader>
+          <CardContent>
+            <TextAreaField
+              label="Paste the full job description here so you have a copy if the posting comes down."
+              value={draft.job_description}
+              onChange={set("job_description")}
+              rows={18}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {changed.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 backdrop-blur">
+          <div className="mx-auto flex max-w-[1600px] items-center justify-end gap-3 px-6 py-3">
+            <span className="text-sm text-muted-foreground">Unsaved changes</span>
+            <Button variant="outline" onClick={() => setDraft(saved)}>Discard</Button>
+            <Button onClick={save} disabled={update.isPending || !draft.title.trim()}>Save</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
