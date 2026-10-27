@@ -174,8 +174,102 @@ app.delete("/api/events/:id", (req, res) => {
   res.status(204).end();
 });
 
+const resumeSchema = z.object({
+  version: text.min(1),
+  notes: z.string(),
+  plain_text: z.string(),
+});
+
+// Everything but the PDF itself, which is only sent from its own route.
+const resumeSql = `
+  SELECT r.id, r.version, r.notes, r.plain_text, r.pdf_name, r.pdf_size, r.pdf IS NOT NULL AS has_pdf,
+    r.created_at, r.updated_at,
+    (SELECT count(*) FROM jobs j WHERE j.resume_version = r.version AND j.deleted_at IS NULL) AS job_count,
+    (SELECT count(*) FROM jobs j
+      WHERE j.resume_version = r.version AND j.deleted_at IS NULL
+        AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Recruiter Screen'))) AS interview_job_count,
+    (SELECT count(DISTINCT lower(trim(j.company))) FROM jobs j
+      WHERE j.resume_version = r.version AND j.deleted_at IS NULL AND trim(j.company) != ''
+        AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Recruiter Screen'))) AS interview_company_count
+  FROM resumes r`;
+
+const getResume = (id: number) => {
+  const r = db.prepare(`${resumeSql} WHERE r.id = ? AND r.deleted_at IS NULL`).get(id) as any;
+  return r && { ...r, has_pdf: !!r.has_pdf };
+};
+
+app.get("/api/resumes", (_req, res) => {
+  const rows = db.prepare(`${resumeSql} WHERE r.deleted_at IS NULL ORDER BY r.created_at DESC, r.id DESC`).all() as any[];
+  res.json(rows.map((r) => ({ ...r, has_pdf: !!r.has_pdf })));
+});
+
+app.get("/api/resumes/:id", (req, res) => {
+  const resume = getResume(Number(req.params.id));
+  if (!resume) return res.status(404).json({ error: "Not found" });
+  res.json(resume);
+});
+
+app.post("/api/resumes", (req, res) => {
+  const body = resumeSchema.partial().required({ version: true }).parse(req.body);
+  const cols = Object.keys(body);
+  const { lastInsertRowid } = db
+    .prepare(`INSERT INTO resumes (${cols.join(",")}) VALUES (${cols.map((c) => "@" + c).join(",")})`)
+    .run(body);
+  res.status(201).json(getResume(Number(lastInsertRowid)));
+});
+
+app.patch("/api/resumes/:id", (req, res) => {
+  const body = resumeSchema.partial().parse(req.body);
+  const cols = Object.keys(body);
+  if (cols.length) {
+    db.prepare(`UPDATE resumes SET ${cols.map((c) => `${c} = @${c}`).join(", ")}, updated_at = datetime('now') WHERE id = @id`)
+      .run({ ...body, id: Number(req.params.id) });
+  }
+  res.json(getResume(Number(req.params.id)));
+});
+
+app.delete("/api/resumes/:id", (req, res) => {
+  db.prepare("UPDATE resumes SET deleted_at = datetime('now') WHERE id = ?").run(req.params.id);
+  res.status(204).end();
+});
+
+// The PDF goes up as the raw request body, so no multipart handler is needed.
+app.put("/api/resumes/:id/pdf", express.raw({ type: "application/pdf", limit: "10mb" }), (req, res) => {
+  const file = req.body;
+  if (!Buffer.isBuffer(file) || file.subarray(0, 5).toString("latin1") !== "%PDF-") {
+    return res.status(400).json({ error: "That isn't a PDF file" });
+  }
+  const name = String(req.query.name ?? "resume.pdf").slice(0, 200);
+  const { changes } = db
+    .prepare("UPDATE resumes SET pdf = ?, pdf_name = ?, pdf_size = ?, updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL")
+    .run(file, name, file.length, req.params.id);
+  if (!changes) return res.status(404).json({ error: "Not found" });
+  res.json(getResume(Number(req.params.id)));
+});
+
+app.get("/api/resumes/:id/pdf", (req, res) => {
+  const row = db.prepare("SELECT pdf, pdf_name FROM resumes WHERE id = ? AND deleted_at IS NULL").get(req.params.id) as
+    { pdf: Buffer | null; pdf_name: string | null } | undefined;
+  if (!row?.pdf) return res.status(404).json({ error: "No PDF" });
+  res.type("application/pdf");
+  res.set("Content-Disposition", `inline; filename="${encodeURIComponent(row.pdf_name ?? "resume.pdf")}"`);
+  res.send(row.pdf);
+});
+
+app.delete("/api/resumes/:id/pdf", (req, res) => {
+  db.prepare("UPDATE resumes SET pdf = NULL, pdf_name = NULL, pdf_size = NULL, updated_at = datetime('now') WHERE id = ?")
+    .run(req.params.id);
+  res.json(getResume(Number(req.params.id)));
+});
+
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err instanceof z.ZodError) return res.status(400).json({ error: z.prettifyError(err) });
+  if ((err as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE") {
+    return res.status(409).json({ error: "A resume with that version already exists" });
+  }
+  if ((err as { type?: string }).type === "entity.too.large") {
+    return res.status(413).json({ error: "PDF is over the 10 MB limit" });
+  }
   console.error(err);
   res.status(500).json({ error: "Server error" });
 });

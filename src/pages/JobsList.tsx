@@ -9,7 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Search, Trash2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -84,6 +84,7 @@ export default function JobsList() {
   const statusFilter = params.get("status") ?? "active";
   const typeFilter = params.get("type") ?? "all";
   const fitFilter = params.get("fit") ?? "all";
+  const resumeFilter = params.get("resume") ?? "";
   const sortParam = params.get("sort") ?? "applied_date:desc";
   // Memoized: a new array every render makes TanStack Table recompute and re-render in a loop.
   const sorting = useMemo<SortingState>(() => {
@@ -97,9 +98,10 @@ export default function JobsList() {
     () =>
       jobs.filter((j) => {
         const statusOk = GROUP_FILTERS[statusFilter]?.(j) ?? (statusFilter === "all" || j.status === statusFilter);
-        return statusOk && (typeFilter === "all" || j.job_type === typeFilter) && (fitFilter === "all" || j.fit === fitFilter);
+        return statusOk && (typeFilter === "all" || j.job_type === typeFilter) && (fitFilter === "all" || j.fit === fitFilter)
+          && (!resumeFilter || j.resume_version === resumeFilter);
       }),
-    [jobs, statusFilter, typeFilter, fitFilter],
+    [jobs, statusFilter, typeFilter, fitFilter, resumeFilter],
   );
 
   const table = useReactTable({
@@ -139,7 +141,7 @@ export default function JobsList() {
   const rows = table.getRowModel().rows;
   // Rows remount (replaying the enter animation) when filters or sort change; search changes keep
   // existing rows in place so only newly matching rows animate in.
-  const viewKey = [statusFilter, typeFilter, fitFilter, sortParam].join("|");
+  const viewKey = [statusFilter, typeFilter, fitFilter, resumeFilter, sortParam].join("|");
 
   return (
     <div className="space-y-4">
@@ -206,6 +208,15 @@ export default function JobsList() {
             {FITS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
           </SelectContent>
         </Select>
+        {resumeFilter && (
+          <button
+            onClick={() => updateParams((p) => p.delete("resume"))}
+            className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm hover:bg-accent"
+            title="Clear resume filter"
+          >
+            Resume: {resumeFilter} <X className="size-3.5" />
+          </button>
+        )}
         <span className="ml-auto text-sm text-muted-foreground">{rows.length} jobs</span>
       </div>
 

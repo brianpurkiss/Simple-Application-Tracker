@@ -14,6 +14,7 @@ Once the tracker was built, I realized that history was the start of something m
 - **Job detail and history**: a page per job with its details (job type, company type, fit, work mode, how I applied, resume version) and a timeline of events: Applied, Contact From Them, Follow-Up, Recruiter Screen, Interview, Offer, Accepted, Rejection, Withdrew, Ghosted and Note.
 - **Activity**: how the search is going over time. Weekly KPIs, a funnel from applied to offer, outcomes, response timing, weekly cohorts, and a chart or calendar view of events.
 - **Performance**: resume analysis. Compares interview and reply rates across resume versions, optionally combined with another dimension (job type, company type and so on) in a heatmap. Small samples are dimmed, and a confidence setting controls what counts as a standout. Versions can be grouped (for example 2.x) and the page estimates how many applications you'd need.
+- **Resumes**: a vault for each resume version: its PDF (up to 10 MB, stored in `jobs.db`), internal notes and a plain text copy. A job's resume version is linked to the vault by matching the version name.
 - **Trash**: deleted jobs can be restored or deleted for good.
 
 Built with React, Vite, Tailwind, TanStack Query and Table, Recharts, Express, SQLite and TypeScript.
@@ -44,12 +45,13 @@ On Windows and Linux, use Ctrl wherever Cmd is shown. Single-key shortcuts are i
 | Shortcut | Action |
 | --- | --- |
 | `Q` | Open the Add Job dialog (from any page) |
-| `H` | Go home (the Jobs list) |
+| `H` / `J` | Go to the Jobs list |
+| `R` | Go to Resumes |
 | `F` | Go to Follow Up |
 | `P` | Go to Performance |
 | `A` | Go to Activity |
 | `Cmd+F` | Jump to the job search |
-| `Esc` | Leave the focused field; otherwise go to the Jobs list (on a job, back to where you came from) |
+| `Esc` | Leave the focused field; otherwise clear the active search/filters on Jobs, Performance and Activity (on a job, back to the Jobs list; on a resume, back to Resumes) |
 | `Cmd+S` | Save changes (job detail page) |
 
 ## Importing

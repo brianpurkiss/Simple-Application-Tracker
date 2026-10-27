@@ -56,7 +56,7 @@ function EventRow({ event }: { event: JobEvent }) {
         <EventFields value={draft} onChange={setDraft} />
         <Button
           size="icon"
-          onClick={() => update.mutate({ id: event.id, ...draft }, { onSuccess: () => setEditing(false), onError: (e) => toast.error(e.message) })}
+          onClick={() => { (document.activeElement as HTMLElement | null)?.blur(); update.mutate({ id: event.id, ...draft }, { onSuccess: () => setEditing(false), onError: (e) => toast.error(e.message) }); }}
         >
           <Check />
         </Button>
@@ -98,6 +98,7 @@ export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEven
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    (document.activeElement as HTMLElement | null)?.blur();
     const { type } = draft;
     add.mutate(draft, {
       onSuccess: () => {

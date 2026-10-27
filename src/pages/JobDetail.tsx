@@ -46,6 +46,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const changed = EDITABLE.filter((k) => draft[k] !== saved[k]);
 
   const save = () => {
+    (document.activeElement as HTMLElement | null)?.blur();
     const patch = Object.fromEntries(changed.map((k) => [k, k === "applied_date" ? draft[k] || null : draft[k]]));
     update.mutate(patch, {
       onSuccess: () => {

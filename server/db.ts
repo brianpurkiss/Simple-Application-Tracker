@@ -42,6 +42,22 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS events_job_id ON events(job_id);
+
+  -- The resume vault. "version" matches jobs.resume_version by text, not a foreign key.
+  CREATE TABLE IF NOT EXISTS resumes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    plain_text TEXT NOT NULL DEFAULT '',
+    pdf BLOB,
+    pdf_name TEXT,
+    pdf_size INTEGER,
+    deleted_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  -- Trashed resumes don't hold on to their version name.
+  CREATE UNIQUE INDEX IF NOT EXISTS resumes_version ON resumes(version) WHERE deleted_at IS NULL;
 `);
 
 // Columns added after the first version.

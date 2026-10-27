@@ -62,8 +62,10 @@ export const useJobs = () =>
 // Preset options plus any other values already used on jobs, for autocomplete.
 export function useSuggestions(field: "job_type" | "resume_version" | "agency_name", preset: readonly string[]) {
   const { data: jobs = [] } = useJobs();
+  const { data: resumes = [] } = useResumes();
   const used = jobs.map((j) => j[field]).filter(Boolean);
-  return [...new Set([...preset, ...used])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const vault = field === "resume_version" ? resumes.map((r) => r.version) : [];
+  return [...new Set([...preset, ...vault, ...used])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
 export type ActivityEvent = Pick<JobEvent, "id" | "job_id" | "date" | "type"> & { title: string; company: string };
@@ -95,6 +97,55 @@ export const useRestoreJob = () =>
   useInvalidatingMutation((id: number) => request<Job>("POST", `/api/jobs/${id}/restore`));
 export const useDeleteForever = () =>
   useInvalidatingMutation((id: number) => request<void>("DELETE", `/api/trash/${id}`));
+
+export type Resume = {
+  id: number;
+  version: string;
+  notes: string;
+  plain_text: string;
+  pdf_name: string | null;
+  pdf_size: number | null;
+  has_pdf: boolean;
+  job_count: number;
+  interview_job_count: number;
+  interview_company_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ResumeInput = Partial<Pick<Resume, "version" | "notes" | "plain_text">>;
+
+export const useResumes = () =>
+  useQuery({ queryKey: ["resumes"], queryFn: () => request<Resume[]>("GET", "/api/resumes") });
+export const useResume = (id: number) =>
+  useQuery({ queryKey: ["resumes", id], queryFn: () => request<Resume>("GET", `/api/resumes/${id}`) });
+
+function useResumeMutation<V, R>(fn: (vars: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["resumes"] }) });
+}
+
+export const useCreateResume = () =>
+  useResumeMutation((r: ResumeInput) => request<Resume>("POST", "/api/resumes", r));
+export const useUpdateResume = (id: number) =>
+  useResumeMutation((r: ResumeInput) => request<Resume>("PATCH", `/api/resumes/${id}`, r));
+export const useDeleteResume = () =>
+  useResumeMutation((id: number) => request<void>("DELETE", `/api/resumes/${id}`));
+export const useRemoveResumePdf = (id: number) =>
+  useResumeMutation(() => request<Resume>("DELETE", `/api/resumes/${id}/pdf`));
+
+// The file is the raw body, so this skips the JSON request helper.
+export async function uploadResumePdf(id: number, file: File): Promise<Resume> {
+  const res = await fetch(`/api/resumes/${id}/pdf?name=${encodeURIComponent(file.name)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/pdf" },
+    body: file,
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? res.statusText);
+  return res.json();
+}
+export const useUploadResumePdf = (id: number) =>
+  useResumeMutation((file: File) => uploadResumePdf(id, file));
 
 export const useAddEvent = (jobId: number) =>
   useInvalidatingMutation((e: EventInput) => request<JobEvent>("POST", `/api/jobs/${jobId}/events`, e));

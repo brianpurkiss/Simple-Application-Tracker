@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import { useParamUpdater } from "@/lib/useParamUpdater";
 import { isEditable, useHotkey } from "@/lib/hotkeys";
 
 export const FOLLOW_UP = "/?status=followup";
@@ -6,6 +7,13 @@ export const SEARCH_INPUT_ID = "job-search";
 
 // Set on navigation state so the jobs list can act once it has mounted.
 export type HotkeyAction = { hotkey?: "add" | "search" };
+
+// URL params that count as an active search/filter on each page (sort and view settings are not).
+const FILTER_PARAMS: Record<string, string[]> = {
+  "/": ["q", "status", "type", "fit", "resume"],
+  "/performance": ["metric", "versions", "conf", "recency", "min", "with"],
+  "/activity": ["job_type", "company_type", "resume", "versions"],
+};
 
 const overlayOpen = () => !!document.querySelector("[role=dialog], [role=listbox]");
 
@@ -18,16 +26,29 @@ function useGoToHotkey(key: string, to: string) {
   });
 }
 
-// App-wide shortcuts. Job detail handles its own Escape (it guards unsaved changes), and the jobs
+// App-wide shortcuts. The jobs
 // list handles "q" itself when it is already showing, so those are skipped here.
 export function GlobalHotkeys() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const updateParams = useParamUpdater();
   const onList = pathname === "/";
 
+  // Job and resume detail pages handle their own Escape (they guard unsaved changes).
   useHotkey("Escape", (e) => {
-    if (isEditable(e.target)) return (e.target as HTMLElement).blur();
-    if (!pathname.startsWith("/jobs/")) navigate("/");
+    const inSearch = (e.target as HTMLElement | null)?.id === SEARCH_INPUT_ID;
+    if (isEditable(e.target)) {
+      (e.target as HTMLElement).blur();
+      if (!inSearch) return;
+    }
+    if (overlayOpen()) return;
+    const keys = FILTER_PARAMS[pathname];
+    if (!keys) return;
+    const params = new URLSearchParams(search);
+    // The jobs list's default view is "active", so only other statuses count as a filter.
+    const active = keys.some((k) => params.has(k) && !(pathname === "/" && k === "status" && params.get(k) === "active"));
+    if (active) updateParams((p) => keys.forEach((k) => p.delete(k)));
   });
 
   useHotkey("q", (e) => {
@@ -37,19 +58,21 @@ export function GlobalHotkeys() {
   });
 
   useGoToHotkey("h", "/");
+  useGoToHotkey("j", "/");
+  useGoToHotkey("r", "/resumes");
   useGoToHotkey("f", FOLLOW_UP);
   useGoToHotkey("p", "/performance");
   useGoToHotkey("a", "/activity");
 
-  // Cmd+F (Ctrl+F on Windows) jumps to the job search instead of the browser's find bar.
+  // Cmd+F (Ctrl+F on Windows) jumps to the job search instead of the browser's find bar,
+  // but only on the jobs list; elsewhere the browser's find bar is left alone.
   useHotkey("f", (e) => {
-    if (overlayOpen()) return;
-    e.preventDefault();
+    if (!onList || overlayOpen()) return;
     const input = document.getElementById(SEARCH_INPUT_ID) as HTMLInputElement | null;
-    if (input) {
-      input.focus();
-      input.select();
-    } else navigate("/", { state: { hotkey: "search" } satisfies HotkeyAction });
+    if (!input) return;
+    e.preventDefault();
+    input.focus();
+    input.select();
   }, { mod: true });
 
   return null;

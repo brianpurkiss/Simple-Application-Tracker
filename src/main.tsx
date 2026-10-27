@@ -6,6 +6,8 @@ import { GlobalHotkeys, FOLLOW_UP } from "@/components/GlobalHotkeys";
 import { Toaster } from "@/components/ui/sonner";
 import JobsList from "@/pages/JobsList";
 import JobDetail from "@/pages/JobDetail";
+import Resumes from "@/pages/Resumes";
+import ResumeDetail from "@/pages/ResumeDetail";
 import ResumePerformance from "@/pages/ResumePerformance";
 import Activity from "@/pages/Activity";
 import Trash from "@/pages/Trash";
@@ -29,7 +31,7 @@ function Nav() {
 
   return (
     <nav className="flex h-full text-sm">
-      {[["/", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/performance", "Performance"], ["/activity", "Activity"]].map(([to, label]) => (
+      {[["/", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/resumes", "Resumes"], ["/performance", "Performance"], ["/activity", "Activity"]].map(([to, label]) => (
         <Link key={to} to={to} className={`flex h-full items-center px-3 hover:bg-muted/50 ${linkClass(to)}`}>{label}</Link>
       ))}
     </nav>
@@ -53,6 +55,8 @@ createRoot(document.getElementById("root")!).render(
           <Routes>
             <Route path="/" element={<JobsList />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/resumes" element={<Resumes />} />
+            <Route path="/resumes/:id" element={<ResumeDetail />} />
             <Route path="/performance" element={<ResumePerformance />} />
             <Route path="/activity" element={<Activity />} />
             <Route path="/stats" element={<Navigate to="/activity" replace />} />
