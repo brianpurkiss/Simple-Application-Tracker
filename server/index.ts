@@ -9,13 +9,18 @@ app.use(express.json());
 
 const text = z.string().trim();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const salary = z.number().int().min(0).nullable();
+
+const rangeError = (min: number | null | undefined, max: number | null | undefined) =>
+  min != null && max != null && min > max ? "Salary minimum can't be above the maximum" : null;
 
 const jobSchema = z.object({
   title: text.min(1),
   company: text,
   company_type: text,
   fit: text,
-  salary: text,
+  salary_min: salary,
+  salary_max: salary,
   job_type: text,
   resume_version: text,
   work_mode: text,
@@ -26,6 +31,7 @@ const jobSchema = z.object({
   contact_name: text,
   contact_email: text,
   contact_phone: text,
+  contact_linkedin: text,
   offer_info: text,
   notes: text,
   job_description: z.string(),
@@ -50,13 +56,13 @@ const jobListSql = `
     (SELECT max(date) FROM events e WHERE e.job_id = j.id) AS last_activity,
     -- Applying starts the clock; my own follow-ups and notes don't reset it.
     (SELECT max(date) FROM events e WHERE e.job_id = j.id
-      AND e.type IN ('Applied', 'Contact From Them', 'Recruiter Screen', 'Interview', 'Offer')) AS last_heard,
+      AND e.type IN ('Applied', 'Contact', 'Screen', 'Interview', 'Offer')) AS last_heard,
     -- First time they reached out with interest; a rejection doesn't count as contact.
     (SELECT min(date) FROM events e WHERE e.job_id = j.id
-      AND e.type IN ('Contact From Them', 'Recruiter Screen', 'Interview', 'Offer')) AS first_contact,
+      AND e.type IN ('Contact', 'Screen', 'Interview', 'Offer')) AS first_contact,
     (SELECT max(date) FROM events e WHERE e.job_id = j.id AND e.type = 'Rejection') AS rejected_date,
     (SELECT count(*) FROM events e WHERE e.job_id = j.id AND e.type = 'Interview') AS interview_count,
-    (SELECT count(*) FROM events e WHERE e.job_id = j.id AND e.type = 'Recruiter Screen') AS screen_count
+    (SELECT count(*) FROM events e WHERE e.job_id = j.id AND e.type = 'Screen') AS screen_count
   FROM jobs j`;
 
 // Jobs still waiting on the company go Ghosted once they've been silent long enough.
@@ -78,6 +84,20 @@ const getJob = (id: number) => {
   const job = db.prepare(`${jobListSql} WHERE j.id = ?`).get(...UPDATE_EVENT_TYPES, id) as any;
   return job && withAutoGhost(job);
 };
+
+app.get("/api/profile", (_req, res) => {
+  res.json(db.prepare("SELECT salary_target FROM profile WHERE id = 1").get());
+});
+
+const profileSchema = z.object({ salary_target: salary }).partial();
+app.patch("/api/profile", (req, res) => {
+  const parsed = profileSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid profile" });
+  if ("salary_target" in parsed.data) {
+    db.prepare("UPDATE profile SET salary_target = ?, updated_at = datetime('now') WHERE id = 1").run(parsed.data.salary_target);
+  }
+  res.json(db.prepare("SELECT salary_target FROM profile WHERE id = 1").get());
+});
 
 app.get("/api/jobs", (_req, res) => {
   res.json(listJobs("j.deleted_at IS NULL", "j.applied_date DESC, j.id DESC"));
@@ -111,6 +131,8 @@ app.get("/api/jobs/:id", (req, res) => {
 
 app.post("/api/jobs", (req, res) => {
   const body = jobSchema.partial().required({ title: true }).parse(req.body);
+  const badRange = rangeError(body.salary_min, body.salary_max);
+  if (badRange) return res.status(400).json({ error: badRange });
   const cols = Object.keys(body);
   const create = db.transaction(() => {
     const { lastInsertRowid } = db
@@ -126,6 +148,12 @@ app.post("/api/jobs", (req, res) => {
 
 app.patch("/api/jobs/:id", (req, res) => {
   const body = jobSchema.partial().parse(req.body);
+  const current = getJob(Number(req.params.id)) as { salary_min: number | null; salary_max: number | null } | undefined;
+  const badRange = rangeError(
+    body.salary_min !== undefined ? body.salary_min : current?.salary_min,
+    body.salary_max !== undefined ? body.salary_max : current?.salary_max,
+  );
+  if (badRange) return res.status(400).json({ error: badRange });
   const cols = Object.keys(body);
   if (cols.length) {
     db.prepare(`UPDATE jobs SET ${cols.map((c) => `${c} = @${c}`).join(", ")}, updated_at = datetime('now') WHERE id = @id`)
@@ -187,10 +215,10 @@ const resumeSql = `
     (SELECT count(*) FROM jobs j WHERE j.resume_version = r.version AND j.deleted_at IS NULL) AS job_count,
     (SELECT count(*) FROM jobs j
       WHERE j.resume_version = r.version AND j.deleted_at IS NULL
-        AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Recruiter Screen'))) AS interview_job_count,
+        AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Screen'))) AS interview_job_count,
     (SELECT count(DISTINCT lower(trim(j.company))) FROM jobs j
       WHERE j.resume_version = r.version AND j.deleted_at IS NULL AND trim(j.company) != ''
-        AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Recruiter Screen'))) AS interview_company_count
+        AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Screen'))) AS interview_company_count
   FROM resumes r`;
 
 const getResume = (id: number) => {

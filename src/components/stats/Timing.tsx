@@ -6,7 +6,7 @@ export default function Timing({ data }: { data: TimingPoint[] }) {
     <div className="space-y-4 rounded-lg border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-medium">How long replies take</h2>
+          <h2 className="font-medium">How Long Replies Take</h2>
           <p className="text-sm text-muted-foreground">Days from applying. Past 21 days silence counts as ghosted.</p>
         </div>
         <div className="flex gap-4 text-sm">

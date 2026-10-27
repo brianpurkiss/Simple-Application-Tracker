@@ -5,7 +5,7 @@ const Card = ({ combo, metric, tone, fade }: { combo: Combo; metric: Metric; ton
   <div className={`rounded-lg border p-4 ${tone === "good" ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
     <div className={fade}>
       <div className={`text-xs uppercase tracking-wide ${tone === "good" ? "text-emerald-400" : "text-red-400"}`}>
-        {tone === "good" ? "Standout" : "Below average"}
+        {tone === "good" ? "Standout" : "Below Average"}
       </div>
       <div className="mt-1 font-medium">{combo.parts.join(" + ")}</div>
       <div className="mt-1 text-sm tabular-nums">

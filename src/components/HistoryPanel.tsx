@@ -10,18 +10,19 @@ import { formatDate, today } from "@/lib/format";
 import { EVENT_TYPES } from "@/lib/options";
 import { cn } from "@/lib/utils";
 
-const typeColor: Record<string, string> = {
-  Applied: "bg-amber-400",
-  "Contact From Them": "bg-blue-500",
-  "Follow-Up": "bg-violet-500",
-  "Recruiter Screen": "bg-sky-300",
-  Interview: "bg-sky-500",
-  Offer: "bg-emerald-500",
-  Accepted: "bg-emerald-300",
-  Rejection: "bg-red-500",
-  Withdrew: "bg-neutral-500",
-  Ghosted: "bg-stone-500",
-  Note: "bg-neutral-400",
+// One color per event type, shared by the dropdown, the timeline dots and the History Terms box.
+export const EVENT_COLORS: Record<string, { dot: string; text: string }> = {
+  Applied: { dot: "bg-amber-400", text: "text-amber-400" },
+  Contact: { dot: "bg-blue-500", text: "text-blue-500" },
+  "Follow-Up": { dot: "bg-violet-500", text: "text-violet-500" },
+  Screen: { dot: "bg-sky-300", text: "text-sky-300" },
+  Interview: { dot: "bg-sky-500", text: "text-sky-500" },
+  Offer: { dot: "bg-emerald-500", text: "text-emerald-500" },
+  Accepted: { dot: "bg-emerald-300", text: "text-emerald-300" },
+  Rejection: { dot: "bg-red-500", text: "text-red-500" },
+  Withdrew: { dot: "bg-neutral-500", text: "text-neutral-500" },
+  Ghosted: { dot: "bg-stone-500", text: "text-stone-500" },
+  Note: { dot: "bg-neutral-400", text: "text-neutral-400" },
 };
 
 function EventFields({ value, onChange }: { value: EventInput; onChange: (v: EventInput) => void }) {
@@ -31,7 +32,12 @@ function EventFields({ value, onChange }: { value: EventInput; onChange: (v: Eve
       <Select value={value.type} onValueChange={(type) => onChange({ ...value, type })}>
         <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
         <SelectContent>
-          {EVENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          {EVENT_TYPES.map((t) => (
+            <SelectItem key={t} value={t}>
+              <span className={cn("mr-2 inline-block size-2.5 rounded-full align-middle", EVENT_COLORS[t]?.dot)} />
+              {t}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <Input
@@ -67,7 +73,7 @@ function EventRow({ event }: { event: JobEvent }) {
 
   return (
     <li className="group flex items-start gap-3 py-2.5">
-      <span className={cn("mt-1.5 size-2.5 shrink-0 rounded-full", typeColor[event.type] ?? "bg-neutral-400")} />
+      <span className={cn("mt-1.5 size-2.5 shrink-0 rounded-full", EVENT_COLORS[event.type]?.dot ?? "bg-neutral-400")} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2 text-sm">
           <span className="font-medium">{event.type}</span>
@@ -104,7 +110,7 @@ export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEven
       onSuccess: () => {
         setDraft(blank());
         if (type === "Offer" || type === "Accepted") celebrate();
-        else if ((type === "Recruiter Screen" || type === "Interview") && addButton.current) burstFrom(addButton.current, 135);
+        else if ((type === "Screen" || type === "Interview") && addButton.current) burstFrom(addButton.current, 135);
       },
       onError: (err) => toast.error(err.message),
     });

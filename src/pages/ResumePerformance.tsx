@@ -2,13 +2,16 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ComboHeatmap from "@/components/stats/ComboHeatmap";
 import ComboRow from "@/components/stats/ComboRow";
-import { FilterPanel, FilterToggle } from "@/components/stats/FilterMenu";
+import { FilterBox, FilterPanel, FilterToggle } from "@/components/stats/FilterMenu";
 import Highlights from "@/components/stats/Highlights";
+import SalaryCurve from "@/components/stats/SalaryCurve";
+import SalaryTarget from "@/components/stats/SalaryTarget";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import { Segmented } from "@/components/ui/segmented";
-import { useJobs } from "@/lib/api";
+import { useJobs, useProfile } from "@/lib/api";
 import { applicationsNeeded, type Combo, comboBy, DIMENSIONS, type DimensionKey, type Metric, VERSION_MODES } from "@/lib/stats";
 import { useParamUpdater } from "@/lib/useParamUpdater";
 import { useSettled } from "@/lib/useSettled";
@@ -19,8 +22,8 @@ const DEFAULT_MIN_AGE = 8;
 const DEFAULT_MIN_SAMPLE = 10;
 
 const METRICS = [
-  { key: "interview", label: "Interview rate" },
-  { key: "reply", label: "Reply rate" },
+  { key: "interview", label: "Interview Rate" },
+  { key: "reply", label: "Reply Rate" },
 ] as const;
 // z-scores for the confidence a combo must clear to be called a standout / below average.
 const CONFIDENCE = [
@@ -30,22 +33,26 @@ const CONFIDENCE = [
 ] as const;
 type SortKey = "confidence" | "rate" | "volume";
 const SORTS = [
-  { key: "confidence", label: "Best bet" },
-  { key: "rate", label: "Raw rate" },
+  { key: "confidence", label: "Best Bet" },
+  { key: "rate", label: "Raw Rate" },
   { key: "volume", label: "Volume" },
 ] as const;
 
 // Resume is always the first dimension; these are the ones that can be combined with it.
 const EXTRA_DIMS = DIMENSIONS.filter((d) => d.key !== "resume_version" && d.key !== "work_mode");
 const MAX_EXTRA = 2;
+const SALARY_LINES = 5;
+const TOO_FEW_PREVIEW = 5;
 
 const rateOf = (c: Combo, metric: Metric) => (metric === "interview" ? c.interviewRate : c.responseRate) ?? 0;
 
 export default function ResumePerformance() {
   const { data: jobs = [], isLoading, error } = useJobs();
+  const { data: profile } = useProfile();
   const [params] = useSearchParams();
   const updateParams = useParamUpdater();
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const [showAllTooFew, setShowAllTooFew] = useState(false);
 
   const metric: Metric = params.get("metric") === "reply" ? "reply" : "interview";
   const sort = (SORTS.find((s) => s.key === params.get("sort"))?.key ?? "confidence") as SortKey;
@@ -98,6 +105,12 @@ export default function ResumePerformance() {
   const fade = cn("transition-opacity duration-200 motion-reduce:transition-none", phase === "out" && "opacity-0");
   const enough = sorted.filter((c) => c.tier !== "low");
   const tooFew = sorted.filter((c) => c.tier === "low");
+  const visibleTooFew = showAllTooFew ? tooFew : tooFew.slice(0, TOO_FEW_PREVIEW);
+  // The best few combos (in the chosen sort order) that have any salary data to plot.
+  const salarySeries = enough
+    .filter((c) => c.jobs.some((j) => j.salary_min != null || j.salary_max != null))
+    .slice(0, SALARY_LINES)
+    .map((c) => ({ key: c.key, label: c.parts.join(" + "), jobs: c.jobs }));
 
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
   if (error) return <p className="text-destructive">Couldn't load applications.</p>;
@@ -112,8 +125,8 @@ export default function ResumePerformance() {
         <div>
           <h1 className="text-xl font-semibold">Performance</h1>
           <p className={cn("text-sm text-muted-foreground", fade)}>
-            {total} applications counted
-            {excluded > 0 && `, ${excluded} too recent`} · avg response {Math.round(baseline * 100)}% · {resumeCount} {resumeCount === 1 ? "resume" : "resumes"}.
+            {total} Applications Counted
+            {excluded > 0 && `, ${excluded} Too Recent`} · Avg Response {Math.round(baseline * 100)}% · {resumeCount} {resumeCount === 1 ? "Resume" : "Resumes"}
           </p>
         </div>
         <div className="ml-auto">
@@ -125,19 +138,15 @@ export default function ResumePerformance() {
 
       <section className="space-y-4 rounded-lg border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="font-medium">Combos</h2>
-            <p className="text-sm text-muted-foreground">Resume plus up to {MAX_EXTRA} more.</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <h2 className="mr-1 font-medium">Resume +</h2>
+            {EXTRA_DIMS.map((d) => (
+              <PillToggle key={d.key} pressed={extras.includes(d.key)} onClick={() => toggleExtra(d.key)}>
+                {d.label}
+              </PillToggle>
+            ))}
           </div>
           <Segmented options={SORTS} value={sort} onChange={(s) => setParam("sort", s)} />
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-sm">
-          <span className="mr-1 text-muted-foreground">Resume +</span>
-          {EXTRA_DIMS.map((d) => (
-            <PillToggle key={d.key} pressed={extras.includes(d.key)} onClick={() => toggleExtra(d.key)}>
-              {d.label}
-            </PillToggle>
-          ))}
         </div>
         <ul className="space-y-3">
           {enough.map((c, i) => <ComboRow key={c.key} combo={c} metric={view.metric} baseline={baseline} index={i} phase={phase} />)}
@@ -145,19 +154,32 @@ export default function ResumePerformance() {
         </ul>
         {tooFew.length > 0 && (
           <>
-            <div className={cn("border-t pt-3 text-xs uppercase tracking-wide text-muted-foreground", fade)}>Fewer than {view.minSample} applications</div>
+            <div className={cn("border-t pt-3 text-xs uppercase tracking-wide text-muted-foreground", fade)}>Fewer Than {view.minSample} Applications</div>
             <ul className="space-y-3">
-              {tooFew.map((c, i) => <ComboRow key={c.key} combo={c} metric={view.metric} baseline={baseline} index={enough.length + i} phase={phase} />)}
+              {visibleTooFew.map((c, i) => <ComboRow key={c.key} combo={c} metric={view.metric} baseline={baseline} index={enough.length + i} phase={phase} />)}
             </ul>
+            {tooFew.length > TOO_FEW_PREVIEW && (
+              <div className={cn("flex justify-center", fade)}>
+                <Button variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={showAllTooFew} onClick={() => setShowAllTooFew((s) => !s)}>
+                  {showAllTooFew ? "Show Less" : `View More (${tooFew.length - TOO_FEW_PREVIEW})`}
+                </Button>
+              </div>
+            )}
           </>
         )}
       </section>
 
+      <div className={fade}>
+        <SalaryCurve series={salarySeries} target={profile?.salary_target ?? null} />
+      </div>
+
+      <div className="mx-auto h-px w-16 bg-border" aria-hidden />
+
       <section className="space-y-4 rounded-lg border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className={fade}>
-            <h2 className="font-medium">Resume × {EXTRA_DIMS.find((d) => d.key === view.heatDim)?.label.toLowerCase()}</h2>
-            <p className="text-sm text-muted-foreground">Rate · applications.</p>
+            <h2 className="font-medium">Resume × {EXTRA_DIMS.find((d) => d.key === view.heatDim)?.label}</h2>
+            <p className="text-sm text-muted-foreground">Rate · Applications</p>
           </div>
           <Segmented options={EXTRA_DIMS} value={heatDim} onChange={(d) => setParam("heat", d)} />
         </div>
@@ -167,16 +189,21 @@ export default function ResumePerformance() {
       </section>
     </div>
       <FilterPanel open={filtersOpen}>
+            <FilterBox>
+              <SalaryTarget />
+            </FilterBox>
+
+            <FilterBox>
             <div className="space-y-4">
               <div className="space-y-1">
                 <Label>Metric</Label>
                 <div><Segmented options={METRICS} value={metric} onChange={(m) => setParam("metric", m)} /></div>
                 <p className="text-xs text-muted-foreground">
-                  Interview = at least one recruiter screen or interview, or an offer. Reply = any contact from them or an interview; a rejection on its own doesn't count.
+                  Interview = at least one screen or interview, or an offer. Reply = any contact from them or an interview; a rejection on its own doesn't count.
                 </p>
               </div>
               <div className="space-y-1">
-                <Label>Resume versions</Label>
+                <Label>Resume Versions</Label>
                 <div>
                   <Segmented
                     options={VERSION_MODES}
@@ -187,7 +214,7 @@ export default function ResumePerformance() {
                 <p className="text-xs text-muted-foreground">Grouped merges minor revisions (eCom 2.0, 2.1, 2.2 become eCom 2.x). Expanding a combo still shows each job's exact version.</p>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="recency">Skip applications from the last</Label>
+                <Label htmlFor="recency">Skip Applications from the Last</Label>
                 <div className="flex items-center gap-2">
                   <Input id="recency" type="number" min={0} value={minAge} onChange={(e) => setParam("recency", e.target.value)} className="w-20 bg-card" />
                   <span className="text-sm text-muted-foreground">days</span>
@@ -195,7 +222,7 @@ export default function ResumePerformance() {
                 <p className="text-xs text-muted-foreground">Very recent applications haven't had time to hear back, so they'd drag rates down unfairly.</p>
               </div>
               <div className="space-y-1">
-                <Label>Standout confidence</Label>
+                <Label>Standout Confidence</Label>
                 <div>
                   <Segmented
                     options={CONFIDENCE}
@@ -206,19 +233,21 @@ export default function ResumePerformance() {
                 <p className="text-xs text-muted-foreground">How sure the numbers must be before a combo is called a standout. Looser needs less data but is more likely to flag a fluke.</p>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="min">Minimum applications</Label>
+                <Label htmlFor="min">Minimum Applications</Label>
                 <Input id="min" type="number" min={1} value={minSample} onChange={(e) => setParam("min", e.target.value)} className="w-20 bg-card" />
                 <p className="text-xs text-muted-foreground">Combos with fewer applications are listed separately, faded, and can't be called a standout.</p>
               </div>
             </div>
+            </FilterBox>
 
-            <div className="space-y-3 border-t pt-4 text-xs text-muted-foreground">
-              <h3 className="text-sm font-medium text-foreground">How to read this</h3>
+            <FilterBox className="space-y-3 text-xs text-muted-foreground">
+              <h3 className="text-sm font-medium text-foreground">How to Read This</h3>
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Bars</div>
                 <p>
                   <span className="text-blue-400">Blue</span> = interview rate, <span className="text-amber-500">amber</span> = reply rate (rejections excluded), the vertical line = the overall average of {Math.round(baseline * 100)}%. The multiple (e.g. 1.6×) is the combo's rate divided by that average.
                 </p>
+                <p>Bars run from 0% to 50%, so 25% fills half the bar and anything at 50% or more fills it. The faint ticks mark every 10%.</p>
               </div>
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Badges</div>
@@ -229,12 +258,12 @@ export default function ResumePerformance() {
               </div>
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Sorting</div>
-                <p><span className="text-foreground">Best bet</span>: ranks by the pessimistic end of each combo's confidence range, so 1 of 1 doesn't beat 12 of 20.</p>
-                <p><span className="text-foreground">Raw rate</span>: highest percentage first, regardless of sample size.</p>
+                <p><span className="text-foreground">Best Bet</span>: ranks by the pessimistic end of each combo's confidence range, so 1 of 1 doesn't beat 12 of 20.</p>
+                <p><span className="text-foreground">Raw Rate</span>: highest percentage first, regardless of sample size.</p>
                 <p><span className="text-foreground">Volume</span>: most applications first.</p>
               </div>
               <div className="space-y-1">
-                <div className="font-medium text-foreground">How much data is enough for a standout?</div>
+                <div className="font-medium text-foreground">How Much Data Is Enough for a Standout?</div>
                 <p>
                   It depends on how far above the {Math.round(baseline * 100)}% average a combo is. Applications needed at today's average:
                 </p>
@@ -254,7 +283,7 @@ export default function ResumePerformance() {
                 <div className="font-medium text-foreground">Heatmap</div>
                 <p>Each cell is rate · applications. Darker blue = higher rate, green outline = standout, muted = low volume.</p>
               </div>
-            </div>
+            </FilterBox>
       </FilterPanel>
     </div>
   );

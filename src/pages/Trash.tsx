@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { rowLink } from "@/lib/rowLink";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default function Trash() {
           </TableHeader>
           <TableBody>
             {jobs.map((job) => (
-              <TableRow key={job.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)}>
+              <TableRow key={job.id} className="cursor-pointer" {...rowLink(navigate, `/jobs/${job.id}`)}>
                 <TableCell className="max-w-[22rem] truncate font-medium" title={job.title}>{job.title}</TableCell>
                 <TableCell className="whitespace-nowrap">{job.company}</TableCell>
                 <TableCell><StatusBadge job={job} /></TableCell>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { type Combo, fmtPct, type Metric, type Tier } from "@/lib/stats";
+import { k } from "@/lib/salary";
 import { formatDate, statusLabel } from "@/lib/format";
 import type { Phase } from "@/lib/useSettled";
 import { cn } from "@/lib/utils";
@@ -9,10 +10,15 @@ import { cn } from "@/lib/utils";
 const TIER_STYLE: Record<Tier, { label: string; className: string } | null> = {
   standout: { label: "Standout", className: "bg-emerald-500/15 text-emerald-400" },
   watch: { label: "Promising", className: "bg-blue-500/15 text-blue-400" },
-  under: { label: "Below average", className: "bg-red-500/15 text-red-400" },
-  low: { label: "Low volume", className: "bg-muted text-muted-foreground" },
+  under: { label: "Below Average", className: "bg-red-500/15 text-red-400" },
+  low: { label: "Low Volume", className: "bg-muted text-muted-foreground" },
   even: null,
 };
+
+// Bars use a fixed 0–50% axis: real rates rarely pass 50%, so a 0–100% axis leaves every bar cramped at the left.
+export const BAR_MAX = 50;
+const TICKS = [10, 20, 30, 40];
+const barPct = (rate: number | null) => `${(Math.min(rate ?? 0, BAR_MAX) / BAR_MAX) * 100}%`;
 
 export const fmtLift = (lift: number | null) => (lift === null ? "–" : `${lift.toFixed(1)}×`);
 
@@ -53,15 +59,20 @@ export default function ComboRow({ combo, metric, baseline, index = 0, phase = "
             <span className="text-muted-foreground">
               {" "}
               · {metric === "interview" ? combo.interviews : combo.replied}/{combo.n} · {fmtLift(combo.lift)} avg
+              {combo.interviewSalaryMean !== null && ` · ${k(Math.round(combo.interviewSalaryMean))} Mean`}
+              {combo.interviewSalaryMax !== null && ` · ${k(combo.interviewSalaryMax)} Max`}
             </span>
           </span>
         </div>
-        <div className="relative h-2.5 rounded-full bg-muted">
-          <div className={cn("absolute inset-y-0 left-0 rounded-full bg-amber-500/40", barMotion)} style={{ ...barDelay, width: filled ? `${combo.responseRate ?? 0}%` : 0 }} />
-          <div className={cn("absolute inset-y-0 left-0 rounded-full bg-blue-500", barMotion)} style={{ ...barDelay, width: filled ? `${combo.interviewRate ?? 0}%` : 0 }} />
+        <div className="relative h-3 rounded-full bg-muted">
+          {TICKS.map((t) => (
+            <div key={t} className="absolute inset-y-0 w-px bg-background/70" style={{ left: `${(t / BAR_MAX) * 100}%` }} />
+          ))}
+          <div className={cn("absolute inset-y-0 left-0 rounded-full bg-amber-500/40", barMotion)} style={{ ...barDelay, width: filled ? barPct(combo.responseRate) : 0 }} />
+          <div className={cn("absolute inset-y-0 left-0 rounded-full bg-blue-500", barMotion)} style={{ ...barDelay, width: filled ? barPct(combo.interviewRate) : 0 }} />
           <div
             className={cn("absolute -inset-y-0.5 w-0.5 bg-foreground/60 transition-opacity duration-200 motion-reduce:transition-none", fadeOut)}
-            style={{ left: `${baseline * 100}%` }}
+            style={{ left: barPct(baseline * 100) }}
             title={`Average: ${Math.round(baseline * 100)}%`}
           />
         </div>

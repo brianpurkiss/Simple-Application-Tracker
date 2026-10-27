@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { STATUS_FOR_EVENT } from "../src/lib/options.ts";
+import { parseSalary } from "./salary.ts";
 
 const dataDir = path.resolve(import.meta.dirname, "../data");
 fs.mkdirSync(dataDir, { recursive: true });
@@ -58,6 +59,14 @@ db.exec(`
   );
   -- Trashed resumes don't hold on to their version name.
   CREATE UNIQUE INDEX IF NOT EXISTS resumes_version ON resumes(version) WHERE deleted_at IS NULL;
+
+  -- The user's own details and targets. Always exactly one row (id = 1); add columns as the profile grows.
+  CREATE TABLE IF NOT EXISTS profile (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    salary_target INTEGER,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  INSERT OR IGNORE INTO profile (id) VALUES (1);
 `);
 
 // Columns added after the first version.
@@ -73,15 +82,38 @@ if (!jobColumns.has("company_type")) {
   db.exec("ALTER TABLE jobs ADD COLUMN company_type TEXT NOT NULL DEFAULT ''");
 }
 
+if (!jobColumns.has("contact_linkedin")) {
+  db.exec("ALTER TABLE jobs ADD COLUMN contact_linkedin TEXT NOT NULL DEFAULT ''");
+}
+
 if (!jobColumns.has("fit")) {
   db.exec("ALTER TABLE jobs ADD COLUMN fit TEXT NOT NULL DEFAULT ''");
+}
+
+// Salary used to be free text. It's now a numeric range; the old text column is kept as a backup.
+if (!jobColumns.has("salary_min")) {
+  const backups = path.join(dataDir, "backups");
+  fs.mkdirSync(backups, { recursive: true });
+  fs.copyFileSync(path.join(dataDir, "jobs.db"), path.join(backups, `jobs-pre-salary-range-${Date.now()}.db`));
+  db.exec("ALTER TABLE jobs ADD COLUMN salary_min INTEGER");
+  db.exec("ALTER TABLE jobs ADD COLUMN salary_max INTEGER");
+  const unparsed: string[] = [];
+  const setRange = db.prepare("UPDATE jobs SET salary_min = ?, salary_max = ? WHERE id = ?");
+  db.transaction(() => {
+    for (const j of db.prepare("SELECT id, salary FROM jobs WHERE salary != ''").all() as { id: number; salary: string }[]) {
+      const { min, max } = parseSalary(j.salary);
+      if (min === null) unparsed.push(`#${j.id} "${j.salary}"`);
+      setRange.run(min, max, j.id);
+    }
+  })();
+  console.log(`Salary migrated to numeric range. Unparsed: ${unparsed.length ? unparsed.join(", ") : "none"}`);
 }
 
 // Status used to be picked by hand; now it comes from the history. This converts the old
 // hand-picked values once, adding an event wherever the history didn't already say so.
 if (jobColumns.has("status")) {
   const LEGACY_STATUS_EVENT: Record<string, string> = {
-    "Recruiter Interview": "Recruiter Screen",
+    "Recruiter Interview": "Screen",
     "1st Interview": "Interview",
     "2nd Interview": "Interview",
     "3rd Interview": "Interview",
@@ -97,7 +129,7 @@ if (jobColumns.has("status")) {
   const statusTypes = Object.keys(STATUS_FOR_EVENT);
   const closingEvents = new Set(["Accepted", "Rejection", "Withdrew", "Ghosted"]);
   db.transaction(() => {
-    db.exec("UPDATE events SET type = 'Recruiter Screen' WHERE type = 'Interview' AND description LIKE '%recruiter%'");
+    db.exec("UPDATE events SET type = 'Screen' WHERE type = 'Interview' AND description LIKE '%recruiter%'");
     db.exec("UPDATE events SET type = 'Ghosted' WHERE type = 'Declared Stale'");
     db.exec("ALTER TABLE jobs RENAME COLUMN status TO legacy_status");
 
@@ -122,4 +154,20 @@ if (jobColumns.has("status")) {
       console.log(`Status migration: added ${wanted} to #${job.id} ${job.title} (was "${job.legacy_status}")`);
     }
   })();
+}
+
+// Event types were renamed: "Contact From Them" is now "Contact", "Recruiter Screen" is now "Screen".
+// Runs at the end so the legacy conversion above is renamed too. Backs up the database before changing rows.
+const renamedEvents = (db.prepare(
+  "SELECT count(*) AS n FROM events WHERE type IN ('Contact From Them', 'Recruiter Screen')",
+).get() as { n: number }).n;
+if (renamedEvents) {
+  const backups = path.join(dataDir, "backups");
+  fs.mkdirSync(backups, { recursive: true });
+  db.exec(`VACUUM INTO '${path.join(backups, `jobs-pre-event-rename-${Date.now()}.db`)}'`);
+  db.transaction(() => {
+    db.exec("UPDATE events SET type = 'Contact' WHERE type = 'Contact From Them'");
+    db.exec("UPDATE events SET type = 'Screen' WHERE type = 'Recruiter Screen'");
+  })();
+  console.log(`Event rename: ${renamedEvents} events updated`);
 }

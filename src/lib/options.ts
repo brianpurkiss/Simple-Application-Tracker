@@ -50,9 +50,9 @@ export const APPLIED_VIA = ["Direct", "Recruiting Agency", "Referral", "Inbound 
 
 export const EVENT_TYPES = [
   "Applied",
-  "Contact From Them",
+  "Contact",
   "Follow-Up",
-  "Recruiter Screen",
+  "Screen",
   "Interview",
   "Offer",
   "Accepted",
@@ -65,7 +65,7 @@ export const EVENT_TYPES = [
 // Events that set the job's status. Others (follow-ups, notes…) leave it alone.
 export const STATUS_FOR_EVENT: Record<string, (typeof STATUSES)[number]> = {
   Applied: "Applied",
-  "Recruiter Screen": "Interviewed",
+  "Screen": "Interviewed",
   Interview: "Interviewed",
   Offer: "Offer",
   Accepted: "Accepted",
@@ -75,7 +75,7 @@ export const STATUS_FOR_EVENT: Record<string, (typeof STATUSES)[number]> = {
 };
 
 // Event types that count toward the "Latest Update" column.
-export const UPDATE_EVENT_TYPES = ["Contact From Them", "Recruiter Screen", "Interview", "Offer", "Accepted", "Rejection"];
+export const UPDATE_EVENT_TYPES = ["Contact", "Screen", "Interview", "Offer", "Accepted", "Rejection"];
 
 // Active jobs with no activity for this many days get highlighted.
 export const STALE_DAYS = 7;

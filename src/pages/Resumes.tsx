@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { rowLink } from "@/lib/rowLink";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddResumeDialog } from "@/components/AddResumeDialog";
 import { useResumes } from "@/lib/api";
@@ -37,7 +38,7 @@ export default function Resumes() {
           </TableHeader>
           <TableBody>
             {resumes.map((r) => (
-              <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/resumes/${r.id}`)}>
+              <TableRow key={r.id} className="cursor-pointer" {...rowLink(navigate, `/resumes/${r.id}`)}>
                 <TableCell className="font-medium">{r.version}</TableCell>
                 <TableCell className="max-w-[20rem] truncate" title={r.pdf_name ?? ""}>{r.has_pdf ? r.pdf_name : "—"}</TableCell>
                 <TableCell>{r.job_count}</TableCell>

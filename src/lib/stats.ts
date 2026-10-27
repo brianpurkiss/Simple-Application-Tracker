@@ -1,6 +1,6 @@
-import type { Job } from "./api";
-import { weekStart } from "./activity";
-import { DAY, daysBetween, daysSince, isActive, needsFollowUp, reachedInterview } from "./format";
+import type { ActivityEvent, Job } from "./api";
+import { categoryOf, weekStart } from "./activity";
+import { DAY, daysBetween, daysSince, reachedInterview } from "./format";
 
 // Applications newer than this haven't had a fair chance to hear back, so they're left out of rates.
 const MIN_AGE_DAYS = 6;
@@ -24,30 +24,34 @@ const heardBack = (j: Job) => Boolean(j.first_contact || j.rejected_date) || int
 
 export type Kpis = {
   applications: number;
-  thisWeek: number;
-  lastWeek: number;
+  last7: number;
+  prev7: number;
+  interviews: number;
+  interviewsLast7: number;
+  interviewsPrev7: number;
   responseRate: number | null;
   interviewRate: number | null;
-  active: number;
-  needFollowUp: number;
   medianResponseDays: number | null;
   medianRejectionDays: number | null;
 };
 
-export function kpis(jobs: Job[], todayIso: string): Kpis {
-  const thisWeekStart = weekStart(todayIso);
-  const lastWeekStart = weekStart(new Date(Date.parse(thisWeekStart) - DAY).toISOString().slice(0, 10));
-  const inWeek = (start: string) => jobs.filter((j) => j.applied_date && weekStart(j.applied_date) === start).length;
+export function kpis(jobs: Job[], events: ActivityEvent[], todayIso: string): Kpis {
+  // Rolling windows (today and the 6 days before, then the 7 before that) so early-week numbers aren't penalised.
+  const daysAgo = (n: number) => new Date(Date.parse(todayIso) - n * DAY).toISOString().slice(0, 10);
+  const inRange = (from: string, to: string) => jobs.filter((j) => j.applied_date && j.applied_date >= from && j.applied_date <= to).length;
+  const interviewDates = events.filter((e) => categoryOf(e) === "interview").map((e) => e.date);
+  const countDates = (dates: string[], from: string, to: string) => dates.filter((d) => d >= from && d <= to).length;
   const response = jobs.filter((j) => j.applied_date && j.first_contact).map((j) => daysBetween(j.applied_date!, j.first_contact!));
   const rejection = jobs.filter((j) => j.applied_date && j.rejected_date).map((j) => daysBetween(j.applied_date!, j.rejected_date!));
   return {
     applications: jobs.length,
-    thisWeek: inWeek(thisWeekStart),
-    lastWeek: inWeek(lastWeekStart),
+    last7: inRange(daysAgo(6), todayIso),
+    prev7: inRange(daysAgo(13), daysAgo(7)),
+    interviews: interviewDates.length,
+    interviewsLast7: countDates(interviewDates, daysAgo(6), todayIso),
+    interviewsPrev7: countDates(interviewDates, daysAgo(13), daysAgo(7)),
     responseRate: pct(jobs.filter(heardBack).length, jobs.length),
     interviewRate: pct(jobs.filter(interviewed).length, jobs.length),
-    active: jobs.filter(isActive).length,
-    needFollowUp: jobs.filter(needsFollowUp).length,
     medianResponseDays: median(response),
     medianRejectionDays: median(rejection),
   };
@@ -59,7 +63,7 @@ export type FunnelStep = { label: string; count: number; ofTotal: number | null 
 export function funnel(jobs: Job[]): FunnelStep[] {
   const counts: [string, number][] = [
     ["Applied", jobs.length],
-    ["Heard back", jobs.filter(heardBack).length],
+    ["Heard Back", jobs.filter(heardBack).length],
     ["Screen / 1st Interview", jobs.filter(interviewed).length],
     ["Multiple Interviews", jobs.filter(multipleInterviews).length],
     ["Offer", jobs.filter(hasOffer).length],
@@ -74,8 +78,8 @@ export function outcomes(jobs: Job[]): Outcome[] {
   const rows: Outcome[] = [
     { key: "waiting", label: "Waiting for Response", color: "#f59e0b", count: jobs.filter((j) => j.status === "Applied").length },
     { key: "interviewed", label: "Interviewed", color: "#3b82f6", count: jobs.filter((j) => j.status === "Interviewed").length },
-    { key: "rejected-post", label: "Rejected after interview", color: "#dc2626", count: rejected.filter(reachedInterview).length },
-    { key: "rejected-pre", label: "Rejected, no interview", color: "#f87171", count: rejected.filter((j) => !reachedInterview(j)).length },
+    { key: "rejected-post", label: "Rejected After Interview", color: "#dc2626", count: rejected.filter(reachedInterview).length },
+    { key: "rejected-pre", label: "Rejected, No Interview", color: "#f87171", count: rejected.filter((j) => !reachedInterview(j)).length },
     { key: "withdrew", label: "Withdrew", color: "#525252", count: jobs.filter((j) => j.status === "Withdrew").length },
     { key: "ghosted", label: "Ghosted", color: "#a3a3a3", count: jobs.filter((j) => j.status === "Ghosted").length },
   ];
@@ -83,10 +87,10 @@ export function outcomes(jobs: Job[]): Outcome[] {
 }
 
 export const DIMENSIONS = [
-  { key: "job_type", label: "Job type" },
-  { key: "company_type", label: "Company type" },
+  { key: "job_type", label: "Job Type" },
+  { key: "company_type", label: "Company Type" },
   { key: "fit", label: "Fit" },
-  { key: "work_mode", label: "Work mode" },
+  { key: "work_mode", label: "Work Mode" },
   { key: "resume_version", label: "Resume" },
 ] as const;
 export type DimensionKey = (typeof DIMENSIONS)[number]["key"];
@@ -131,6 +135,9 @@ export type Combo = {
   lo: number;
   hi: number;
   tier: Tier;
+  // Salary of the jobs that reached an interview: mean of range midpoints, and the highest top-of-range. Null when none list pay.
+  interviewSalaryMean: number | null;
+  interviewSalaryMax: number | null;
   jobs: Job[];
 };
 
@@ -178,6 +185,8 @@ export function comboBy(
     else if (lo > baseline) tier = "standout";
     else if (hi < baseline) tier = "under";
     else if (rate > baseline) tier = "watch";
+    const paid = g.jobs.filter(interviewed).filter((j) => j.salary_min != null || j.salary_max != null);
+    const mids = paid.map((j) => ((j.salary_min ?? j.salary_max!) + (j.salary_max ?? j.salary_min!)) / 2);
     return {
       key,
       parts: g.parts,
@@ -190,6 +199,8 @@ export function comboBy(
       lo,
       hi,
       tier,
+      interviewSalaryMean: mids.length ? mids.reduce((a, b) => a + b, 0) / mids.length : null,
+      interviewSalaryMax: paid.length ? Math.max(...paid.map((j) => j.salary_max ?? j.salary_min!)) : null,
       jobs: g.jobs,
     };
   });

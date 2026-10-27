@@ -16,7 +16,7 @@ export const colorOf = (c: Category) => CATEGORIES.find((x) => x.key === c)!.col
 
 const CATEGORY_FOR_TYPE: Record<string, Category> = {
   Applied: "applied",
-  "Recruiter Screen": "interview",
+  "Screen": "interview",
   Interview: "interview",
   Offer: "offer",
   Accepted: "offer",

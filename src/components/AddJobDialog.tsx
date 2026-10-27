@@ -4,7 +4,8 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ComboField, SelectField, TextField } from "@/components/fields";
+import { ComboField, SalaryRangeField, SelectField, TextField } from "@/components/fields";
+import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { type JobInput, useCreateJob, useSuggestions } from "@/lib/api";
 import type { HotkeyAction } from "@/components/GlobalHotkeys";
 import { isEditable, useHotkey } from "@/lib/hotkeys";
@@ -16,7 +17,6 @@ const blank = (): JobInput => ({
   company: "",
   company_type: "",
   fit: "",
-  salary: "",
   job_type: "",
   resume_version: "",
   work_mode: "Remote",
@@ -29,6 +29,9 @@ const blank = (): JobInput => ({
 export function AddJobDialog() {
   const [open, setOpen] = useState(false);
   const [job, setJob] = useState(blank);
+  const [salaryMin, setSalaryMin] = useState("");
+  const [salaryMax, setSalaryMax] = useState("");
+  const badRange = salaryRangeInvalid(salaryMin, salaryMax);
   const create = useCreateJob();
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,12 +56,15 @@ export function AddJobDialog() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (badRange) return;
     create.mutate(
-      { ...job, applied_date: job.applied_date || null },
+      { ...job, salary_min: toSalary(salaryMin), salary_max: toSalary(salaryMax), applied_date: job.applied_date || null },
       {
         onSuccess: (created) => {
           setOpen(false);
           setJob(blank());
+          setSalaryMin("");
+          setSalaryMax("");
           toast.success(`Added ${created.title}`);
           navigate(`/jobs/${created.id}`);
         },
@@ -82,7 +88,7 @@ export function AddJobDialog() {
             <TextField label="Company" value={job.company!} onChange={set("company")} />
             <SelectField label="Company Type" value={job.company_type!} onChange={set("company_type")} options={COMPANY_TYPES} />
             <SelectField label="Fit" value={job.fit!} onChange={set("fit")} options={FITS} />
-            <TextField label="Salary" value={job.salary!} onChange={set("salary")} placeholder="$150k-180k" />
+            <SalaryRangeField min={salaryMin} max={salaryMax} onMin={setSalaryMin} onMax={setSalaryMax} invalid={badRange} />
             <ComboField label="Job Type" value={job.job_type!} onChange={set("job_type")} options={jobTypes} />
             <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
             <SelectField label="Location" value={job.work_mode!} onChange={set("work_mode")} options={WORK_MODES} />

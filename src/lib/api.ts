@@ -6,7 +6,8 @@ export type Job = {
   company: string;
   company_type: string;
   fit: string;
-  salary: string;
+  salary_min: number | null;
+  salary_max: number | null;
   job_type: string;
   resume_version: string;
   work_mode: string;
@@ -18,6 +19,7 @@ export type Job = {
   contact_name: string;
   contact_email: string;
   contact_phone: string;
+  contact_linkedin: string;
   offer_info: string;
   notes: string;
   job_description?: string; // only included when fetching a single job
@@ -154,3 +156,15 @@ export const useUpdateEvent = () =>
     request<JobEvent>("PATCH", `/api/events/${id}`, e));
 export const useDeleteEvent = () =>
   useInvalidatingMutation((id: number) => request<void>("DELETE", `/api/events/${id}`));
+
+export type Profile = { salary_target: number | null };
+
+export const useProfile = () =>
+  useQuery({ queryKey: ["profile"], queryFn: () => request<Profile>("GET", "/api/profile") });
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: Partial<Profile>) => request<Profile>("PATCH", "/api/profile", p),
+    onSuccess: (data) => qc.setQueryData(["profile"], data),
+  });
+}

@@ -16,14 +16,14 @@ export default function CohortTable({ cohorts }: { cohorts: Cohort[] }) {
   return (
     <div className="space-y-4 rounded-lg border bg-card p-5">
       <div>
-        <h2 className="font-medium">By application week</h2>
+        <h2 className="font-medium">By Application Week</h2>
         <p className="text-sm text-muted-foreground">How each week's applications turned out. Recent weeks are still maturing.</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[480px] border-separate border-spacing-y-1 text-sm">
           <thead>
             <tr className="text-left text-muted-foreground">
-              <th className="px-2 font-normal">Week of</th>
+              <th className="px-2 font-normal">Week Of</th>
               <th className="px-2 text-right font-normal">Apps</th>
               {cols.map((c) => <th key={c.key} className="px-2 text-center font-normal">{c.label}</th>)}
             </tr>

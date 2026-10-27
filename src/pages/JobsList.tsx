@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { rowLink } from "@/lib/rowLink";
 import {
   type ColumnDef,
   type SortingState,
@@ -19,6 +20,7 @@ import { type HotkeyAction, SEARCH_INPUT_ID } from "@/components/GlobalHotkeys";
 import { type Job, useJobs } from "@/lib/api";
 import { formatDate, isActive, needsFollowUp } from "@/lib/format";
 import { FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
+import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/lib/useParamUpdater";
 import { cn } from "@/lib/utils";
 
@@ -118,7 +120,7 @@ export default function JobsList() {
     autoResetPageIndex: false,
     globalFilterFn: (row, _columnId, value: string) => {
       const j = row.original;
-      const haystack = [j.title, j.company, j.notes, j.agency_name, j.contact_name, j.salary].join(" ").toLowerCase();
+      const haystack = [j.title, j.company, j.notes, j.agency_name, j.contact_name, formatSalary(j.salary_min, j.salary_max)].join(" ").toLowerCase();
       return haystack.includes(value.toLowerCase());
     },
   });
@@ -249,7 +251,7 @@ export default function JobsList() {
               <TableRow
                 key={`${viewKey}:${row.id}`}
                 style={{ animationDelay: `${Math.min(i * 25, 400)}ms` }}
-                onClick={() => navigate(`/jobs/${row.original.id}`, { state: { fromList: true } })}
+                {...rowLink(navigate, `/jobs/${row.original.id}`, { fromList: true })}
                 className={cn("row-in cursor-pointer", needsFollowUp(row.original) && "bg-amber-500/10 hover:bg-amber-500/15")}
                 title={needsFollowUp(row.original) ? `No activity in ${STALE_DAYS}+ days` : undefined}
               >

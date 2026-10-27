@@ -37,7 +37,7 @@ function ordinal(n: number) {
 // The status as shown: which interview round, or whether a rejection came after interviewing.
 export function statusLabel(job: Pick<Job, "status" | "interview_count" | "screen_count">) {
   if (job.status === "Interviewed") {
-    return job.interview_count ? `${ordinal(job.interview_count)} Interview` : "Recruiter Screen";
+    return job.interview_count ? `${ordinal(job.interview_count)} Interview` : "Screen";
   }
   if (job.status === "Rejected") {
     return job.interview_count + job.screen_count > 0 ? "Rejected, Post Interview" : "Rejected, No Interview";

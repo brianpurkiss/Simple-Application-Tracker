@@ -5,7 +5,7 @@ export default function OutcomeBar({ outcomes }: { outcomes: Outcome[] }) {
   return (
     <div className="space-y-4 rounded-lg border bg-card p-5">
       <div>
-        <h2 className="font-medium">Where applications ended up</h2>
+        <h2 className="font-medium">Where Applications Ended Up</h2>
       </div>
       <div className="flex h-5 overflow-hidden rounded-full bg-muted">
         {outcomes.filter((o) => o.count).map((o) => (

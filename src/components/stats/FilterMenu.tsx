@@ -28,7 +28,12 @@ export function FilterPanel({ open, children }: { open: boolean; children: React
         open ? "visible opacity-100 lg:w-96" : "invisible -mt-6 h-0 overflow-hidden opacity-0 lg:-ml-6 lg:mt-0 lg:h-auto lg:w-0",
       )}
     >
-      <aside className="w-full space-y-5 rounded-lg border bg-card p-4 lg:w-96">{children}</aside>
+      <aside className="w-full space-y-4 lg:w-96">{children}</aside>
     </div>
   );
+}
+
+// One box in the filter panel.
+export function FilterBox({ children, className }: { children: ReactNode; className?: string }) {
+  return <section className={cn("rounded-lg border bg-card p-4", className)}>{children}</section>;
 }

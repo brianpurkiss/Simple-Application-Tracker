@@ -25,6 +25,26 @@ export function TextField({ label, value, onChange, className, ...props }: Base 
   );
 }
 
+export function SalaryRangeField({ min, max, onMin, onMax, invalid, className }: {
+  min: string; max: string; onMin: (v: string) => void; onMax: (v: string) => void; invalid?: boolean; className?: string;
+}) {
+  const id = useId();
+  // Shown with commas, held as plain digits.
+  const input = { type: "text", inputMode: "numeric", "aria-invalid": invalid || undefined } as const;
+  const show = (v: string) => (v ? Number(v).toLocaleString("en-US") : "");
+  const digits = (v: string) => v.replace(/\D/g, "").slice(0, 9);
+  return (
+    <Field label="Salary Range (USD per year)" id={id} className={className}>
+      <div className="flex items-center gap-2">
+        <Input id={id} {...input} value={show(min)} onChange={(e) => onMin(digits(e.target.value))} placeholder="Min  150,000" />
+        <span className="text-muted-foreground">–</span>
+        <Input {...input} aria-label="Salary maximum" value={show(max)} onChange={(e) => onMax(digits(e.target.value))} placeholder="Max  180,000" />
+      </div>
+      {invalid && <p className="text-xs text-destructive">Minimum can't be above the maximum.</p>}
+    </Field>
+  );
+}
+
 export function TextAreaField({ label, value, onChange, className, rows = 4 }: Base & { rows?: number }) {
   const id = useId();
   return (

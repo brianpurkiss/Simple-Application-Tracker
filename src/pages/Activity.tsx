@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FilterPanel, FilterToggle } from "@/components/stats/FilterMenu";
+import { FilterBox, FilterPanel, FilterToggle } from "@/components/stats/FilterMenu";
 import { Label } from "@/components/ui/label";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import { Segmented } from "@/components/ui/segmented";
@@ -11,6 +11,7 @@ import CohortTable from "@/components/stats/CohortTable";
 import Funnel from "@/components/stats/Funnel";
 import KpiRow from "@/components/stats/KpiRow";
 import OutcomeBar from "@/components/stats/OutcomeBar";
+import SalaryDistribution from "@/components/stats/SalaryDistribution";
 import Timing from "@/components/stats/Timing";
 import { type ActivityEvent, type Job, useEvents, useJobs } from "@/lib/api";
 import { VERSION_MODES, funnel, kpis, outcomes, resumeFamily, timing, weeklyCohorts } from "@/lib/stats";
@@ -32,9 +33,9 @@ const MAX_DOTS = 8;
 
 // Each filter lives in the URL as a repeated param so views can be shared and survive reloads.
 const FILTERS = [
-  { param: "job_type", label: "Job type", field: "job_type" },
-  { param: "company_type", label: "Company type", field: "company_type" },
-  { param: "resume", label: "Resume version", field: "resume_version" },
+  { param: "job_type", label: "Job Type", field: "job_type" },
+  { param: "company_type", label: "Company Type", field: "company_type" },
+  { param: "resume", label: "Resume Version", field: "resume_version" },
 ] as const;
 
 const valueOf = (j: Job, field: (typeof FILTERS)[number]["field"], grouped: boolean) => {
@@ -85,7 +86,7 @@ function AreaView({ events }: { events: ActivityEvent[] }) {
   return (
     <div className="space-y-4 rounded-lg border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">Events per week (weeks start Monday)</div>
+        <div className="text-sm text-muted-foreground">Events per Week (Weeks Start Monday)</div>
         <Legend keys={["applied", "interview", "offer", "rejection"]} hidden={hidden} onToggle={toggle} />
       </div>
       <div className="overflow-x-auto">
@@ -277,7 +278,7 @@ export default function Activity() {
   const clearFilters = () =>
     updateParams((p) => [...FILTERS.map((f) => f.param), "versions"].forEach((k) => p.delete(k)));
 
-  const stats = useMemo(() => kpis(filteredJobs, today()), [filteredJobs]);
+  const stats = useMemo(() => kpis(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
   if (loadingEvents || loadingJobs) return <p className="text-muted-foreground">Loading…</p>;
 
   return (
@@ -302,8 +303,10 @@ export default function Activity() {
       </div>
       <Timing data={timing(filteredJobs)} />
       <CohortTable cohorts={weeklyCohorts(filteredJobs)} />
+      <SalaryDistribution jobs={filteredJobs} />
     </div>
       <FilterPanel open={filtersOpen}>
+        <FilterBox>
         <div className="space-y-4">
           {FILTERS.map((f, i) => (
             <div key={f.param} className="space-y-1">
@@ -326,8 +329,9 @@ export default function Activity() {
               )}
             </div>
           ))}
-          {filtersActive && <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>}
+          {filtersActive && <Button variant="outline" size="sm" onClick={clearFilters}>Clear Filters</Button>}
         </div>
+        </FilterBox>
       </FilterPanel>
     </div>
   );

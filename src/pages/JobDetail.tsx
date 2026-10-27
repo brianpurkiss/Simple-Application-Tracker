@@ -4,23 +4,28 @@ import { ArrowLeft, ExternalLink, Mail, Phone, RotateCcw, Trash2 } from "lucide-
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ComboField, SelectField, TextAreaField, TextField } from "@/components/fields";
-import { HistoryPanel } from "@/components/HistoryPanel";
+import { ComboField, SalaryRangeField, SelectField, TextAreaField, TextField } from "@/components/fields";
+import { salaryRangeInvalid, toSalary } from "@/lib/salary";
+import { EVENT_COLORS, HistoryPanel } from "@/components/HistoryPanel";
 import { StatusBadge } from "@/components/StatusBadge";
 import { type Job, type JobInput, useDeleteJob, useJob, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
 import { isEditable, useHotkey } from "@/lib/hotkeys";
-import { APPLIED_VIA, COMPANY_TYPES, FITS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES } from "@/lib/options";
+import { FilterBox } from "@/components/stats/FilterMenu";
+import { APPLIED_VIA, COMPANY_TYPES, FITS, GHOSTED_DAYS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES } from "@/lib/options";
+
+// An event type name in its History color.
+const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}</span>;
 
 const EDITABLE = [
-  "title", "company", "company_type", "fit", "salary", "job_type", "resume_version", "work_mode", "applied_date",
-  "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "offer_info", "notes",
+  "title", "company", "company_type", "fit", "salary_min", "salary_max", "job_type", "resume_version", "work_mode", "applied_date",
+  "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "contact_linkedin", "offer_info", "notes",
   "job_description",
 ] as const satisfies readonly (keyof JobInput)[];
 
 type Draft = Record<(typeof EDITABLE)[number], string>;
 
 const toDraft = (job: Job): Draft =>
-  Object.fromEntries(EDITABLE.map((k) => [k, job[k] ?? ""])) as Draft;
+  Object.fromEntries(EDITABLE.map((k) => [k, String(job[k] ?? "")])) as Draft;
 
 export default function JobDetail() {
   const id = Number(useParams().id);
@@ -44,10 +49,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
 
   const set = (key: keyof Draft) => (value: string) => setDraft((d) => ({ ...d, [key]: value }));
   const changed = EDITABLE.filter((k) => draft[k] !== saved[k]);
+  const badRange = salaryRangeInvalid(draft.salary_min, draft.salary_max);
 
   const save = () => {
     (document.activeElement as HTMLElement | null)?.blur();
-    const patch = Object.fromEntries(changed.map((k) => [k, k === "applied_date" ? draft[k] || null : draft[k]]));
+    const patch = Object.fromEntries(changed.map((k) => [
+      k,
+      k === "applied_date" ? draft[k] || null : k === "salary_min" || k === "salary_max" ? toSalary(draft[k]) : draft[k],
+    ]));
     update.mutate(patch, {
       onSuccess: () => {
         setSaved(draft);
@@ -82,7 +91,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   // Cmd+S saves from anywhere on the page, including inside a field, and never opens the browser's save dialog.
   useHotkey("s", (e) => {
     e.preventDefault();
-    if (changed.length > 0 && !update.isPending && draft.title.trim()) save();
+    if (changed.length > 0 && !update.isPending && draft.title.trim() && !badRange) save();
   }, { mod: true });
 
   const restore = () => restoreJob.mutate(job.id, { onSuccess: () => toast.success("Restored from trash") });
@@ -128,7 +137,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
               <TextField label="Company" value={draft.company} onChange={set("company")} />
               <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
               <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
-              <TextField label="Salary" value={draft.salary} onChange={set("salary")} />
+              <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />
               <ComboField label="Job Type" value={draft.job_type} onChange={set("job_type")} options={jobTypes} />
               <SelectField label="Location" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />
               <TextField label="Job Description Link" value={draft.jd_link} onChange={set("jd_link")} />
@@ -147,7 +156,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
 
           <Card>
             <CardHeader><CardTitle>Point of Contact</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-3">
+            <CardContent className="grid gap-4 sm:grid-cols-2">
               <TextField label="Name" value={draft.contact_name} onChange={set("contact_name")} />
               <div className="flex items-end gap-1">
                 <TextField label="Email" type="email" value={draft.contact_email} onChange={set("contact_email")} className="flex-1" />
@@ -165,6 +174,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                   </Button>
                 )}
               </div>
+              <div className="flex items-end gap-1">
+                <TextField label="LinkedIn URL" value={draft.contact_linkedin} onChange={set("contact_linkedin")} placeholder="https://linkedin.com/in/…" className="flex-1" />
+                {saved.contact_linkedin && (
+                  <Button asChild variant="ghost" size="icon" title="Open LinkedIn profile">
+                    <a href={saved.contact_linkedin} target="_blank" rel="noreferrer"><ExternalLink /></a>
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -177,12 +194,28 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           </Card>
         </div>
 
-        <Card className="h-fit lg:col-span-2">
-          <CardHeader><CardTitle>History</CardTitle></CardHeader>
-          <CardContent>
-            <HistoryPanel jobId={job.id} events={job.events} />
-          </CardContent>
-        </Card>
+        <div className="space-y-5 lg:col-span-2">
+          <Card className="h-fit">
+            <CardHeader><CardTitle>History</CardTitle></CardHeader>
+            <CardContent>
+              <HistoryPanel jobId={job.id} events={job.events} />
+            </CardContent>
+          </Card>
+
+          <FilterBox className="space-y-3 text-xs text-muted-foreground">
+            <h3 className="text-sm font-medium text-foreground">History Terms</h3>
+            <p>{term("Applied")}: you sent the application. Sets the status to Applied.</p>
+            <p>{term("Contact")}: they reached out to you. Doesn't change the status.</p>
+            <p>{term("Follow-Up")}: a check-in you sent. Doesn't change the status.</p>
+            <p>{term("Screen")}: a recruiter or HR screen. Sets the status to Interviewed.</p>
+            <p>{term("Interview")}: an interview with the company. Sets the status to Interviewed.</p>
+            <p>{term("Offer")}: they made you an offer. {term("Accepted")}: you accepted it.</p>
+            <p>{term("Rejection")}: they turned you down.</p>
+            <p>{term("Withdrew")}: you pulled out of the process.</p>
+            <p>{term("Ghosted")}: you logged that they stopped responding. The status also changes to Ghosted automatically after {GHOSTED_DAYS}+ days of silence.</p>
+            <p>{term("Note")}: anything else worth remembering. Doesn't change the status.</p>
+          </FilterBox>
+        </div>
 
         <Card className="lg:col-span-5">
           <CardHeader><CardTitle>Job Description</CardTitle></CardHeader>
@@ -202,7 +235,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           <div className="mx-auto flex max-w-[1600px] items-center justify-end gap-3 px-6 py-3">
             <span className="text-sm text-muted-foreground">Unsaved changes</span>
             <Button variant="outline" onClick={() => setDraft(saved)}>Discard</Button>
-            <Button onClick={save} disabled={update.isPending || !draft.title.trim()}>Save</Button>
+            <Button onClick={save} disabled={update.isPending || !draft.title.trim() || badRange}>Save</Button>
           </div>
         </div>
       )}
