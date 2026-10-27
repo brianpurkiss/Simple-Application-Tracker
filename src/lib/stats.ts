@@ -82,6 +82,7 @@ export function outcomes(jobs: Job[]): Outcome[] {
     { key: "rejected-pre", label: "Rejected, No Interview", color: "#f87171", count: rejected.filter((j) => !reachedInterview(j)).length },
     { key: "withdrew", label: "Withdrew", color: "#525252", count: jobs.filter((j) => j.status === "Withdrew").length },
     { key: "ghosted", label: "Ghosted", color: "#a3a3a3", count: jobs.filter((j) => j.status === "Ghosted").length },
+    { key: "scam", label: "Scam", color: "#f97316", count: jobs.filter((j) => j.status === "Scam").length },
   ];
   return rows;
 }

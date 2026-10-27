@@ -18,7 +18,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { AddJobDialog } from "@/components/AddJobDialog";
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/components/GlobalHotkeys";
 import { type Job, useJobs } from "@/lib/api";
-import { formatDate, isActive, needsFollowUp } from "@/lib/format";
+import { formatDate, isActive, needsFollowUp, reachedInterview } from "@/lib/format";
 import { FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/lib/useParamUpdater";
@@ -26,7 +26,8 @@ import { cn } from "@/lib/utils";
 
 const GROUP_FILTERS: Record<string, (job: Job) => boolean> = {
   active: isActive,
-  interviewing: (j) => INTERVIEWING_STATUSES.has(j.status),
+  // Timed-out (auto-ghosted) jobs that reached an interview still count; a manually logged close-out does not.
+  interviewing: (j) => INTERVIEWING_STATUSES.has(j.status) || (j.auto_ghosted && reachedInterview(j)),
   followup: needsFollowUp,
   closed: (j) => !isActive(j),
 };

@@ -22,6 +22,7 @@ export const EVENT_COLORS: Record<string, { dot: string; text: string }> = {
   Rejection: { dot: "bg-red-500", text: "text-red-500" },
   Withdrew: { dot: "bg-neutral-500", text: "text-neutral-500" },
   Ghosted: { dot: "bg-stone-500", text: "text-stone-500" },
+  Scam: { dot: "bg-orange-500", text: "text-orange-500" },
   Note: { dot: "bg-neutral-400", text: "text-neutral-400" },
 };
 

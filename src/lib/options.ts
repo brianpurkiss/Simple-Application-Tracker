@@ -1,9 +1,9 @@
 // Dropdown options. Edit these lists to change what the app offers.
 
 // Status is computed from the history: the latest event that sets a status wins.
-export const STATUSES = ["Applied", "Interviewed", "Offer", "Accepted", "Rejected", "Withdrew", "Ghosted"] as const;
+export const STATUSES = ["Applied", "Interviewed", "Offer", "Accepted", "Rejected", "Withdrew", "Ghosted", "Scam"] as const;
 
-export const CLOSED_STATUSES = new Set<string>(["Accepted", "Rejected", "Withdrew", "Ghosted"]);
+export const CLOSED_STATUSES = new Set<string>(["Accepted", "Rejected", "Withdrew", "Ghosted", "Scam"]);
 
 export const INTERVIEWING_STATUSES = new Set<string>(["Interviewed", "Offer"]);
 
@@ -42,7 +42,7 @@ export function latestResumeVersions(labels: string[]): string[] {
 export const COMPANY_TYPES =["eCommerce", "SaaS", "B2B", "Other"];
 
 // How well a role matches what I'm after.
-export const FITS = ["Good Fit", "Stretch", "Settle"];
+export const FITS = ["Good Fit", "Stretch", "Settle", "Pivot"];
 
 export const WORK_MODES = ["Remote", "Hybrid", "In Office"];
 
@@ -59,6 +59,7 @@ export const EVENT_TYPES = [
   "Rejection",
   "Withdrew",
   "Ghosted",
+  "Scam",
   "Note",
 ] as const;
 
@@ -72,6 +73,7 @@ export const STATUS_FOR_EVENT: Record<string, (typeof STATUSES)[number]> = {
   Rejection: "Rejected",
   Withdrew: "Withdrew",
   Ghosted: "Ghosted",
+  Scam: "Scam",
 };
 
 // Event types that count toward the "Latest Update" column.

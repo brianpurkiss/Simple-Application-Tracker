@@ -127,7 +127,7 @@ if (jobColumns.has("status")) {
     Ghosted: "Ghosted",
   };
   const statusTypes = Object.keys(STATUS_FOR_EVENT);
-  const closingEvents = new Set(["Accepted", "Rejection", "Withdrew", "Ghosted"]);
+  const closingEvents = new Set(["Accepted", "Rejection", "Withdrew", "Ghosted", "Scam"]);
   db.transaction(() => {
     db.exec("UPDATE events SET type = 'Screen' WHERE type = 'Interview' AND description LIKE '%recruiter%'");
     db.exec("UPDATE events SET type = 'Ghosted' WHERE type = 'Declared Stale'");

@@ -43,6 +43,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const restoreJob = useRestoreJob();
   const navigate = useNavigate();
   const location = useLocation();
+  const titles = useSuggestions("title", []);
   const jobTypes = useSuggestions("job_type", JOB_TYPES);
   const resumeVersions = useSuggestions("resume_version", RESUME_VERSIONS);
   const agencyNames = useSuggestions("agency_name", []);
@@ -131,14 +132,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
       <div className="grid gap-5 lg:grid-cols-5">
         <div className="space-y-5 lg:col-span-3">
           <Card>
-            <CardHeader><CardTitle>Role</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Job</CardTitle></CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Job Title" value={draft.title} onChange={set("title")} className="sm:col-span-2" />
+              <ComboField label="Job Title" value={draft.title} onChange={set("title")} options={titles} />
               <TextField label="Company" value={draft.company} onChange={set("company")} />
-              <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
-              <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
-              <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />
               <ComboField label="Job Type" value={draft.job_type} onChange={set("job_type")} options={jobTypes} />
+              <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
+              <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />
+              <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
               <SelectField label="Location" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />
               <TextField label="Job Description Link" value={draft.jd_link} onChange={set("jd_link")} />
             </CardContent>
@@ -147,7 +148,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           <Card>
             <CardHeader><CardTitle>Application</CardTitle></CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Applied Date" type="date" value={draft.applied_date} onChange={set("applied_date")} />
+              <TextField label="Date" type="date" value={draft.applied_date} onChange={set("applied_date")} />
               <ComboField label="Resume Version" value={draft.resume_version} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
               <SelectField label="Applied Via" value={draft.applied_via} onChange={set("applied_via")} options={APPLIED_VIA} />
               <ComboField label="Agency Name" value={draft.agency_name} onChange={set("agency_name")} options={agencyNames} />
@@ -209,10 +210,12 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
             <p>{term("Follow-Up")}: a check-in you sent. Doesn't change the status.</p>
             <p>{term("Screen")}: a recruiter or HR screen. Sets the status to Interviewed.</p>
             <p>{term("Interview")}: an interview with the company. Sets the status to Interviewed.</p>
-            <p>{term("Offer")}: they made you an offer. {term("Accepted")}: you accepted it.</p>
+            <p>{term("Offer")}: they made you an offer.</p>
+            <p>{term("Accepted")}: you accepted it.</p>
             <p>{term("Rejection")}: they turned you down.</p>
             <p>{term("Withdrew")}: you pulled out of the process.</p>
             <p>{term("Ghosted")}: you logged that they stopped responding. The status also changes to Ghosted automatically after {GHOSTED_DAYS}+ days of silence.</p>
+            <p>{term("Scam")}: the job turned out to be a scam. Sets the status to Scam.</p>
             <p>{term("Note")}: anything else worth remembering. Doesn't change the status.</p>
           </FilterBox>
         </div>

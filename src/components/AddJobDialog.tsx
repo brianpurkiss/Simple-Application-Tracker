@@ -35,6 +35,7 @@ export function AddJobDialog() {
   const create = useCreateJob();
   const navigate = useNavigate();
   const location = useLocation();
+  const titles = useSuggestions("title", []);
   const jobTypes = useSuggestions("job_type", JOB_TYPES);
   const resumeVersions = latestResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS));
   const agencyNames = useSuggestions("agency_name", []);
@@ -83,20 +84,28 @@ export function AddJobDialog() {
           <DialogHeader>
             <DialogTitle>Add Job</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <TextField label="Job Title" value={job.title!} onChange={set("title")} required autoFocus className="col-span-2" />
-            <TextField label="Company" value={job.company!} onChange={set("company")} />
-            <SelectField label="Company Type" value={job.company_type!} onChange={set("company_type")} options={COMPANY_TYPES} />
-            <SelectField label="Fit" value={job.fit!} onChange={set("fit")} options={FITS} />
-            <SalaryRangeField min={salaryMin} max={salaryMax} onMin={setSalaryMin} onMax={setSalaryMax} invalid={badRange} />
-            <ComboField label="Job Type" value={job.job_type!} onChange={set("job_type")} options={jobTypes} />
-            <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
-            <SelectField label="Location" value={job.work_mode!} onChange={set("work_mode")} options={WORK_MODES} />
-            <SelectField label="Applied Via" value={job.applied_via!} onChange={set("applied_via")} options={APPLIED_VIA} />
-            <ComboField label="Agency Name" value={job.agency_name!} onChange={set("agency_name")} options={agencyNames} />
-            <TextField label="Applied Date" type="date" value={job.applied_date ?? ""} onChange={set("applied_date")} />
-            <TextField label="Job Description Link" value={job.jd_link!} onChange={set("jd_link")} placeholder="https://" />
-          </div>
+          <section className="space-y-3">
+            <h3 className="text-sm font-medium">Job</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <ComboField label="Job Title" value={job.title!} onChange={set("title")} options={titles} required autoFocus />
+              <TextField label="Company" value={job.company!} onChange={set("company")} />
+              <ComboField label="Job Type" value={job.job_type!} onChange={set("job_type")} options={jobTypes} />
+              <SelectField label="Company Type" value={job.company_type!} onChange={set("company_type")} options={COMPANY_TYPES} />
+              <SalaryRangeField min={salaryMin} max={salaryMax} onMin={setSalaryMin} onMax={setSalaryMax} invalid={badRange} />
+              <SelectField label="Fit" value={job.fit!} onChange={set("fit")} options={FITS} />
+              <SelectField label="Location" value={job.work_mode!} onChange={set("work_mode")} options={WORK_MODES} />
+              <TextField label="Job Description Link" value={job.jd_link!} onChange={set("jd_link")} placeholder="https://" />
+            </div>
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-sm font-medium">Application</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <TextField label="Date" type="date" value={job.applied_date ?? ""} onChange={set("applied_date")} />
+              <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
+              <SelectField label="Applied Via" value={job.applied_via!} onChange={set("applied_via")} options={APPLIED_VIA} />
+              <ComboField label="Agency Name" value={job.agency_name!} onChange={set("agency_name")} options={agencyNames} />
+            </div>
+          </section>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={create.isPending}>Add Job</Button>

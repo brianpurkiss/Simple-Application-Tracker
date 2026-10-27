@@ -103,8 +103,9 @@ export default function ResumePerformance() {
     return [...combos].sort(by);
   }, [combos, view.sort, view.metric]);
   const fade = cn("transition-opacity duration-200 motion-reduce:transition-none", phase === "out" && "opacity-0");
-  const enough = sorted.filter((c) => c.tier !== "low");
-  const tooFew = sorted.filter((c) => c.tier === "low");
+  const interviewed = sorted.filter((c) => c.interviews > 0);
+  const enough = interviewed.filter((c) => c.tier !== "low");
+  const tooFew = interviewed.filter((c) => c.tier === "low");
   const visibleTooFew = showAllTooFew ? tooFew : tooFew.slice(0, TOO_FEW_PREVIEW);
   // The best few combos (in the chosen sort order) that have any salary data to plot.
   const salarySeries = enough
@@ -150,22 +151,19 @@ export default function ResumePerformance() {
         </div>
         <ul className="space-y-3">
           {enough.map((c, i) => <ComboRow key={c.key} combo={c} metric={view.metric} baseline={baseline} index={i} phase={phase} />)}
-          {!enough.length && <li className={cn("text-sm text-muted-foreground", fade)}>Nothing with {view.minSample}+ applications yet.</li>}
+          {!enough.length && <li className={cn("text-sm text-muted-foreground", fade)}>No results with {view.minSample}+ applications.</li>}
         </ul>
-        {tooFew.length > 0 && (
-          <>
-            <div className={cn("border-t pt-3 text-xs uppercase tracking-wide text-muted-foreground", fade)}>Fewer Than {view.minSample} Applications</div>
-            <ul className="space-y-3">
-              {visibleTooFew.map((c, i) => <ComboRow key={c.key} combo={c} metric={view.metric} baseline={baseline} index={enough.length + i} phase={phase} />)}
-            </ul>
-            {tooFew.length > TOO_FEW_PREVIEW && (
-              <div className={cn("flex justify-center", fade)}>
-                <Button variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={showAllTooFew} onClick={() => setShowAllTooFew((s) => !s)}>
-                  {showAllTooFew ? "Show Less" : `View More (${tooFew.length - TOO_FEW_PREVIEW})`}
-                </Button>
-              </div>
-            )}
-          </>
+        <div className={cn("border-t pt-3 text-xs uppercase tracking-wide text-muted-foreground", fade)}>Fewer Than {view.minSample} Applications</div>
+        <ul className="space-y-3">
+          {visibleTooFew.map((c, i) => <ComboRow key={c.key} combo={c} metric={view.metric} baseline={baseline} index={enough.length + i} phase={phase} />)}
+          {!tooFew.length && <li className={cn("text-sm text-muted-foreground", fade)}>No results with fewer than {view.minSample} applications.</li>}
+        </ul>
+        {tooFew.length > TOO_FEW_PREVIEW && (
+          <div className={cn("flex justify-center", fade)}>
+            <Button variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={showAllTooFew} onClick={() => setShowAllTooFew((s) => !s)}>
+              {showAllTooFew ? "Show Less" : `View More (${tooFew.length - TOO_FEW_PREVIEW})`}
+            </Button>
+          </div>
         )}
       </section>
 

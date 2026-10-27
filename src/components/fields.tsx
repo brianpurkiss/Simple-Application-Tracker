@@ -71,7 +71,7 @@ export function SelectField({ label, value, onChange, options, className }: Base
 }
 
 // Text input with a filtered suggestion list — pick a known value or type a new one.
-export function ComboField({ label, value, onChange, options, className, placeholder }: Base & { options: readonly string[]; placeholder?: string }) {
+export function ComboField({ label, value, onChange, options, className, placeholder, required, autoFocus }: Base & { options: readonly string[]; placeholder?: string; required?: boolean; autoFocus?: boolean }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -106,6 +106,8 @@ export function ComboField({ label, value, onChange, options, className, placeho
         value={value}
         autoComplete="off"
         placeholder={placeholder}
+        required={required}
+        autoFocus={autoFocus}
         role="combobox"
         aria-expanded={show}
         onChange={(e) => {

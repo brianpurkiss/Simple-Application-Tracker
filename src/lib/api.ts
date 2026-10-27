@@ -62,7 +62,7 @@ export const useJobs = () =>
   useQuery({ queryKey: ["jobs"], queryFn: () => request<Job[]>("GET", "/api/jobs") });
 
 // Preset options plus any other values already used on jobs, for autocomplete.
-export function useSuggestions(field: "job_type" | "resume_version" | "agency_name", preset: readonly string[]) {
+export function useSuggestions(field: "title" | "job_type" | "resume_version" | "agency_name", preset: readonly string[]) {
   const { data: jobs = [] } = useJobs();
   const { data: resumes = [] } = useResumes();
   const used = jobs.map((j) => j[field]).filter(Boolean);
