@@ -1,37 +1,37 @@
-import { Fragment } from "react";
+import { Keys } from "@/components/Keys";
+import { GO_TO, MOD } from "@/lib/shortcuts";
 
-const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
+type Item = { keys: readonly string[]; label: string; sep?: string; alt?: readonly string[] };
 
-const GROUPS: { title: string; items: { keys: string[]; label: string }[] }[] = [
+const GROUPS: { title: string; items: Item[] }[] = [
   {
-    title: "Go to",
+    title: "Everywhere",
     items: [
-      { keys: ["H"], label: "Home" },
-      { keys: ["J"], label: "Jobs" },
-      { keys: ["F"], label: "Follow Up" },
-      { keys: ["R"], label: "Resumes" },
-      { keys: ["U"], label: "User" },
-      { keys: ["P"], label: "Performance" },
-      { keys: ["A"], label: "Activity" },
-      { keys: ["T"], label: "Terminology" },
+      { keys: [MOD, "K"], alt: [MOD, "P"], label: "Command palette: search actions and jobs" },
+      { keys: ["C"], label: "Add a job" },
+      { keys: ["/"], label: "Search the jobs list" },
+      { keys: ["?"], label: "Keyboard shortcuts" },
+      { keys: ["Esc"], label: "Clear search and filters" },
     ],
   },
   {
-    title: "Jobs",
+    title: "Go to",
+    items: GO_TO.map((g) => ({ keys: ["G", g.key.toUpperCase()], sep: "then", label: g.label })),
+  },
+  {
+    title: "Jobs list",
     items: [
-      { keys: ["Q"], label: "Add a job" },
-      { keys: [MOD, "K"], label: "Search jobs (from any page)" },
-      { keys: [MOD, "F"], label: "Search jobs (on the jobs list)" },
-      { keys: ["Esc"], label: "Clear search and filters" },
-      { keys: ["↓"], label: "Select the next job (on the jobs list)" },
-      { keys: ["↑"], label: "Select the previous job (on the jobs list)" },
-      { keys: ["Enter"], label: "Open the selected job" },
-      { keys: ["N"], label: "Add history to the selected job" },
+      { keys: ["J"], alt: ["↓"], label: "Select the next job" },
+      { keys: ["K"], alt: ["↑"], label: "Select the previous job" },
+      { keys: ["Enter"], alt: ["O"], label: "Open the selected job" },
+      { keys: ["L"], label: "Log history on the selected job" },
     ],
   },
   {
     title: "Job and resume details",
     items: [
+      { keys: ["J"], label: "Next job in the list (job page)" },
+      { keys: ["K"], label: "Previous job in the list (job page)" },
       { keys: [MOD, "S"], label: "Save changes" },
       { keys: ["Esc"], label: "Leave the field, then go back" },
     ],
@@ -42,14 +42,6 @@ const GROUPS: { title: string; items: { keys: string[]; label: string }[] }[] = 
   },
 ];
 
-function Key({ children }: { children: string }) {
-  return (
-    <kbd className="inline-flex h-6 min-w-6 items-center justify-center rounded border bg-muted px-1.5 font-mono text-xs text-foreground">
-      {children}
-    </kbd>
-  );
-}
-
 export default function Shortcuts() {
   return (
     <div className="space-y-4">
@@ -57,7 +49,7 @@ export default function Shortcuts() {
       <div>
         <h1 className="text-xl font-semibold">Keyboard shortcuts</h1>
         <p className="text-sm text-muted-foreground">
-          Single-key shortcuts are ignored while you're typing in a field or have a dialog open.
+          Single-key shortcuts are ignored while you're typing in a field or have a dialog open. Press {MOD} K anywhere to find any action.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
@@ -68,13 +60,14 @@ export default function Shortcuts() {
               {group.items.map((item) => (
                 <li key={item.keys.join("+") + item.label} className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
                   <span>{item.label}</span>
-                  <span className="flex items-center gap-1">
-                    {item.keys.map((k, i) => (
-                      <Fragment key={k}>
-                        {i > 0 && <span className="text-xs text-muted-foreground">+</span>}
-                        <Key>{k}</Key>
-                      </Fragment>
-                    ))}
+                  <span className="flex items-center gap-2">
+                    <Keys keys={item.keys} sep={item.sep} />
+                    {item.alt && (
+                      <>
+                        <span className="text-xs text-muted-foreground">or</span>
+                        <Keys keys={item.alt} />
+                      </>
+                    )}
                   </span>
                 </li>
               ))}

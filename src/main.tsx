@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { CircleUser, Search } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { GlobalHotkeys, FOLLOW_UP, useFocusSearch } from "@/components/GlobalHotkeys";
+import { GlobalHotkeys } from "@/components/GlobalHotkeys";
+import { PaletteProvider, usePalette } from "@/components/CommandPalette";
+import { FOLLOW_UP, MOD } from "@/lib/shortcuts";
 import { Toaster } from "@/components/ui/sonner";
 import Home from "@/pages/Home";
 import JobsList from "@/pages/JobsList";
@@ -53,21 +55,21 @@ function Nav() {
 // Right-aligned search button and link to the User page, which also holds the resumes summary.
 function UserLink() {
   const active = useLocation().pathname === "/user";
-  const focusSearch = useFocusSearch();
+  const palette = usePalette();
   return (
     <div className="ml-auto flex items-center">
       <button
         type="button"
-        onClick={focusSearch}
-        title="Search jobs (⌘K)"
-        aria-label="Search jobs"
+        onClick={palette.toggle}
+        title={`Search and commands (${MOD} K)`}
+        aria-label="Search and commands"
         className="rounded-md p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       >
         <Search className="size-5" />
       </button>
       <Link
         to="/user"
-        title="User (U)"
+        title="User (G then U)"
         aria-label="User"
         className={`rounded-md p-2 hover:bg-muted/50 ${active ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
       >
@@ -81,6 +83,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <PaletteProvider>
         <ScrollToTop />
         <GlobalHotkeys />
         <div className="flex min-h-screen flex-col">
@@ -128,6 +131,7 @@ createRoot(document.getElementById("root")!).render(
         </footer>
         </div>
         <Toaster position="bottom-right" />
+        </PaletteProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

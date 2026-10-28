@@ -1,12 +1,9 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useParamUpdater } from "@/lib/useParamUpdater";
-import { isEditable, useHotkey } from "@/lib/hotkeys";
-
-export const FOLLOW_UP = "/jobs?status=followup";
-export const SEARCH_INPUT_ID = "job-search";
-
-// Set on navigation state so the jobs list can act once it has mounted.
-export type HotkeyAction = { hotkey?: "add" | "search" };
+import { isEditable, overlayOpen, useHotkey, useSequence } from "@/lib/hotkeys";
+import { SEARCH_INPUT_ID, useAddJob, useFocusSearch } from "@/lib/appActions";
+import { GO_TO } from "@/lib/shortcuts";
+import { usePalette } from "@/components/CommandPalette";
 
 // URL params that count as an active search/filter on each page (sort and view settings are not).
 const FILTER_PARAMS: Record<string, string[]> = {
@@ -15,42 +12,16 @@ const FILTER_PARAMS: Record<string, string[]> = {
   "/activity": ["job_type", "company_type", "resume", "versions"],
 };
 
-export const overlayOpen = () => !!document.querySelector("[role=dialog], [role=listbox]");
-
-// Focuses the job search, first navigating to the jobs list when elsewhere.
-export function useFocusSearch() {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
-  return () => {
-    const input = document.getElementById(SEARCH_INPUT_ID) as HTMLInputElement | null;
-    if (pathname === "/jobs" && input) {
-      input.focus();
-      input.select();
-    } else {
-      navigate("/jobs", { state: { hotkey: "search" } satisfies HotkeyAction });
-    }
-  };
-}
-
-function useGoToHotkey(key: string, to: string) {
-  const navigate = useNavigate();
-  useHotkey(key, (e) => {
-    if (isEditable(e.target) || overlayOpen()) return;
-    e.preventDefault();
-    navigate(to);
-  });
-}
-
-// App-wide shortcuts. The jobs
-// list handles "q" itself when it is already showing, so those are skipped here.
+// App-wide shortcuts. Single keys are ignored while typing or with a dialog open; the palette keys
+// work from anywhere. The jobs list handles its own row keys (J/K, Enter, L).
 export function GlobalHotkeys() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  const { search } = useLocation();
   const updateParams = useParamUpdater();
+  const palette = usePalette();
+  const addJob = useAddJob();
+  const focusSearch = useFocusSearch();
   const onList = pathname === "/jobs";
-  // Home and the jobs list both mount the add-job dialog, which handles "q" itself.
-  const hasAddDialog = onList || pathname === "/";
 
   // Job and resume detail pages handle their own Escape (they guard unsaved changes).
   useHotkey("Escape", (e) => {
@@ -68,39 +39,27 @@ export function GlobalHotkeys() {
     if (active) updateParams((p) => keys.forEach((k) => p.delete(k)));
   });
 
-  useHotkey("q", (e) => {
-    if (hasAddDialog || isEditable(e.target) || overlayOpen()) return;
-    e.preventDefault();
-    navigate("/jobs", { state: { hotkey: "add" } satisfies HotkeyAction });
-  });
+  // "G" then a letter jumps to a page.
+  useSequence("g", Object.fromEntries(GO_TO.map((g) => [g.key, () => navigate(g.to)])));
 
-  useGoToHotkey("h", "/");
-  useGoToHotkey("j", "/jobs");
-  useGoToHotkey("r", "/resumes");
-  useGoToHotkey("f", FOLLOW_UP);
-  useGoToHotkey("u", "/user");
-  useGoToHotkey("p", "/performance");
-  useGoToHotkey("a", "/activity");
-  useGoToHotkey("t", "/terminology");
-
-  // Cmd+F (Ctrl+F on Windows) jumps to the job search instead of the browser's find bar,
-  // but only on the jobs list; elsewhere the browser's find bar is left alone.
-  useHotkey("f", (e) => {
-    if (!onList || overlayOpen()) return;
-    const input = document.getElementById(SEARCH_INPUT_ID) as HTMLInputElement | null;
-    if (!input) return;
+  const plain = (run: () => void) => (e: KeyboardEvent) => {
+    if (isEditable(e.target) || overlayOpen()) return;
     e.preventDefault();
-    input.focus();
-    input.select();
-  }, { mod: true });
+    run();
+  };
+  useHotkey("c", plain(addJob));
+  useHotkey("/", plain(focusSearch));
+  useHotkey("?", plain(() => navigate("/shortcuts")));
 
-  // Cmd+K works from anywhere, including inside other fields.
-  const focusSearch = useFocusSearch();
-  useHotkey("k", (e) => {
-    if (overlayOpen()) return;
+  // Cmd+K opens the command palette from anywhere, including inside fields; Cmd+P is an alias that
+  // replaces the browser's print dialog. Pressing it again closes it.
+  const togglePalette = (e: KeyboardEvent) => {
+    if (overlayOpen() && !palette.isOpen()) return;
     e.preventDefault();
-    focusSearch();
-  }, { mod: true });
+    palette.toggle();
+  };
+  useHotkey("k", togglePalette, { mod: true });
+  useHotkey("p", togglePalette, { mod: true });
 
   return null;
 }

@@ -11,7 +11,10 @@ import { EVENT_COLORS, HistoryPanel } from "@/components/HistoryPanel";
 import { StatusBadge } from "@/components/StatusBadge";
 import { type Job, type JobInput, useDeleteJob, useJob, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
 import { daysSince, formatDate, today } from "@/lib/format";
-import { isEditable, useHotkey } from "@/lib/hotkeys";
+import { isEditable, overlayOpen, useHotkey } from "@/lib/hotkeys";
+import { loadOrder, saveSelected } from "@/lib/listOrder";
+import { jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
+import { MOD } from "@/lib/shortcuts";
 import { FilterAccordion } from "@/components/stats/FilterMenu";
 import { APPLIED_VIA, COMPANY_TYPES, FITS, GHOSTED_DAYS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES, sortResumeVersions } from "@/lib/options";
 
@@ -99,6 +102,45 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     e.preventDefault();
     if (changed.length > 0 && !update.isPending && draft.title.trim() && !badRange) save();
   }, { mod: true });
+
+  const { logHistory } = usePalette();
+
+  // J and K step through the jobs list's current order, like they do on the list itself.
+  const order = loadOrder();
+  const at = order.indexOf(job.id);
+  const nextId = at >= 0 ? order[at + 1] : undefined;
+  const prevId = at > 0 ? order[at - 1] : undefined;
+  const step = (id: number | undefined) => {
+    if (id === undefined || (changed.length > 0 && !window.confirm("Discard unsaved changes?"))) return;
+    saveSelected(id);
+    navigate(`/jobs/${id}`, { replace: true, state: location.state });
+  };
+  const stepKey = (id: number | undefined) => (e: KeyboardEvent) => {
+    if (isEditable(e.target) || overlayOpen()) return;
+    e.preventDefault();
+    step(id);
+  };
+  useHotkey("j", stepKey(nextId));
+  useHotkey("k", stepKey(prevId));
+
+  // Applies right away and leaves any other unsaved edits alone.
+  const setFollowUp = (date: string | null) =>
+    update.mutate({ follow_up_on: date }, {
+      onSuccess: () => {
+        const value = date ?? "";
+        setSaved((d) => ({ ...d, follow_up_on: value }));
+        setDraft((d) => ({ ...d, follow_up_on: value }));
+        toast.success(date ? `Follow-up scheduled for ${formatDate(date)}` : "Follow-up date cleared");
+      },
+      onError: (err) => toast.error(err.message),
+    });
+
+  usePaletteActions([
+    ...(nextId !== undefined ? [{ id: "next", label: "Next job", group: "This job", keys: ["J"], keywords: "following", run: () => step(nextId) }] : []),
+    ...(prevId !== undefined ? [{ id: "prev", label: "Previous job", group: "This job", keys: ["K"], keywords: "back", run: () => step(prevId) }] : []),
+    ...(job.deleted_at ? [] : jobActions(job, { logHistory, setFollowUp, group: "This job", withGeneric: false })),
+    ...(changed.length > 0 ? [{ id: "save", label: "Save changes", group: "This job", keys: [MOD, "S"], run: () => { if (!update.isPending && draft.title.trim() && !badRange) save(); } }] : []),
+  ]);
 
   const restore = () => restoreJob.mutate(job.id, { onSuccess: () => toast.success("Restored from trash") });
 

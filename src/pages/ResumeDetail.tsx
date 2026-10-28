@@ -9,6 +9,8 @@ import {
   type Resume, useDeleteResume, useRemoveResumePdf, useResume, useUpdateResume, useUploadResumePdf,
 } from "@/lib/api";
 import { isEditable, useHotkey } from "@/lib/hotkeys";
+import { usePaletteActions } from "@/components/CommandPalette";
+import { MOD } from "@/lib/shortcuts";
 
 const EDITABLE = ["version", "notes", "plain_text"] as const;
 type Draft = Record<(typeof EDITABLE)[number], string>;
@@ -79,6 +81,11 @@ function ResumeEditor({ resume }: { resume: Resume }) {
     e.preventDefault();
     if (changed.length > 0 && !update.isPending && draft.version.trim()) save();
   }, { mod: true });
+
+  usePaletteActions([
+    ...(changed.length > 0 ? [{ id: "save", label: "Save changes", group: "This resume", keys: [MOD, "S"], run: () => { if (!update.isPending && draft.version.trim()) save(); } }] : []),
+    { id: "jobs", label: "Show jobs that used this resume", group: "This resume", run: () => navigate(`/jobs?${new URLSearchParams({ resume: resume.version, status: "all" })}`) },
+  ]);
 
   // The version in the URL changes when the PDF is replaced, so the preview reloads.
   const pdfUrl = `/api/resumes/${resume.id}/pdf?v=${encodeURIComponent(resume.updated_at)}`;

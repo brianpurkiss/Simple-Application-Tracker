@@ -6,7 +6,7 @@ import { EventFields, blankEvent, celebrateEvent } from "@/components/HistoryPan
 import { type Job, useAddEvent } from "@/lib/api";
 
 // Jobs list dialog: log a history event without opening the job. Open while `job` is set.
-export function QuickAddEvent({ job, onClose }: { job: Job | null; onClose: () => void }) {
+export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: string; onClose: () => void }) {
   // Keep showing the last job while the dialog animates out.
   const lastJob = useRef(job);
   if (job) lastJob.current = job;
@@ -17,8 +17,8 @@ export function QuickAddEvent({ job, onClose }: { job: Job | null; onClose: () =
   const addButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (job) setDraft(blankEvent());
-  }, [job]);
+    if (job) setDraft({ ...blankEvent(), ...(type && { type }) });
+  }, [job, type]);
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();

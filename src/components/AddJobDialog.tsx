@@ -7,8 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { ComboField, SalaryRangeField, SelectField, TextField } from "@/components/fields";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { type JobInput, useCreateJob, useSuggestions } from "@/lib/api";
-import type { HotkeyAction } from "@/components/GlobalHotkeys";
-import { isEditable, useHotkey } from "@/lib/hotkeys";
+import type { HotkeyAction } from "@/lib/appActions";
 import { today } from "@/lib/format";
 import { APPLIED_VIA, COMPANY_TYPES, FITS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES, latestResumeVersions, sortResumeVersions } from "@/lib/options";
 
@@ -43,13 +42,7 @@ export function AddJobDialog() {
 
   const set = (key: keyof JobInput) => (value: string) => setJob((j) => ({ ...j, [key]: value }));
 
-  useHotkey("q", (e) => {
-    if (open || isEditable(e.target) || document.querySelector("[role=dialog], [role=listbox]")) return;
-    e.preventDefault(); // keep the "q" out of the autofocused title field
-    setOpen(true);
-  });
-
-  // "q" from another page lands here with the request in navigation state.
+  // The "c" shortcut and the palette's "Add a job" land here with the request in navigation state.
   useEffect(() => {
     if ((location.state as HotkeyAction | null)?.hotkey !== "add") return;
     setOpen(true);

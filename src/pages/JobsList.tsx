@@ -19,11 +19,13 @@ import { Segmented } from "@/components/ui/segmented";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_COLORS } from "@/lib/colors";
 import { AddJobDialog } from "@/components/AddJobDialog";
-import { QuickAddEvent } from "@/components/QuickAddEvent";
-import { type HotkeyAction, SEARCH_INPUT_ID, overlayOpen } from "@/components/GlobalHotkeys";
-import { type Job, useJobs, useProfile, useUpdateProfile } from "@/lib/api";
-import { isEditable } from "@/lib/hotkeys";
+import { type PaletteAction, jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
+import { type HotkeyAction, SEARCH_INPUT_ID } from "@/lib/appActions";
+import { type Job, useJobs, useProfile, useResumes, useUpdateJob, useUpdateProfile } from "@/lib/api";
+import { loadSelected, saveOrder, saveSelected } from "@/lib/listOrder";
+import { isEditable, overlayOpen } from "@/lib/hotkeys";
 import { daysSince, formatDate, isActive, isOnHold, needsFollowUp, reachedInterview } from "@/lib/format";
+import { toast } from "sonner";
 import { COMPANY_TYPES, FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/lib/useParamUpdater";
@@ -59,7 +61,7 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void): Column
     header: "",
     enableSorting: false,
     cell: ({ row }) => (
-      <Button size="icon" variant="ghost" className="size-7 text-muted-foreground" title="Add history (N)" aria-label={`Add history to ${row.original.title}`} onClick={() => onQuickAdd(row.original)}>
+      <Button size="icon" variant="ghost" className="size-7 text-muted-foreground" title="Add history (L)" aria-label={`Add history to ${row.original.title}`} onClick={() => onQuickAdd(row.original)}>
         <Plus />
       </Button>
     ),
@@ -135,17 +137,6 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void): Column
   },
 ];
 
-// The selected row survives opening a job and coming back (per tab).
-const SELECTED_KEY = "jobs-list-selected";
-const loadSelected = () => {
-  try {
-    const v = sessionStorage.getItem(SELECTED_KEY);
-    return v ? Number(v) : null;
-  } catch {
-    return null;
-  }
-};
-
 const VIEW_OPTIONS = [
   { key: "compact", label: "Compact" },
   { key: "expanded", label: "Expanded" },
@@ -162,10 +153,10 @@ export default function JobsList() {
   const view = profile?.job_list_view ?? "compact";
   // Compact view: every column but the last (Days Since) hugs its content; the last absorbs the leftover width.
   const shrink = view === "compact";
-  const [quickAdd, setQuickAdd] = useState<Job | null>(null);
+  const { logHistory } = usePalette();
   const [selectedId, setSelectedId] = useState<number | null>(loadSelected);
   const tableWrap = useRef<HTMLDivElement>(null);
-  const columns = useMemo(() => buildColumns(view === "expanded", setQuickAdd), [view]);
+  const columns = useMemo(() => buildColumns(view === "expanded", logHistory), [view, logHistory]);
 
   // Cmd/Ctrl+F from another page lands here with the request in navigation state.
   useEffect(() => {
@@ -239,43 +230,86 @@ export default function JobsList() {
   // existing rows in place so only newly matching rows animate in.
   const viewKey = [statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter, sortParam].join("|");
 
-  // Up/Down move the selected row; Enter opens it and N logs history on it. Only from the page itself or the table, so
+  // Up/Down (or K/J) move the selected row; Enter (or O) opens it and L logs history on it. Only from the page itself or the table, so
   // arrows still work inside the filter dropdowns and search box.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || overlayOpen() || isEditable(e.target)) return;
       if (e.target !== document.body && !tableWrap.current?.contains(e.target as Node)) return;
       const at = rows.findIndex((r) => r.original.id === selectedId);
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const key = e.key.toLowerCase();
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || key === "j" || key === "k") {
         if (!rows.length) return;
         e.preventDefault();
-        const down = e.key === "ArrowDown";
+        const down = e.key === "ArrowDown" || key === "j";
         // Based on the previous selection, so quick repeated presses between renders still add up.
         setSelectedId((prev) => {
           const from = rows.findIndex((r) => r.original.id === prev);
           const next = from < 0 ? (down ? 0 : rows.length - 1) : Math.min(rows.length - 1, Math.max(0, from + (down ? 1 : -1)));
           return rows[next].original.id;
         });
-      } else if (e.key === "Enter") {
-        // Only from the page itself or a row, so Enter on a focused button still presses it.
-        if (at < 0 || !(e.target === document.body || (e.target as HTMLElement).tagName === "TR")) return;
+      } else if (e.key === "Enter" || key === "o") {
+        // Enter only from the page itself or a row, so it still presses a focused button.
+        if (at < 0 || (e.key === "Enter" && !(e.target === document.body || (e.target as HTMLElement).tagName === "TR"))) return;
         e.preventDefault();
         navigate(`/jobs/${selectedId}`, { state: { fromList: true } });
-      } else if (e.key.toLowerCase() === "n" && !e.repeat && at >= 0) {
+      } else if (key === "l" && !e.repeat && at >= 0) {
         e.preventDefault();
-        setQuickAdd(rows[at].original);
+        logHistory(rows[at].original);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [rows, selectedId]);
+  }, [rows, selectedId, logHistory]);
 
-  useEffect(() => {
-    try {
-      if (selectedId === null) sessionStorage.removeItem(SELECTED_KEY);
-      else sessionStorage.setItem(SELECTED_KEY, String(selectedId));
-    } catch { /* storage unavailable: selection just won't persist */ }
-  }, [selectedId]);
+  const selected = rows.find((r) => r.original.id === selectedId)?.original;
+  const updateSelected = useUpdateJob(selected?.id ?? 0);
+  const { data: resumes = [] } = useResumes();
+
+  // Job pages step through this order with J and K.
+  const orderKey = rows.map((r) => r.original.id).join(",");
+  useEffect(() => saveOrder(orderKey ? orderKey.split(",").map(Number) : []), [orderKey]);
+
+  const choose = (param: string, options: readonly string[], allLabel: string, allValue = "all"): PaletteAction[] => [
+    { id: `${param}-all`, label: allLabel, group: "", run: () => setParam(param, allValue) },
+    ...options.map((o) => ({ id: `${param}-${o}`, label: o, group: "", run: () => setParam(param, o) })),
+  ];
+  const view2 = view === "compact" ? "expanded" : "compact";
+  usePaletteActions([
+    ...(selected ? [
+      { id: "open", label: "Open selected job", group: "Selected job", keys: ["Enter"], run: () => navigate(`/jobs/${selected.id}`, { state: { fromList: true } }) },
+      ...jobActions(selected, {
+        logHistory,
+        group: "Selected job",
+        withGeneric: true,
+        setFollowUp: (date) => updateSelected.mutate({ follow_up_on: date }, {
+          onSuccess: () => toast.success(date ? `Follow-up scheduled for ${formatDate(date)}` : "Follow-up date cleared"),
+          onError: (err) => toast.error(err.message),
+        }),
+      }),
+    ] : []),
+    { id: "f-status", label: "Filter by status…", group: "Jobs list", keywords: "show active interviewing follow up closed all", choices: [
+      { id: "s-all", label: "All", group: "", run: () => setParam("status", "all") },
+      { id: "s-active", label: "Active", group: "", run: () => setParam("status", "active") },
+      { id: "s-interviewing", label: "Interviewing", group: "", run: () => setParam("status", "interviewing") },
+      { id: "s-followup", label: "Follow Up", group: "", run: () => setParam("status", "followup") },
+      { id: "s-closed", label: "Closed", group: "", run: () => setParam("status", "closed") },
+      ...STATUSES.map((st) => ({ id: `s-${st}`, label: st, group: "", run: () => setParam("status", st) })),
+    ] },
+    { id: "f-type", label: "Filter by job type…", group: "Jobs list", choices: choose("type", JOB_TYPES, "All job types") },
+    { id: "f-fit", label: "Filter by fit…", group: "Jobs list", choices: choose("fit", FITS, "All fits") },
+    { id: "f-company", label: "Filter by company type…", group: "Jobs list", choices: choose("company_type", COMPANY_TYPES, "All company types") },
+    { id: "f-resume", label: "Filter by resume…", group: "Jobs list", choices: choose("resume", resumes.map((r) => r.version), "Any resume", "") },
+    { id: "sort", label: "Sort by…", group: "Jobs list", keywords: "order", choices: ([
+      ["Applied, newest first", "applied_date:desc"], ["Applied, oldest first", "applied_date:asc"],
+      ["Quietest first (days since activity)", "days_since:desc"], ["Most recent activity", "days_since:asc"],
+      ["Latest update", "latest_update:desc"], ["Job title A–Z", "title:asc"], ["Company A–Z", "company:asc"], ["Status", "status:asc"],
+    ] as [string, string][]).map(([label, value]) => ({ id: `sort-${value}`, label, group: "", run: () => setParam("sort", value) })) },
+    { id: "clear", label: "Clear search and filters", group: "Jobs list", keys: ["Esc"], run: () => updateParams((p) => ["q", "status", "type", "fit", "company_type", "resume"].forEach((k) => p.delete(k))) },
+    { id: "view", label: `Switch to ${view2} view`, group: "Jobs list", run: () => updateProfile.mutate({ job_list_view: view2 }) },
+  ]);
+
+  useEffect(() => saveSelected(selectedId), [selectedId]);
 
   const hasRows = rows.length > 0;
   useEffect(() => {
@@ -450,7 +484,6 @@ export default function JobsList() {
           </TableBody>
         </Table>
       </div>
-      <QuickAddEvent job={quickAdd} onClose={() => setQuickAdd(null)} />
       <Link to="/trash" className="ml-auto flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <Trash2 className="size-4" /> Trash
       </Link>

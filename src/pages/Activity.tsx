@@ -161,7 +161,14 @@ function CalendarView({ events }: { events: ActivityEvent[] }) {
     return { year: y, month: m - 1 };
   });
   const [selected, setSelected] = useState<string | null>(null);
-  const byDay = eventsByDay(events);
+  const [hidden, setHidden] = useState<Set<Category>>(new Set(["rejection"]));
+  const toggle = (c: Category) =>
+    setHidden((h) => {
+      const next = new Set(h);
+      if (!next.delete(c)) next.add(c);
+      return next;
+    });
+  const byDay = eventsByDay(events.filter((e) => !hidden.has(categoryOf(e))));
   const days = monthGrid(cursor.year, cursor.month);
   const shift = (delta: number) => {
     const d = new Date(Date.UTC(cursor.year, cursor.month + delta, 1));
@@ -188,7 +195,7 @@ function CalendarView({ events }: { events: ActivityEvent[] }) {
           <Button variant="outline" onClick={goToday}>Today</Button>
           <h2 className="ml-2 text-lg font-semibold">{title}</h2>
         </div>
-        <Legend keys={CATEGORIES.map((c) => c.key)} />
+        <Legend keys={CATEGORIES.map((c) => c.key)} hidden={hidden} onToggle={toggle} />
       </div>
 
       <div className="overflow-x-auto">
