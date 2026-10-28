@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { db } from "./db.ts";
-import { daysSince } from "../src/lib/format.ts";
+import { daysSince, isOnHold } from "../src/lib/format.ts";
 import { GHOSTED_DAYS, STATUS_FOR_EVENT, UPDATE_EVENT_TYPES } from "../src/lib/options.ts";
 
 const app = express();
@@ -25,6 +25,7 @@ const jobSchema = z.object({
   resume_version: text,
   work_mode: text,
   applied_date: date.nullable(),
+  follow_up_on: date.nullable(),
   jd_link: text,
   applied_via: text,
   agency_name: text,
@@ -67,10 +68,11 @@ const jobListSql = `
   FROM jobs j`;
 
 // Jobs still waiting on the company go Ghosted once they've been silent long enough.
-function withAutoGhost<T extends { status: string; last_heard: string | null; applied_date: string | null }>(job: T) {
+// A scheduled follow-up date in the future holds that off.
+function withAutoGhost<T extends { status: string; last_heard: string | null; applied_date: string | null; follow_up_on: string | null }>(job: T) {
   const since = job.last_heard ?? job.applied_date;
   const silentDays = daysSince(since) ?? 0;
-  const ghosted = (job.status === "Applied" || job.status === "Interviewed") && silentDays >= GHOSTED_DAYS;
+  const ghosted = (job.status === "Applied" || job.status === "Interviewed") && silentDays >= GHOSTED_DAYS && !isOnHold(job);
   return { ...job, status: ghosted ? "Ghosted" : job.status, auto_ghosted: ghosted };
 }
 

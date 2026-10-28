@@ -59,7 +59,7 @@ export function AddJobDialog() {
     e.preventDefault();
     if (badRange) return;
     create.mutate(
-      { ...job, salary_min: toSalary(salaryMin), salary_max: toSalary(salaryMax), applied_date: job.applied_date || null },
+      { ...job, salary_min: toSalary(salaryMin), salary_max: toSalary(salaryMax), applied_date: job.applied_date || null, follow_up_on: job.follow_up_on || null },
       {
         onSuccess: (created) => {
           setOpen(false);
@@ -104,6 +104,7 @@ export function AddJobDialog() {
               <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
               <SelectField label="Applied Via" value={job.applied_via!} onChange={set("applied_via")} options={APPLIED_VIA} />
               <ComboField label="Agency Name" value={job.agency_name!} onChange={set("agency_name")} options={agencyNames} />
+              <TextField label="Follow Up On" type="date" value={job.follow_up_on ?? ""} onChange={set("follow_up_on")} />
             </div>
           </section>
           <DialogFooter>

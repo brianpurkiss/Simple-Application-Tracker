@@ -9,9 +9,9 @@ import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { EVENT_COLORS, HistoryPanel } from "@/components/HistoryPanel";
 import { StatusBadge } from "@/components/StatusBadge";
 import { type Job, type JobInput, useDeleteJob, useJob, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
-import { daysSince } from "@/lib/format";
+import { daysSince, formatDate, today } from "@/lib/format";
 import { isEditable, useHotkey } from "@/lib/hotkeys";
-import { FilterBox } from "@/components/stats/FilterMenu";
+import { FilterAccordion } from "@/components/stats/FilterMenu";
 import { APPLIED_VIA, COMPANY_TYPES, FITS, GHOSTED_DAYS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES } from "@/lib/options";
 
 // An event type name in its History color.
@@ -19,7 +19,7 @@ const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}<
 
 const EDITABLE = [
   "title", "company", "company_type", "fit", "salary_min", "salary_max", "job_type", "resume_version", "work_mode", "applied_date",
-  "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "contact_linkedin", "offer_info", "notes",
+  "follow_up_on", "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "contact_linkedin", "offer_info", "notes",
   "job_description",
 ] as const satisfies readonly (keyof JobInput)[];
 
@@ -57,7 +57,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     (document.activeElement as HTMLElement | null)?.blur();
     const patch = Object.fromEntries(changed.map((k) => [
       k,
-      k === "applied_date" ? draft[k] || null : k === "salary_min" || k === "salary_max" ? toSalary(draft[k]) : draft[k],
+      k === "applied_date" || k === "follow_up_on" ? draft[k] || null : k === "salary_min" || k === "salary_max" ? toSalary(draft[k]) : draft[k],
     ]));
     update.mutate(patch, {
       onSuccess: () => {
@@ -213,8 +213,19 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
             </CardContent>
           </Card>
 
-          <FilterBox className="space-y-3 text-xs text-muted-foreground">
-            <h3 className="text-sm font-medium text-foreground">History Terms</h3>
+          <Card>
+            <CardHeader><CardTitle>Scheduled Follow Up</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              <TextField label="Follow Up On" type="date" value={draft.follow_up_on} onChange={set("follow_up_on")} />
+              <p className="text-xs text-muted-foreground">
+                {draft.follow_up_on > today()
+                  ? `Held out of Follow Up and Ghosted until ${formatDate(draft.follow_up_on)}.`
+                  : "Pick a date to keep this job out of Follow Up and Ghosted until then."}
+              </p>
+            </CardContent>
+          </Card>
+
+          <FilterAccordion title="History Terms" className="space-y-3 text-xs text-muted-foreground">
             <p>{term("Applied")}: you sent the application. Sets the status to Applied.</p>
             <p>{term("Contact")}: they reached out to you. Doesn't change the status.</p>
             <p>{term("Follow-Up")}: a check-in you sent. Doesn't change the status.</p>
@@ -227,7 +238,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
             <p>{term("Ghosted")}: you logged that they stopped responding. The status also changes to Ghosted automatically after {GHOSTED_DAYS}+ days of silence.</p>
             <p>{term("Scam")}: the job turned out to be a scam. Sets the status to Scam.</p>
             <p>{term("Note")}: anything else worth remembering. Doesn't change the status.</p>
-          </FilterBox>
+          </FilterAccordion>
         </div>
 
         <Card className="lg:col-span-5">

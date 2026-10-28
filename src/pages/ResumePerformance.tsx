@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ComboHeatmap from "@/components/stats/ComboHeatmap";
 import ComboRow from "@/components/stats/ComboRow";
-import { FilterBox, FilterPanel, FilterToggle } from "@/components/stats/FilterMenu";
+import { FilterAccordion, FilterBox, FilterPanel, FilterToggle } from "@/components/stats/FilterMenu";
 import Highlights from "@/components/stats/Highlights";
 import SalaryCurve from "@/components/stats/SalaryCurve";
 import SalaryTarget from "@/components/stats/SalaryTarget";
@@ -251,8 +251,7 @@ export default function ResumePerformance() {
             </div>
             </FilterBox>
 
-            <FilterBox className="space-y-3 text-xs text-muted-foreground">
-              <h3 className="text-sm font-medium text-foreground">How to Read This</h3>
+            <FilterAccordion title="How to Read This" className="space-y-3 text-xs text-muted-foreground">
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Bars</div>
                 <p>
@@ -294,7 +293,7 @@ export default function ResumePerformance() {
                 <div className="font-medium text-foreground">Heatmap</div>
                 <p>Each cell is rate · applications. Darker = higher rate, green outline = standout, muted = low volume.</p>
               </div>
-            </FilterBox>
+            </FilterAccordion>
       </FilterPanel>
     </div>
   );

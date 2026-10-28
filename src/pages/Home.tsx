@@ -1,15 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { AddJobDialog } from "@/components/AddJobDialog";
-import { FOLLOW_UP } from "@/components/GlobalHotkeys";
-import { Kpi } from "@/components/stats/KpiRow";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useEvents, useJobs, type Job } from "@/lib/api";
 import { weekStart } from "@/lib/activity";
 import { daysSince, formatDate, isActive, needsFollowUp, today } from "@/lib/format";
-import { fmtPct, kpis } from "@/lib/stats";
 import { momentum } from "@/lib/insights";
-import { STALE_DAYS } from "@/lib/options";
+import { INTERVIEWING_STATUSES } from "@/lib/options";
 import { rowLink } from "@/lib/rowLink";
 
 const WEEKS = 8;
@@ -32,12 +30,27 @@ function Card({ title, count, to, children }: { title: string; count?: number; t
   );
 }
 
+function HomeKpi({ label, value, children }: { label: string; value: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-4 rounded-lg border bg-card px-4 py-3">
+      <div className="text-3xl font-semibold tabular-nums">{value}</div>
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="truncate text-sm text-muted-foreground">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function JobRows({ jobs, detail, empty }: { jobs: Job[]; detail: (j: Job) => string; empty: string }) {
   const navigate = useNavigate();
+  const [showAll, setShowAll] = useState(false);
   if (!jobs.length) return <p className="px-4 py-6 text-sm text-muted-foreground">{empty}</p>;
+  const hidden = jobs.length - LIST_SIZE;
   return (
+    <>
     <ul className="divide-y">
-      {jobs.map((j) => (
+      {(showAll ? jobs : jobs.slice(0, LIST_SIZE)).map((j) => (
         <li key={j.id} {...rowLink(navigate, `/jobs/${j.id}`)} className="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-muted/50">
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium">{j.title}</div>
@@ -48,6 +61,14 @@ function JobRows({ jobs, detail, empty }: { jobs: Job[]; detail: (j: Job) => str
         </li>
       ))}
     </ul>
+    {hidden > 0 && (
+      <div className="flex justify-center border-t py-2.5">
+        <Button variant="ghost" size="sm" className="h-auto py-0 text-muted-foreground" aria-expanded={showAll} onClick={() => setShowAll((s) => !s)}>
+          {showAll ? "Show Less" : `View More (${hidden})`}
+        </Button>
+      </div>
+    )}
+    </>
   );
 }
 
@@ -76,17 +97,18 @@ export default function Home() {
 
   const data = useMemo(() => {
     const followUp = jobs.filter(needsFollowUp).sort((a, b) => quietDays(b) - quietDays(a));
-    const followUpIds = new Set(followUp.map((j) => j.id));
-    // Applied and still waiting: nobody has replied and nothing has been logged for a while.
-    const noReply = jobs
-      .filter((j) => isActive(j) && j.status === "Applied" && !followUpIds.has(j.id) && quietDays(j) >= STALE_DAYS)
-      .sort((a, b) => quietDays(b) - quietDays(a));
+    // Same group as the Interviewing KPI; the freshest conversations first.
+    const interviewing = jobs
+      .filter((j) => isActive(j) && INTERVIEWING_STATUSES.has(j.status))
+      .sort((a, b) => quietDays(a) - quietDays(b));
     const thisMonday = weekStart(todayIso);
     const weeks = Array.from({ length: WEEKS }, (_, i) =>
       new Date(Date.parse(thisMonday) - (WEEKS - 1 - i) * 7 * 86_400_000).toISOString().slice(0, 10));
     const weekly = weeks.map((week) => ({ week, n: jobs.filter((j) => j.applied_date && weekStart(j.applied_date) === week).length }));
     const recent = [...events].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, LIST_SIZE);
-    return { followUp, noReply, weekly, recent, m: momentum(jobs, events, todayIso), k: kpis(jobs, events, todayIso) };
+    const followUpsIn = (week: string) => events.filter((e) => e.type === "Follow-Up" && weekStart(e.date) === week).length;
+    const followUps = { thisWeek: followUpsIn(thisMonday), lastWeek: followUpsIn(new Date(Date.parse(thisMonday) - 7 * 86_400_000).toISOString().slice(0, 10)) };
+    return { followUp, interviewing, weekly, recent, followUps, m: momentum(jobs, events, todayIso) };
   }, [jobs, events, todayIso]);
 
   // Old bookmarks like /?status=followup now live on /jobs.
@@ -103,7 +125,7 @@ export default function Home() {
     );
   }
 
-  const { m, k, followUp, noReply, weekly, recent } = data;
+  const { m, followUps, followUp, interviewing, weekly, recent } = data;
   return (
     <div className="space-y-4">
       <title>Home | Application Tracker</title>
@@ -112,43 +134,41 @@ export default function Home() {
         <AddJobDialog />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Applied This Week" value={String(m.thisWeek.applications)}>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <HomeKpi label="Applied This Week" value={String(m.thisWeek.applications)}>
           {m.average ? `Average ${Number.isInteger(m.average.applications) ? m.average.applications : m.average.applications.toFixed(1)} a week` : "Your first week"}
-        </Kpi>
-        <Kpi label="Streak" value={plural(m.streak.current, "day")}>
-          {m.streak.current ? "Days in a row with an application" : "Apply today to start one"} · Best {m.streak.best}
-        </Kpi>
-        <Kpi label="Interviewing" value={String(m.pipeline.interviewing)}>{plural(m.pipeline.active, "active job")}</Kpi>
-        <Kpi label="Response Rate" value={fmtPct(k.responseRate)}>Heard anything back</Kpi>
+        </HomeKpi>
+        <HomeKpi label="Streak" value={plural(m.streak.current, "day")}>
+          {m.streak.current ? "" : "Apply today to start one · "}Best {m.streak.best}
+        </HomeKpi>
+        <HomeKpi label="Follow-ups This Week" value={String(followUps.thisWeek)}>{followUps.lastWeek} last week</HomeKpi>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <div className="space-y-4 lg:col-span-3">
-          <Card title="Follow Up" count={followUp.length} to={FOLLOW_UP}>
-            <JobRows jobs={followUp.slice(0, LIST_SIZE)} detail={(j) => `${quietDays(j)} days quiet`} empty="Nothing is waiting on a follow-up." />
-          </Card>
-          <Card title="Applied, no response" count={noReply.length} to="/jobs?status=Applied">
-            <JobRows jobs={noReply.slice(0, LIST_SIZE)} detail={(j) => `${quietDays(j)} days`} empty="No applications are waiting on a reply." />
-          </Card>
-        </div>
-        <div className="space-y-4 lg:col-span-2">
-          <Card title="Applications, last 8 weeks">
-            <WeeklyBars counts={weekly} />
-          </Card>
-          <Card title="Recent activity" to="/activity" count={recent.length}>
-            <ul className="divide-y">
-              {recent.map((e) => (
-                <li key={e.id}>
-                  <Link to={`/jobs/${e.job_id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-muted/50">
-                    <span className="min-w-0 truncate"><span className="font-medium">{e.type}</span> · {e.company || e.title}{via(jobsById.get(e.job_id)) && ` · via ${via(jobsById.get(e.job_id))}`}</span>
-                    <span className="whitespace-nowrap text-muted-foreground">{formatDate(e.date)}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Follow Up" count={followUp.length}>
+          <JobRows jobs={followUp} detail={(j) => `${quietDays(j)} days quiet`} empty="Nothing is waiting on a follow-up." />
+        </Card>
+        <Card title="Interviewing" count={interviewing.length}>
+          <JobRows jobs={interviewing} detail={(j) => `${quietDays(j)} days quiet`} empty="No active interviews right now." />
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Applications, last 8 weeks">
+          <WeeklyBars counts={weekly} />
+        </Card>
+        <Card title="Recent activity" to="/activity" count={recent.length}>
+          <ul className="divide-y">
+            {recent.map((e) => (
+              <li key={e.id}>
+                <Link to={`/jobs/${e.job_id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-muted/50">
+                  <span className="min-w-0 truncate"><span className="font-medium">{e.type}</span> · {e.company || e.title}{via(jobsById.get(e.job_id)) && ` · via ${via(jobsById.get(e.job_id))}`}</span>
+                  <span className="whitespace-nowrap text-muted-foreground">{formatDate(e.date)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </div>
     </div>
   );

@@ -90,6 +90,11 @@ if (!jobColumns.has("fit")) {
   db.exec("ALTER TABLE jobs ADD COLUMN fit TEXT NOT NULL DEFAULT ''");
 }
 
+// Until this date the job stays out of Follow Up and can't auto-ghost; NULL when there's no hold.
+if (!jobColumns.has("follow_up_on")) {
+  db.exec("ALTER TABLE jobs ADD COLUMN follow_up_on TEXT");
+}
+
 // Salary used to be free text. It's now a numeric range; the old text column is kept as a backup.
 if (!jobColumns.has("salary_min")) {
   const backups = path.join(dataDir, "backups");

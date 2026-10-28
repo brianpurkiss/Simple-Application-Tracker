@@ -1,7 +1,7 @@
 import type { ActivityEvent, Job } from "./api";
 import { categoryOf, weekStart } from "./activity";
 import { GHOSTED_DAYS } from "./options";
-import { DAY, daysBetween, daysSince, reachedInterview } from "./format";
+import { DAY, daysBetween, daysSince, isOnHold, reachedInterview } from "./format";
 
 // Applications newer than this haven't had a fair chance to hear back, so they're left out of rates.
 export const MIN_AGE_DAYS = 6;
@@ -110,6 +110,7 @@ export const resumeFamily = (label: string) => label.trim().replace(/\.\d+$/, ".
 export const noResponse = (j: Job, ghostDays = GHOSTED_DAYS) => {
   if (interviewed(j)) return false;
   if (j.status === "Rejected") return true;
+  if (isOnHold(j)) return false;
   const silent = daysSince(j.last_heard ?? j.applied_date) ?? 0;
   if (j.status === "Ghosted") return !j.auto_ghosted || silent >= ghostDays;
   return j.status === "Applied" && silent >= ghostDays;

@@ -18,7 +18,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { AddJobDialog } from "@/components/AddJobDialog";
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/components/GlobalHotkeys";
 import { type Job, useJobs } from "@/lib/api";
-import { formatDate, isActive, needsFollowUp, reachedInterview } from "@/lib/format";
+import { formatDate, isActive, isOnHold, needsFollowUp, reachedInterview } from "@/lib/format";
 import { FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/lib/useParamUpdater";
@@ -45,6 +45,11 @@ const columns: ColumnDef<Job>[] = [
     cell: ({ row }) => (
       <div className="flex max-w-[22rem] items-center gap-1.5">
         <span className="truncate font-medium" title={row.original.title}>{row.original.title}</span>
+        {isOnHold(row.original) && (
+          <span className="shrink-0 rounded-full border px-1.5 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground" title="Held out of Follow Up and Ghosted until then">
+            Follow up {formatDate(row.original.follow_up_on)}
+          </span>
+        )}
       </div>
     ),
   },

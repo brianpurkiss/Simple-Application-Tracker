@@ -13,6 +13,7 @@ export type Job = {
   work_mode: string;
   status: string;
   applied_date: string | null;
+  follow_up_on: string | null; // hold off following up / ghosting until this date
   jd_link: string;
   applied_via: string;
   agency_name: string;

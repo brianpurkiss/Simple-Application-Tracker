@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Menu } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function FilterToggle({ open, onToggle, active }: { open: boolean; onToggle: () => void; active: boolean }) {
@@ -36,4 +36,17 @@ export function FilterPanel({ open, children }: { open: boolean; children: React
 // One box in the filter panel.
 export function FilterBox({ children, className }: { children: ReactNode; className?: string }) {
   return <section className={cn("rounded-lg border bg-card p-4", className)}>{children}</section>;
+}
+
+// A FilterBox that starts collapsed and expands on click.
+export function FilterAccordion({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
+  return (
+    <details className="group rounded-lg border bg-card p-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+        {title}
+        <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className={cn("mt-3", className)}>{children}</div>
+    </details>
+  );
 }
