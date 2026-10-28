@@ -1,7 +1,10 @@
 import { type ReactNode, StrictMode, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { CircleUser, Search } from "lucide-react";
+import {
+  Activity as ActivityIcon, BellRing, BriefcaseBusiness, CalendarDays, ChartNoAxesCombined, CircleUser, Search, Timeline,
+  type LucideIcon,
+} from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalHotkeys } from "@/components/GlobalHotkeys";
 import { InterviewCallout } from "@/components/InterviewCallout";
@@ -39,6 +42,15 @@ function ScrollToTop() {
   return null;
 }
 
+const NAV_ITEMS: [string, string, LucideIcon][] = [
+  ["/jobs", "Jobs", BriefcaseBusiness],
+  [FOLLOW_UP, "Follow Up", BellRing],
+  ["/titles", "Titles", Timeline],
+  ["/performance", "Performance", ChartNoAxesCombined],
+  ["/activity", "Activity", ActivityIcon],
+  ["/calendar", "Cal", CalendarDays],
+];
+
 function Nav() {
   const { pathname, search } = useLocation();
   // Follow Up is a filtered view of the jobs list, so match on the query string too.
@@ -49,8 +61,11 @@ function Nav() {
 
   return (
     <nav className="flex h-full text-sm">
-      {[["/jobs", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/performance", "Performance"], ["/titles", "Titles"], ["/activity", "Activity"], ["/calendar", "Calendar"]].map(([to, label]) => (
-        <Link key={to} to={to} className={`flex h-full items-center px-3 hover:bg-muted/50 ${linkClass(to)}`}>{label}</Link>
+      {NAV_ITEMS.map(([to, label, Icon]) => (
+        <Link key={to} to={to} className={`flex h-full items-center gap-1.5 px-3 hover:bg-muted/50 ${linkClass(to)}`}>
+          <Icon className="size-4" />
+          {label}
+        </Link>
       ))}
     </nav>
   );

@@ -141,6 +141,22 @@ db.exec(`
   );
 `);
 
+// Job Titles, seniorities and job types the user starred so other pages can filter by them.
+// `key` is the group key from the Job Titles page; `kind` is "title", "seniority" or "type".
+db.exec(`
+  CREATE TABLE IF NOT EXISTS starred_groups (
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (kind, key)
+  );
+`);
+// `label` lets a starred group still be named after its jobs are gone.
+if (!(db.pragma("table_info(starred_groups)") as { name: string }[]).some((c) => c.name === "label")) {
+  db.exec("ALTER TABLE starred_groups ADD COLUMN label TEXT NOT NULL DEFAULT ''");
+}
+
 // A small starter set that fits any field: spelled-out term first, abbreviation after. Added once
 // (tracked by user_version), so deleting one never brings it back and existing sets are untouched.
 if ((db.pragma("user_version", { simple: true }) as number) < 1) {

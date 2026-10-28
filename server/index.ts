@@ -56,21 +56,22 @@ const eventSchema = z.object({
 });
 
 const updateTypes = UPDATE_EVENT_TYPES.map(() => "?").join(",");
+// A screen or interview that hasn't happened yet (aliased `e`): a time makes it exact, otherwise it counts until the day arrives.
+const upcomingEventSql = `e.type IN ('Screen', 'Interview') AND (e.date > date('now', 'localtime')
+  OR (e.time IS NOT NULL AND e.date = date('now', 'localtime') AND e.time > strftime('%H:%M', 'now', 'localtime')))`;
 // Event types and statuses come from options.ts, so inlining them as literals is safe.
 const statusEventTypes = Object.keys(STATUS_FOR_EVENT).map((t) => `'${t}'`).join(",");
 const statusCase = Object.entries(STATUS_FOR_EVENT).map(([t, s]) => `WHEN '${t}' THEN '${s}'`).join(" ");
 const jobListSql = `
   SELECT j.*,
     coalesce((SELECT CASE
-        -- A screen or interview that hasn't happened yet: a time makes it exact, otherwise it counts until the day arrives.
-        WHEN e.type IN ('Screen', 'Interview') AND (e.date > date('now', 'localtime')
-          OR (e.time IS NOT NULL AND e.date = date('now', 'localtime') AND e.time > strftime('%H:%M', 'now', 'localtime')))
-        THEN 'Scheduled'
+        WHEN ${upcomingEventSql} THEN 'Scheduled'
         ELSE CASE e.type ${statusCase} END END FROM events e
       WHERE e.job_id = j.id AND e.type IN (${statusEventTypes}) ORDER BY date DESC, id DESC LIMIT 1), 'Applied') AS status,
     (SELECT max(date) FROM events e WHERE e.job_id = j.id AND e.type IN (${updateTypes})) AS latest_update,
     (SELECT max(date) FROM events e WHERE e.job_id = j.id AND e.type = 'Follow-Up') AS last_follow_up,
-    (SELECT max(date) FROM events e WHERE e.job_id = j.id) AS last_activity,
+    -- Upcoming screens and interviews aren't activity yet; counting them would make "days since" go negative.
+    (SELECT max(date) FROM events e WHERE e.job_id = j.id AND NOT (${upcomingEventSql})) AS last_activity,
     -- Applying starts the clock; my own follow-ups and notes don't reset it.
     (SELECT max(date) FROM events e WHERE e.job_id = j.id
       AND e.type IN ('Applied', 'Contact', 'Screen', 'Interview', 'Offer')) AS last_heard,
@@ -251,6 +252,25 @@ app.patch("/api/title-synonyms/:id", (req, res) => {
 app.delete("/api/title-synonyms/:id", (req, res) => {
   db.prepare("DELETE FROM title_synonyms WHERE id = ?").run(req.params.id);
   res.status(204).end();
+});
+
+const starSchema = z.object({
+  kind: z.enum(["title", "seniority", "type"]),
+  key: text.min(1),
+  label: text.default(""),
+  starred: z.boolean(),
+});
+const getStars = () => db.prepare("SELECT kind, key, label FROM starred_groups ORDER BY created_at, kind, key").all();
+
+app.get("/api/starred-groups", (_req, res) => res.json(getStars()));
+
+app.put("/api/starred-groups", (req, res) => {
+  const parsed = starSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const { kind, key, label, starred } = parsed.data;
+  if (starred) db.prepare("INSERT INTO starred_groups (kind, key, label) VALUES (?, ?, ?) ON CONFLICT (kind, key) DO UPDATE SET label = excluded.label").run(kind, key, label);
+  else db.prepare("DELETE FROM starred_groups WHERE kind = ? AND key = ?").run(kind, key);
+  res.json(getStars());
 });
 
 const resumeSchema = z.object({

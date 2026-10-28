@@ -17,7 +17,7 @@ import PipelineCumulative from "@/components/stats/PipelineCumulative";
 import SalaryDistribution from "@/components/stats/SalaryDistribution";
 import Timing from "@/components/stats/Timing";
 import WeekdayInsights from "@/components/stats/WeekdayInsights";
-import { type ActivityEvent, type Job, useEvents, useJobs, useResumes } from "@/lib/api";
+import { type ActivityEvent, type Job, type StarKind, useEvents, useJobs, useResumes, useStarredGroups, useTitleSynonyms } from "@/lib/api";
 import { VERSION_MODES, funnel, interviewToRejection, kpis, outcomes, resumeFamily, timing, weeklyCohorts } from "@/lib/stats";
 import {
   CATEGORIES,
@@ -27,6 +27,8 @@ import {
 import { today } from "@/lib/format";
 import { cumulative, extras, momentum, rollingAverage } from "@/lib/insights";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
+import { consolidateTitles } from "@/lib/titles/consolidate";
+import { jobGroupKeys } from "@/lib/titles/starred";
 
 // Each filter lives in the URL as a repeated param so views can be shared and survive reloads.
 const FILTERS = [
@@ -35,6 +37,13 @@ const FILTERS = [
   { param: "resume", label: "Resume Version", field: "resume_version" },
   { param: "applied_via", label: "Applied Via", field: "applied_via" },
 ] as const;
+
+// Groups starred on the Job Titles page, one filter per kind. A job matches when it is in any picked group.
+const STAR_FILTERS: { param: string; label: string; kind: StarKind }[] = [
+  { param: "star_title", label: "Starred Titles", kind: "title" },
+  { param: "star_seniority", label: "Starred Seniority", kind: "seniority" },
+  { param: "star_type", label: "Starred Job Types", kind: "type" },
+];
 
 const valueOf = (j: Job, field: (typeof FILTERS)[number]["field"], grouped: boolean) => {
   const v = (j[field] ?? "").trim();
@@ -126,8 +135,27 @@ export default function Activity() {
   const [params] = useSearchParams();
   const updateParams = useParamUpdater();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const { data: stars = [] } = useStarredGroups();
+  const { data: synonyms = [] } = useTitleSynonyms();
   const grouped = params.get("versions") === "grouped";
   const selected = FILTERS.map((f) => params.getAll(f.param).map((v) => (f.field === "resume_version" && grouped ? resumeFamily(v) : v)));
+
+  const starSelected = STAR_FILTERS.map((f) => params.getAll(f.param));
+  // Group keys per job, for matching against the starred filters.
+  const jobKeys = useMemo(() => {
+    const titles = consolidateTitles(jobs, { synonyms: synonyms.map((s) => s.terms) });
+    return new Map(jobs.map((j) => [j.id, jobGroupKeys(j, titles.get(j.id))]));
+  }, [jobs, synonyms]);
+  const starOptions = useMemo(
+    () =>
+      STAR_FILTERS.map((f) =>
+        stars
+          .filter((s) => s.kind === f.kind)
+          .map((s) => ({ ...s, count: jobs.filter((j) => jobKeys.get(j.id)?.[f.kind].includes(s.key)).length }))
+          .filter((o) => o.count > 0),
+      ),
+    [stars, jobs, jobKeys],
+  );
 
   // Each option with how many jobs have it.
   const options = useMemo(
@@ -143,9 +171,14 @@ export default function Activity() {
     [jobs, grouped],
   );
   const filteredJobs = useMemo(
-    () => jobs.filter((j) => FILTERS.every((f, i) => !selected[i].length || selected[i].includes(valueOf(j, f.field, grouped)))),
+    () =>
+      jobs.filter(
+        (j) =>
+          FILTERS.every((f, i) => !selected[i].length || selected[i].includes(valueOf(j, f.field, grouped))) &&
+          STAR_FILTERS.every((f, i) => !starSelected[i].length || starSelected[i].some((k) => jobKeys.get(j.id)?.[f.kind].includes(k))),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, grouped, params.toString()],
+    [jobs, grouped, jobKeys, params.toString()],
   );
   const filteredEvents = useMemo(() => {
     const ids = new Set(filteredJobs.map((j) => j.id));
@@ -158,7 +191,7 @@ export default function Activity() {
     return [...jobEvents, ...resumeEvents].sort((a, b) => a.date.localeCompare(b.date));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, filteredJobs, resumes, grouped, params.toString()]);
-  const filtersActive = grouped || selected.some((s) => s.length > 0);
+  const filtersActive = grouped || selected.some((s) => s.length > 0) || starSelected.some((s) => s.length > 0);
 
   const toggleValue = (param: string, value: string) =>
     updateParams((p) => {
@@ -174,7 +207,7 @@ export default function Activity() {
       else p.delete("versions");
     });
   const clearFilters = () =>
-    updateParams((p) => [...FILTERS.map((f) => f.param), "versions"].forEach((k) => p.delete(k)));
+    updateParams((p) => [...FILTERS.map((f) => f.param), ...STAR_FILTERS.map((f) => f.param), "versions"].forEach((k) => p.delete(k)));
 
   const stats = useMemo(() => kpis(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
   const momentumStats = useMemo(() => momentum(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
@@ -210,6 +243,18 @@ export default function Activity() {
       <FilterPanel open={filtersOpen}>
         <FilterBox>
         <div className="space-y-4">
+          {STAR_FILTERS.map((f, i) => starOptions[i].length > 0 && (
+            <div key={f.param} className="space-y-1">
+              <Label>{f.label}</Label>
+              <div className="flex flex-wrap gap-1.5 pt-1 text-sm">
+                {starOptions[i].map((o) => (
+                  <PillToggle key={o.key} pressed={starSelected[i].includes(o.key)} onClick={() => toggleValue(f.param, o.key)}>
+                    {o.label} <span className="tabular-nums opacity-70">({o.count})</span>
+                  </PillToggle>
+                ))}
+              </div>
+            </div>
+          ))}
           {FILTERS.map((f, i) => (
             <div key={f.param} className="space-y-1">
               <Label>{f.label}</Label>

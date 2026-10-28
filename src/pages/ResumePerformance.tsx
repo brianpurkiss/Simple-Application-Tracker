@@ -10,8 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import { Segmented } from "@/components/ui/segmented";
-import { useJobs, useProfile } from "@/lib/api";
-import { applicationsNeeded, type Combo, comboBy, DIMENSIONS, type DimensionKey, type Metric, VERSION_MODES } from "@/lib/stats";
+import { useJobs, useProfile, useStarredGroups, useTitleSynonyms } from "@/lib/api";
+import { applicationsNeeded, type Combo, comboBy, type Metric, PERF_DIMS, type PerfDim, VERSION_MODES } from "@/lib/stats";
+import { consolidateTitles } from "@/lib/titles/consolidate";
+import { perfDimValues } from "@/lib/titles/perfDims";
 import { GHOSTED_DAYS } from "@/lib/options";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { useSettled } from "@/hooks/useSettled";
@@ -38,9 +40,9 @@ const SORTS = [
   { key: "volume", label: "Volume" },
 ] as const;
 
-// Resume is always the first dimension; these are the ones that can be combined with it.
-const EXTRA_DIMS = DIMENSIONS.filter((d) => d.key !== "resume_version" && d.key !== "work_mode");
-const MAX_EXTRA = 2;
+const MAX_DIMS = 3;
+const isDim = (k: string): k is PerfDim => PERF_DIMS.some((d) => d.key === k);
+const dimLabel = (k: PerfDim) => PERF_DIMS.find((d) => d.key === k)!.label;
 const SALARY_LINES = 5;
 const TOO_FEW_PREVIEW = 5;
 
@@ -61,11 +63,10 @@ export default function ResumePerformance() {
   const minAge = Math.max(0, Number(params.get("recency") ?? DEFAULT_MIN_AGE) || 0);
   const ghostDays = Math.max(1, Number(params.get("ghost") ?? GHOSTED_DAYS) || GHOSTED_DAYS);
   const minSample = Math.max(1, Number(params.get("min") ?? DEFAULT_MIN_SAMPLE) || 1);
-  const extras = (params.get("with") ?? "")
-    .split(",")
-    .filter((k): k is DimensionKey => EXTRA_DIMS.some((d) => d.key === k))
-    .slice(0, MAX_EXTRA);
-  const heatDim = (EXTRA_DIMS.find((d) => d.key === params.get("heat"))?.key ?? "job_type") as DimensionKey;
+  const picked = (params.get("dims") ?? "").split(",").filter(isDim).slice(0, MAX_DIMS);
+  const selected: PerfDim[] = picked.length ? picked : ["resume"];
+  const heatRow: PerfDim = isDim(params.get("heatRow") ?? "") ? (params.get("heatRow") as PerfDim) : "resume";
+  const heatCol: PerfDim = isDim(params.get("heatCol") ?? "") && params.get("heatCol") !== heatRow ? (params.get("heatCol") as PerfDim) : heatRow === "type" ? "resume" : "type";
 
   const setParam = (key: string, value: string | null) =>
     updateParams((p) => {
@@ -73,26 +74,40 @@ export default function ResumePerformance() {
       else p.set(key, value);
     });
 
-  const toggleExtra = (key: DimensionKey) => {
-    const next = extras.includes(key) ? extras.filter((k) => k !== key) : [...extras, key].slice(-MAX_EXTRA);
-    setParam("with", next.length ? next.join(",") : null);
+  const toggleDim = (key: PerfDim) => {
+    if (selected.includes(key) && selected.length === 1) return;
+    const next = selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key].slice(-MAX_DIMS);
+    setParam("dims", next.join(",") === "resume" ? null : next.join(","));
   };
+  const setHeat = (axis: "heatRow" | "heatCol", key: PerfDim) =>
+    updateParams((p) => {
+      const other = axis === "heatRow" ? heatCol : heatRow;
+      // Picking the other axis's dimension swaps the two.
+      const swapped = key === other ? (axis === "heatRow" ? heatRow : heatCol) : other;
+      p.set(axis, key);
+      p.set(axis === "heatRow" ? "heatCol" : "heatRow", swapped);
+    });
 
   // Everything the results render comes from `view`, which lags the live params so the old results can
   // animate out (bars drop to zero) before the new ones swap in and refill.
-  const live = { metric, sort, groupVersions, conf: confidence.key, minAge, ghostDays, minSample, extras, heatDim };
+  const live = { metric, sort, groupVersions, conf: confidence.key, minAge, ghostDays, minSample, dims: selected, heatRow, heatCol };
   const { shown: view, phase } = useSettled(live, JSON.stringify(live));
   const vConfidence = CONFIDENCE.find((c) => c.key === view.conf) ?? CONFIDENCE[1];
-  const dims: DimensionKey[] = ["resume_version", ...view.extras];
+  const { data: stars = [] } = useStarredGroups();
+  const { data: synonyms = [] } = useTitleSynonyms();
+  const values = useMemo(
+    () => perfDimValues(stars, consolidateTitles(jobs, { synonyms: synonyms.map((s) => s.terms) })),
+    [jobs, stars, synonyms],
+  );
   const { combos, baseline, total, excluded } = useMemo(
-    () => comboBy(jobs, dims, { metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z, ghostDays: view.ghostDays }),
+    () => comboBy(jobs, view.dims, { values, metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z, ghostDays: view.ghostDays }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, view.extras.join(","), view.metric, view.minSample, view.minAge, view.groupVersions, vConfidence.z, view.ghostDays],
+    [jobs, values, view.dims.join(","), view.metric, view.minSample, view.minAge, view.groupVersions, vConfidence.z, view.ghostDays],
   );
 
   const resumeCount = useMemo(
-    () => comboBy(jobs, ["resume_version"], { metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z, ghostDays: view.ghostDays }).combos.length,
-    [jobs, view.metric, view.minSample, view.minAge, view.groupVersions, vConfidence.z, view.ghostDays],
+    () => comboBy(jobs, ["resume"], { values, metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z, ghostDays: view.ghostDays }).combos.length,
+    [jobs, values, view.metric, view.minSample, view.minAge, view.groupVersions, vConfidence.z, view.ghostDays],
   );
 
   const sorted = useMemo(() => {
@@ -142,9 +157,9 @@ export default function ResumePerformance() {
       <section className="space-y-4 rounded-lg border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <h2 className="mr-1 font-medium">Resume +</h2>
-            {EXTRA_DIMS.map((d) => (
-              <PillToggle key={d.key} pressed={extras.includes(d.key)} onClick={() => toggleExtra(d.key)}>
+            <h2 className="mr-1 font-medium">Group By</h2>
+            {PERF_DIMS.map((d) => (
+              <PillToggle key={d.key} pressed={selected.includes(d.key)} onClick={() => toggleDim(d.key)}>
                 {d.label}
               </PillToggle>
             ))}
@@ -178,13 +193,17 @@ export default function ResumePerformance() {
       <section className="space-y-4 rounded-lg border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className={fade}>
-            <h2 className="font-medium">Resume × {EXTRA_DIMS.find((d) => d.key === view.heatDim)?.label}</h2>
+            <h2 className="font-medium">{dimLabel(view.heatRow)} × {dimLabel(view.heatCol)}</h2>
             <p className="text-sm text-muted-foreground">Rate · Applications</p>
           </div>
-          <Segmented options={EXTRA_DIMS} value={heatDim} onChange={(d) => setParam("heat", d)} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented options={PERF_DIMS} value={heatRow} onChange={(d) => setHeat("heatRow", d)} />
+            <span className="text-muted-foreground">×</span>
+            <Segmented options={PERF_DIMS} value={heatCol} onChange={(d) => setHeat("heatCol", d)} />
+          </div>
         </div>
         <div className={fade}>
-          <ComboHeatmap jobs={jobs} dim={view.heatDim} metric={view.metric} minSample={view.minSample} minAge={view.minAge} groupVersions={view.groupVersions} ghostDays={view.ghostDays} />
+          <ComboHeatmap jobs={jobs} rowDim={view.heatRow} colDim={view.heatCol} values={values} metric={view.metric} minSample={view.minSample} minAge={view.minAge} groupVersions={view.groupVersions} ghostDays={view.ghostDays} />
         </div>
       </section>
     </div>

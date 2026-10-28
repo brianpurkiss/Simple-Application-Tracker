@@ -1,18 +1,20 @@
 import { useMemo } from "react";
-import { comboBy, type DimensionKey, fmtPct, type Metric } from "@/lib/stats";
+import { comboBy, type DimValues, fmtPct, type Metric, type PerfDim } from "@/lib/stats";
 import type { Job } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export default function ComboHeatmap({ jobs, dim, metric, minSample, minAge, groupVersions, ghostDays }: {
+export default function ComboHeatmap({ jobs, rowDim, colDim, values, metric, minSample, minAge, groupVersions, ghostDays }: {
   ghostDays: number;
   groupVersions: boolean;
   jobs: Job[];
-  dim: DimensionKey;
+  rowDim: PerfDim;
+  colDim: PerfDim;
+  values: DimValues;
   metric: Metric;
   minSample: number;
   minAge: number;
 }) {
-  const { combos } = useMemo(() => comboBy(jobs, ["resume_version", dim], { metric, minSample, minAge, groupVersions, ghostDays }), [jobs, dim, metric, minSample, minAge, groupVersions, ghostDays]);
+  const { combos } = useMemo(() => comboBy(jobs, [rowDim, colDim], { values, metric, minSample, minAge, groupVersions, ghostDays }), [jobs, rowDim, colDim, values, metric, minSample, minAge, groupVersions, ghostDays]);
   const rows = [...new Set(combos.map((c) => c.parts[0]))].sort();
   const cols = [...new Set(combos.map((c) => c.parts[1]))].sort();
   const cell = new Map(combos.map((c) => [c.parts.join("\u0000"), c]));

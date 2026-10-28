@@ -18,7 +18,6 @@ export const blankEvent = (): EventInput => ({ date: today(), type: "Follow-Up",
 export function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void }) {
   return (
     <>
-      <Input type="date" value={value.date} onChange={(e) => onChange({ ...value, date: e.target.value })} className="w-40" />
       <Select value={value.type} onValueChange={(type) => onChange({ ...value, type, time: TIMED_EVENT_TYPES.has(type) ? value.time : null })}>
         <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
         <SelectContent>
@@ -30,6 +29,7 @@ export function EventFields({ value, onChange, onSubmit }: { value: EventInput; 
           ))}
         </SelectContent>
       </Select>
+      <Input type="date" value={value.date} onChange={(e) => onChange({ ...value, date: e.target.value })} className="w-40" />
       {TIMED_EVENT_TYPES.has(value.type) && (
         <Input type="time" value={value.time ?? ""} onChange={(e) => onChange({ ...value, time: e.target.value || null })} className="w-32" />
       )}

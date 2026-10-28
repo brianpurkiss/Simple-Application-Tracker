@@ -1,28 +1,31 @@
 import { Fragment, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Star } from "lucide-react";
+import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TitleSynonyms } from "@/components/TitleSynonyms";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useJobs, useTitleSynonyms, type Job } from "@/lib/api";
+import { useJobs, useStarredGroups, useTitleSynonyms, useToggleStar, type Job, type StarredGroup } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { rowLink } from "@/lib/rowLink";
 import { fmtPct, interviewed, MIN_SAMPLE, pct } from "@/lib/stats";
 import { consolidateTitles } from "@/lib/titles/consolidate";
 import { titleGroups, type TitleGroup, type TitleVariant } from "@/lib/titles/groups";
+import { isStarred, starSet } from "@/lib/titles/starred";
 import type { TitleInfo } from "@/lib/titles/types";
 import { cn } from "@/lib/utils";
 
-type SortKey = "label" | "jobs" | "applications" | "rejections" | "interviews" | "rate";
+type SortKey = "label" | "jobs" | "applications" | "rejections" | "totalInterviews" | "uniqueInterviews" | "rate";
 
 const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
   { key: "label", label: "Title" },
   { key: "jobs", label: "Jobs", numeric: true },
   { key: "applications", label: "Applications", numeric: true },
   { key: "rejections", label: "Rejections", numeric: true },
-  { key: "interviews", label: "Interviews", numeric: true },
+  { key: "totalInterviews", label: "Total Interviews", numeric: true },
+  { key: "uniqueInterviews", label: "Unique Interviews", numeric: true },
   { key: "rate", label: "Interview Rate", numeric: true },
 ];
 
@@ -54,7 +57,14 @@ function attributeGroups(jobs: Job[], titles: Map<number, TitleInfo>, by: "senio
   });
 }
 
-type Row =Omit<TitleGroup, "jobs"> & { jobs: number; applications: number; rejections: number; interviews: number; rate: number | null };
+// `missing` marks a starred group that no longer has any jobs.
+type Row = Omit<TitleGroup, "jobs"> & { jobs: number; applications: number; rejections: number; totalInterviews: number; uniqueInterviews: number; rate: number | null; missing?: boolean };
+
+// A starred group with no jobs keeps its row, named from the label saved with the star.
+function emptyRow(s: StarredGroup): Row {
+  const label = s.label || s.key.replace(/^(seniority|type):/, "");
+  return { key: s.key, label, jobs: 0, variants: [], shared: false, unpaired: false, applications: 0, rejections: 0, totalInterviews: 0, uniqueInterviews: 0, rate: null, missing: true };
+}
 
 export default function Titles() {
   const { data: jobs = [], isLoading } = useJobs();
@@ -63,39 +73,51 @@ export default function Titles() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [showTail, setShowTail] = useState(false);
   const [groupBy, setGroupBy] = useState<GroupBy>("title");
+  const { data: stars = [] } = useStarredGroups();
+  const starred = useMemo(() => starSet(stars), [stars]);
+  const toggleStar = useToggleStar();
 
-  const rows: Row[] = useMemo(
+  const jobRows: Row[] = useMemo(
     () =>
       ((): TitleGroup[] => {
         const titles = consolidateTitles(jobs, { synonyms: synonyms.map((s) => s.terms) });
         return groupBy === "title" ? titleGroups(jobs, titles) : attributeGroups(jobs, titles, groupBy);
       })().map((g) => {
         const applied = g.jobs.filter((j) => j.applied_date);
-        const interviews = applied.filter(interviewed).length;
+        const interviews = applied.filter(interviewed);
         return {
           ...g,
           jobs: g.jobs.length,
           applications: applied.length,
           rejections: g.jobs.filter((j) => j.status === "Rejected").length,
-          interviews,
-          rate: pct(interviews, applied.length),
+          // Every screen and interview logged, versus how many different companies gave us one.
+          totalInterviews: interviews.reduce((n, j) => n + j.interview_count + j.screen_count, 0),
+          uniqueInterviews: new Set(interviews.map((j) => j.company.trim().toLowerCase())).size,
+          rate: pct(interviews.length, applied.length),
         };
       }),
     [jobs, synonyms, groupBy],
   );
+  const rows = useMemo(() => {
+    const have = new Set(jobRows.map((r) => r.key));
+    return [...jobRows, ...stars.filter((s) => s.kind === groupBy && !have.has(s.key)).map(emptyRow)];
+  }, [jobRows, stars, groupBy]);
 
+  const isStar = (r: Row) => isStarred(starred, groupBy, r.key);
+  // Starred groups lead, then the chosen sort applies within each half.
   const sorted = [...rows].sort((a, b) =>
-    sort === "label"
+    Number(isStar(b)) - Number(isStar(a)) ||
+    (sort === "label"
       ? a.label.localeCompare(b.label)
-      : (b[sort] ?? -1) - (a[sort] ?? -1) || b.jobs - a.jobs || a.label.localeCompare(b.label),
+      : (b[sort] ?? -1) - (a[sort] ?? -1) || b.jobs - a.jobs || a.label.localeCompare(b.label)),
   );
   // Groups smaller than the average paired group, and titles with no pairing at all, are the long tail.
   const tailKeys = useMemo(() => {
     if (groupBy !== "title") return new Set<string>();
-    const paired = rows.filter((r) => !r.unpaired);
+    const paired = rows.filter((r) => !r.unpaired && !r.missing);
     const mean = paired.reduce((n, r) => n + r.jobs, 0) / (paired.length || 1);
-    return new Set(rows.filter((r) => r.unpaired || r.jobs < mean).map((r) => r.key));
-  }, [rows, groupBy]);
+    return new Set(rows.filter((r) => (r.unpaired || r.jobs < mean) && !isStarred(starred, "title", r.key)).map((r) => r.key));
+  }, [rows, groupBy, starred]);
   const visible = showTail ? sorted : sorted.filter((r) => !tailKeys.has(r.key));
 
   const toggle = (key: string) =>
@@ -108,7 +130,7 @@ export default function Titles() {
 
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
 
-  const table = (list: Row[]) => <TitleTable rows={list} labelHeader={GROUP_BYS.find((g) => g.key === groupBy)!.label} sort={sort} onSort={setSort} open={open} onToggle={toggle} />;
+  const table = (list: Row[]) => <TitleTable rows={list} labelHeader={GROUP_BYS.find((g) => g.key === groupBy)!.label} sort={sort} onSort={setSort} open={open} onToggle={toggle} isStar={isStar} onStar={(key, label, on) => toggleStar.mutate({ kind: groupBy, key, label, starred: on }, { onError: (e) => toast.error(e.message) })} />;
 
   return (
     <div className="space-y-4">
@@ -137,13 +159,15 @@ export default function Titles() {
   );
 }
 
-function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle }: {
+function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, onStar }: {
   rows: Row[];
   labelHeader: string;
   sort: SortKey;
   onSort: (key: SortKey) => void;
   open: Set<string>;
   onToggle: (key: string) => void;
+  isStar: (row: Row) => boolean;
+  onStar: (key: string, label: string, starred: boolean) => void;
 }) {
   const navigate = useNavigate();
   return (
@@ -167,12 +191,26 @@ function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle }: {
         <TableBody>
           {rows.map((r) => {
             const expanded = open.has(r.key);
+            const starred = isStar(r);
             return (
               <Fragment key={r.key}>
-                <TableRow className="cursor-pointer" onClick={() => onToggle(r.key)} aria-expanded={expanded}>
-                  <TableCell className="font-medium">
+                <TableRow className={cn(!r.missing && "cursor-pointer")} onClick={() => !r.missing && onToggle(r.key)} aria-expanded={r.missing ? undefined : expanded}>
+                  <TableCell className={cn("font-medium", r.missing && "text-orange-500")} title={r.missing ? "No jobs in this group right now" : undefined}>
                     <span className="flex items-center gap-1.5">
-                      <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-90")} />
+                      <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-90", r.missing && "invisible")} />
+                      <button
+                        type="button"
+                        title={starred ? "Unstar" : "Star"}
+                        aria-label={`${starred ? "Unstar" : "Star"} ${r.label}`}
+                        aria-pressed={starred}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onStar(r.key, r.label, !starred);
+                        }}
+                        className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <Star className={cn("size-4", starred && "fill-amber-400 text-amber-400")} />
+                      </button>
                       {r.label}
                       {r.shared && (
                         <span title="Created automatically from words these titles share" className="rounded-full border px-1.5 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
@@ -180,14 +218,15 @@ function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle }: {
                         </span>
                       )}
                       <span className="text-xs font-normal text-muted-foreground">
-                        {r.variants.length > 1 && `${r.variants.length} titles`}
+                        {r.variants.length > 1 && `${r.variants.length} unique titles`}
                       </span>
                     </span>
                   </TableCell>
                   <TableCell className="text-right">{r.jobs}</TableCell>
                   <TableCell className="text-right">{r.applications}</TableCell>
                   <TableCell className="text-right">{r.rejections}</TableCell>
-                  <TableCell className="text-right">{r.interviews}</TableCell>
+                  <TableCell className="text-right">{r.totalInterviews}</TableCell>
+                  <TableCell className="text-right">{r.uniqueInterviews}</TableCell>
                   <TableCell className={cn("text-right", r.applications < MIN_SAMPLE && "text-muted-foreground")}>{fmtPct(r.rate)}</TableCell>
                 </TableRow>
                 {expanded && (

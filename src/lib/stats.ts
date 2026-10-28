@@ -90,14 +90,15 @@ export function outcomes(jobs: Job[]): Outcome[] {
   return rows;
 }
 
-export const DIMENSIONS = [
-  { key: "job_type", label: "Job Type" },
-  { key: "company_type", label: "Company Type" },
-  { key: "fit", label: "Fit" },
-  { key: "work_mode", label: "Work Mode" },
-  { key: "resume_version", label: "Resume" },
+export const PERF_DIMS = [
+  { key: "resume", label: "Resume" },
+  { key: "title", label: "Job Title" },
+  { key: "seniority", label: "Seniority" },
+  { key: "type", label: "Type" },
 ] as const;
-export type DimensionKey = (typeof DIMENSIONS)[number]["key"];
+export type PerfDim = (typeof PERF_DIMS)[number]["key"];
+// The values a job takes for a non-resume dimension (a job can sit in several starred titles). Empty = not in any starred group.
+export type DimValues = (job: Job, dim: Exclude<PerfDim, "resume">) => string[];
 
 // "eCom 2.3" -> "eCom 2.x". Labels without a ".N" suffix are left alone.
 export const VERSION_MODES = [
@@ -163,33 +164,43 @@ type ComboResult = { combos: Combo[]; baseline: number; total: number; excluded:
 // Groups jobs by every dimension in `dims` (in order) and grades each group against the overall rate.
 export function comboBy(
   jobs: Job[],
-  dims: DimensionKey[],
+  dims: PerfDim[],
   {
+    values,
     metric,
     minSample = MIN_SAMPLE,
     minAge = MIN_AGE_DAYS,
     groupVersions = false,
     z = 1.645,
     ghostDays = GHOSTED_DAYS,
-  }: { metric: Metric; minSample?: number; minAge?: number; groupVersions?: boolean; z?: number; ghostDays?: number },
+  }: { values: DimValues; metric: Metric; minSample?: number; minAge?: number; groupVersions?: boolean; z?: number; ghostDays?: number },
 ): ComboResult {
   // Jobs missing any grouped field are left out entirely, so they don't skew the average either.
   // Rejections need the ghost window to have passed, or recent applications would look better than they are.
   if (metric === "rejected") minAge = Math.max(minAge, ghostDays);
-  const eligible = jobs.filter(
-    (j) => j.applied_date && (daysSince(j.applied_date) ?? 0) >= minAge && dims.every((d) => j[d]?.trim()),
-  );
+  const valuesOf = (j: Job, d: PerfDim) => {
+    if (d !== "resume") return values(j, d);
+    const v = j.resume_version?.trim();
+    return v ? [groupVersions ? resumeFamily(v) : v] : [];
+  };
+  const eligible = jobs
+    .filter((j) => j.applied_date && (daysSince(j.applied_date) ?? 0) >= minAge)
+    .map((j) => ({ j, lists: dims.map((d) => valuesOf(j, d)) }))
+    .filter((e) => e.lists.every((l) => l.length));
   const rejected_ = (j: Job) => noResponse(j, ghostDays);
   const hit = metric === "interview" ? interviewed : rejected_;
-  const baseline = eligible.length ? eligible.filter(hit).length / eligible.length : 0;
+  const baseline = eligible.length ? eligible.filter((e) => hit(e.j)).length / eligible.length : 0;
 
   const groups = new Map<string, { parts: string[]; jobs: Job[] }>();
-  for (const j of eligible) {
-    const parts = dims.map((d) => (d === "resume_version" && groupVersions ? resumeFamily(j[d]!) : j[d]!.trim()));
-    const key = parts.join("\u0000");
-    const g = groups.get(key) ?? { parts, jobs: [] };
-    g.jobs.push(j);
-    groups.set(key, g);
+  for (const { j, lists } of eligible) {
+    // One group per combination of values, so a job in two starred titles counts in both.
+    const product = lists.reduce<string[][]>((acc, l) => acc.flatMap((p) => [...new Set(l)].map((v) => [...p, v])), [[]]);
+    for (const parts of product) {
+      const key = parts.join("\u0000");
+      const g = groups.get(key) ?? { parts, jobs: [] };
+      g.jobs.push(j);
+      groups.set(key, g);
+    }
   }
 
   const combos = [...groups.entries()].map(([key, g]): Combo => {

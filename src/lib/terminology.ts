@@ -73,7 +73,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
         definition: "The date of the latest Applied, Contact, Screen, Interview or Offer event. Drives automatic ghosting.",
       },
       { term: "Upcoming Interviews", definition: "Home strip of Screen and Interview events dated today or later, soonest first. Screen and Interview events can have a start time. Hidden when there are none." },
-      { term: "Last Activity", definition: "The date of the latest event of any type. Drives the Follow Up flag." },
+      { term: "Last Activity", definition: "The date of the latest event of any type, ignoring Screens and Interviews that are still in the future. Drives the \"days since last activity\" count and the Follow Up flag." },
       { term: "Latest Update", definition: "The Jobs list column showing the most recent Contact, Screen, Interview, Offer, Accepted or Rejection event (UPDATE_EVENT_TYPES)." },
       { term: "First Contact", definition: "The earliest Contact, Screen, Interview or Offer event. A rejection is not a contact.", aliases: ["first_contact"] },
     ],

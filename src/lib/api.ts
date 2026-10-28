@@ -190,6 +190,28 @@ export function useUpdateProfile() {
   });
 }
 
+export type StarKind = "title" | "seniority" | "type";
+export type StarredGroup = { kind: StarKind; key: string; label: string };
+
+export const useStarredGroups = () =>
+  useQuery({ queryKey: ["starred-groups"], queryFn: () => request<StarredGroup[]>("GET", "/api/starred-groups") });
+export function useToggleStar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: StarredGroup & { starred: boolean }) => request<StarredGroup[]>("PUT", "/api/starred-groups", v),
+    // Flip the star right away; the server's list replaces it on success or the old one returns on error.
+    onMutate: async ({ kind, key, label, starred }) => {
+      await qc.cancelQueries({ queryKey: ["starred-groups"] });
+      const prev = qc.getQueryData<StarredGroup[]>(["starred-groups"]) ?? [];
+      const rest = prev.filter((s) => !(s.kind === kind && s.key === key));
+      qc.setQueryData(["starred-groups"], starred ? [...rest, { kind, key, label }] : rest);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => ctx && qc.setQueryData(["starred-groups"], ctx.prev),
+    onSuccess: (data) => qc.setQueryData(["starred-groups"], data),
+  });
+}
+
 export type TitleSynonym = { id: number; terms: string[] };
 
 export const useTitleSynonyms = () =>
@@ -197,7 +219,11 @@ export const useTitleSynonyms = () =>
 
 function useSynonymMutation<V>(fn: (vars: V) => Promise<unknown>) {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["title-synonyms"] }) });
+  // Titles are consolidated from jobs plus synonyms, so refresh both for the Job Titles page.
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["title-synonyms"] }), qc.invalidateQueries({ queryKey: ["jobs"] })]),
+  });
 }
 
 export const useCreateTitleSynonym = () =>
