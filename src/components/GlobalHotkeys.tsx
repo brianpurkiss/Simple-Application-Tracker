@@ -7,7 +7,7 @@ import { usePalette } from "@/components/CommandPalette";
 
 // URL params that count as an active search/filter on each page (sort and view settings are not).
 const FILTER_PARAMS: Record<string, string[]> = {
-  "/jobs": ["q", "status", "type", "fit", "company_type", "resume"],
+  "/jobs": ["q", "status", "type", "fit", "company_type", "resume", "missing"],
   "/performance": ["metric", "versions", "conf", "recency", "min", "with"],
   "/activity": ["job_type", "company_type", "resume", "versions"],
 };

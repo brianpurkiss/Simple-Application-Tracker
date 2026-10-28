@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 export type Job = {
   id: number;
   title: string;
+  /** Optional hand-written title used only for title analysis. */
+  normalized_title: string;
   company: string;
   company_type: string;
   fit: string;
@@ -25,6 +27,8 @@ export type Job = {
   notes: string;
   job_description?: string; // only included when fetching a single job
   cover_letter?: string; // only included when fetching a single job
+  has_job_description?: boolean; // only included in job lists
+  has_cover_letter?: boolean; // only included in job lists
   created_at: string;
   updated_at: string;
   latest_update: string | null;
@@ -185,3 +189,20 @@ export function useUpdateProfile() {
     onSuccess: (data) => qc.setQueryData(["profile"], data),
   });
 }
+
+export type TitleSynonym = { id: number; terms: string[] };
+
+export const useTitleSynonyms = () =>
+  useQuery({ queryKey: ["title-synonyms"], queryFn: () => request<TitleSynonym[]>("GET", "/api/title-synonyms") });
+
+function useSynonymMutation<V>(fn: (vars: V) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["title-synonyms"] }) });
+}
+
+export const useCreateTitleSynonym = () =>
+  useSynonymMutation((terms: string[]) => request<TitleSynonym[]>("POST", "/api/title-synonyms", { terms }));
+export const useUpdateTitleSynonym = () =>
+  useSynonymMutation(({ id, terms }: TitleSynonym) => request<TitleSynonym[]>("PATCH", `/api/title-synonyms/${id}`, { terms }));
+export const useDeleteTitleSynonym = () =>
+  useSynonymMutation((id: number) => request<void>("DELETE", `/api/title-synonyms/${id}`));

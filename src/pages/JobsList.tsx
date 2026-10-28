@@ -19,6 +19,8 @@ import { Segmented } from "@/components/ui/segmented";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_COLORS } from "@/lib/colors";
 import { AddJobDialog } from "@/components/AddJobDialog";
+import { MissingDataDialog } from "@/components/MissingDataDialog";
+import { isMissing, missingField } from "@/lib/missing";
 import { type PaletteAction, jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/hooks/appActions";
 import { type Job, useJobs, useProfile, useResumes, useUpdateJob, useUpdateProfile } from "@/lib/api";
@@ -138,6 +140,10 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void): Column
   },
 ];
 
+// The status chips are views, not filters: with one of them picked and nothing else set, there's nothing to clear.
+const FILTER_KEYS = ["q", "status", "type", "fit", "company_type", "resume", "missing"];
+const VIEW_STATUSES = new Set(["active", "interviewing", "followup"]);
+
 const VIEW_OPTIONS = [
   { key: "compact", label: "Compact" },
   { key: "expanded", label: "Expanded" },
@@ -172,6 +178,15 @@ export default function JobsList() {
   const fitFilter = params.get("fit") ?? "all";
   const companyTypeFilter = params.get("company_type") ?? "all";
   const resumeFilter = params.get("resume") ?? "";
+  const missing = missingField(params.get("missing") ?? "");
+  const filtersApplied = FILTER_KEYS.some((k) => k !== "status" && params.get(k) && params.get(k) !== "all") || !VIEW_STATUSES.has(statusFilter);
+  const clearFilters = () => updateParams((p) => FILTER_KEYS.forEach((k) => p.delete(k)));
+  // Missing-data lists cover every job, so picking one resets the other filters.
+  const showMissing = (key: string) => updateParams((p) => {
+    FILTER_KEYS.forEach((k) => p.delete(k));
+    p.set("status", "all");
+    p.set("missing", key);
+  });
   const sortParam = params.get("sort") ?? "applied_date:desc";
   // Memoized: a new array every render makes TanStack Table recompute and re-render in a loop.
   const sorting = useMemo<SortingState>(() => {
@@ -187,9 +202,10 @@ export default function JobsList() {
         const statusOk = GROUP_FILTERS[statusFilter]?.(j) || (statusFilter === "followup" && isOnHold(j)) || (!GROUP_FILTERS[statusFilter] && (statusFilter === "all" || j.status === statusFilter));
         return statusOk && (typeFilter === "all" || j.job_type === typeFilter) && (fitFilter === "all" || j.fit === fitFilter)
           && (companyTypeFilter === "all" || j.company_type === companyTypeFilter)
-          && (!resumeFilter || j.resume_version === resumeFilter);
+          && (!resumeFilter || j.resume_version === resumeFilter)
+          && (!missing || isMissing(j, missing));
       }),
-    [jobs, statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter],
+    [jobs, statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter, missing],
   );
 
   const table = useReactTable({
@@ -229,7 +245,7 @@ export default function JobsList() {
   const firstScheduled = splitScheduled ? rows.findIndex((r) => isOnHold(r.original)) : -1;
   // Rows remount (replaying the enter animation) when filters or sort change; search changes keep
   // existing rows in place so only newly matching rows animate in.
-  const viewKey = [statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter, sortParam].join("|");
+  const viewKey = [statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter, missing?.key, sortParam].join("|");
 
   // Up/Down (or K/J) move the selected row; Enter (or O) opens it and L logs history on it. Only from the page itself or the table, so
   // arrows still work inside the filter dropdowns and search box.
@@ -306,7 +322,7 @@ export default function JobsList() {
       ["Quietest first (days since activity)", "days_since:desc"], ["Most recent activity", "days_since:asc"],
       ["Latest update", "latest_update:desc"], ["Job title A–Z", "title:asc"], ["Company A–Z", "company:asc"], ["Status", "status:asc"],
     ] as [string, string][]).map(([label, value]) => ({ id: `sort-${value}`, label, group: "", run: () => setParam("sort", value) })) },
-    { id: "clear", label: "Clear search and filters", group: "Jobs list", keys: ["Esc"], run: () => updateParams((p) => ["q", "status", "type", "fit", "company_type", "resume"].forEach((k) => p.delete(k))) },
+    { id: "clear", label: "Clear search and filters", group: "Jobs list", keys: ["Esc"], run: clearFilters },
     { id: "view", label: `Switch to ${view2} view`, group: "Jobs list", run: () => updateProfile.mutate({ job_list_view: view2 }) },
   ]);
 
@@ -424,6 +440,20 @@ export default function JobsList() {
             Resume: {resumeFilter} <X className="size-3.5" />
           </button>
         )}
+        {missing && (
+          <button
+            onClick={() => updateParams((p) => p.delete("missing"))}
+            className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm hover:bg-accent"
+            title="Clear missing data filter"
+          >
+            Missing: {missing.label} <X className="size-3.5" />
+          </button>
+        )}
+        {filtersApplied && (
+          <button onClick={clearFilters} className="px-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            Clear Filters
+          </button>
+        )}
         <span className="ml-auto text-sm text-muted-foreground">{rows.length} jobs</span>
         <Segmented options={VIEW_OPTIONS} value={view} onChange={(v) => updateProfile.mutate({ job_list_view: v })} />
       </div>
@@ -504,9 +534,12 @@ export default function JobsList() {
           </TableBody>
         </Table>
       </div>
-      <Link to="/trash" className="ml-auto flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <Trash2 className="size-4" /> Trash
-      </Link>
+      <div className="flex items-center justify-between">
+        <MissingDataDialog jobs={jobs} value={missing?.key ?? ""} onPick={showMissing} />
+        <Link to="/trash" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <Trash2 className="size-4" /> Trash
+        </Link>
+      </div>
     </div>
   );
 }

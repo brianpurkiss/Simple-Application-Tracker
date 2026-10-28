@@ -125,6 +125,41 @@ if (!jobColumns.has("salary_min")) {
   console.log(`Salary migrated to numeric range. Unparsed: ${unparsed.length ? unparsed.join(", ") : "none"}`);
 }
 
+// A hand-written title used only for title analysis; the real title stays as posted. Empty when unused.
+if (!jobColumns.has("normalized_title")) {
+  db.exec("ALTER TABLE jobs ADD COLUMN normalized_title TEXT NOT NULL DEFAULT ''");
+}
+
+// User-defined sets of terms that mean the same thing in a job title ("eCommerce, eCom, eComm").
+// `terms` is a JSON array; the first term is the one shown.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS title_synonyms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    terms TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+// A small starter set that fits any field: spelled-out term first, abbreviation after. Added once
+// (tracked by user_version), so deleting one never brings it back and existing sets are untouched.
+if ((db.pragma("user_version", { simple: true }) as number) < 1) {
+  const starters = [
+    ["Junior", "Entry Level", "Entry-Level"],
+    ["Representative", "Rep"],
+    ["Operations", "Ops"],
+    ["Human Resources", "HR"],
+    ["Information Technology", "IT"],
+    ["Customer Service", "Customer Support"],
+  ];
+  const insert = db.prepare("INSERT INTO title_synonyms (terms) VALUES (?)");
+  db.transaction(() => {
+    const have = new Set((db.prepare("SELECT terms FROM title_synonyms").all() as { terms: string }[]).map((r) => r.terms.toLowerCase()));
+    for (const terms of starters) if (!have.has(JSON.stringify(terms).toLowerCase())) insert.run(JSON.stringify(terms));
+    db.pragma("user_version = 1");
+  })();
+}
+
 // Profile fields and the resume active flag were added after the first version.
 const profileColumns = new Set((db.pragma("table_info(profile)") as { name: string }[]).map((c) => c.name));
 if (!profileColumns.has("your_name")) {

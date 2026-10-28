@@ -24,6 +24,7 @@ const rangeError = (min: number | null | undefined, max: number | null | undefin
 
 const jobSchema = z.object({
   title: text.min(1),
+  normalized_title: text,
   company: text,
   company_type: text,
   fit: text,
@@ -91,10 +92,11 @@ function withAutoGhost<T extends { status: string; last_heard: string | null; ap
   return { ...job, status: ghosted ? "Ghosted" : job.status, auto_ghosted: ghosted };
 }
 
-// Descriptions and cover letters can be long; the list views don't need them.
+// Descriptions and cover letters can be long; the list views only need to know whether they're filled in.
 const listJobs = (where: string, order: string) =>
   (db.prepare(`${jobListSql} WHERE ${where} ORDER BY ${order}`).all(...UPDATE_EVENT_TYPES) as any[])
-    .map(({ job_description, cover_letter, ...job }) => withAutoGhost(job));
+    .map(({ job_description, cover_letter, ...job }) =>
+      withAutoGhost({ ...job, has_job_description: !!job_description.trim(), has_cover_letter: !!cover_letter.trim() }));
 
 const getEvent = (id: number | string) => db.prepare("SELECT * FROM events WHERE id = ?").get(id);
 
@@ -219,6 +221,35 @@ app.patch("/api/events/:id", (req, res) => {
 
 app.delete("/api/events/:id", (req, res) => {
   db.prepare("DELETE FROM events WHERE id = ?").run(req.params.id);
+  res.status(204).end();
+});
+
+// Each set needs at least two distinct terms to mean anything.
+const synonymSchema = z.object({
+  terms: z.array(text).transform((t) => [...new Set(t.filter(Boolean))]).refine((t) => t.length >= 2, "Enter at least two terms"),
+});
+const getSynonyms = () =>
+  (db.prepare("SELECT id, terms FROM title_synonyms ORDER BY id").all() as { id: number; terms: string }[])
+    .map((r) => ({ id: r.id, terms: JSON.parse(r.terms) as string[] }));
+
+app.get("/api/title-synonyms", (_req, res) => res.json(getSynonyms()));
+
+app.post("/api/title-synonyms", (req, res) => {
+  const parsed = synonymSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  db.prepare("INSERT INTO title_synonyms (terms) VALUES (?)").run(JSON.stringify(parsed.data.terms));
+  res.status(201).json(getSynonyms());
+});
+
+app.patch("/api/title-synonyms/:id", (req, res) => {
+  const parsed = synonymSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  db.prepare("UPDATE title_synonyms SET terms = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(parsed.data.terms), req.params.id);
+  res.json(getSynonyms());
+});
+
+app.delete("/api/title-synonyms/:id", (req, res) => {
+  db.prepare("DELETE FROM title_synonyms WHERE id = ?").run(req.params.id);
   res.status(204).end();
 });
 

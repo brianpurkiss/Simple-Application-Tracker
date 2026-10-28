@@ -24,7 +24,7 @@ import { APPLIED_VIA, COMPANY_TYPES, FITS, GHOSTED_DAYS, JOB_TYPES, RESUME_VERSI
 const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}</span>;
 
 const EDITABLE = [
-  "title", "company", "company_type", "fit", "salary_min", "salary_max", "job_type", "resume_version", "work_mode", "applied_date",
+  "title", "normalized_title", "company", "company_type", "fit", "salary_min", "salary_max", "job_type", "resume_version", "work_mode", "applied_date",
   "follow_up_on", "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "contact_linkedin", "offer_info", "notes",
   "job_description", "cover_letter",
 ] as const satisfies readonly (keyof JobInput)[];
@@ -161,6 +161,13 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <ComboField label="Job Title" value={draft.title} onChange={set("title")} options={titles} />
               <TextField label="Company" value={draft.company} onChange={set("company")} />
+              <TextField
+                label="Normalized Title (for title analysis only)"
+                value={draft.normalized_title}
+                onChange={set("normalized_title")}
+                placeholder="Optional. e.g. Director of eCommerce"
+                className="sm:col-span-2"
+              />
               <ComboField label="Job Type" value={draft.job_type} onChange={set("job_type")} options={jobTypes} />
               <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
               <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />

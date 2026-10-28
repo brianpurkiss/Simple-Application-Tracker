@@ -17,6 +17,7 @@ import ResumeDetail from "@/pages/ResumeDetail";
 import ResumePerformance from "@/pages/ResumePerformance";
 import Activity from "@/pages/Activity";
 import Calendar from "@/pages/Calendar";
+import Titles from "@/pages/Titles";
 import Backups from "@/pages/Backups";
 import Trash from "@/pages/Trash";
 import Shortcuts from "@/pages/Shortcuts";
@@ -48,7 +49,7 @@ function Nav() {
 
   return (
     <nav className="flex h-full text-sm">
-      {[["/jobs", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/performance", "Performance"], ["/activity", "Activity"], ["/calendar", "Calendar"]].map(([to, label]) => (
+      {[["/jobs", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/performance", "Performance"], ["/titles", "Titles"], ["/activity", "Activity"], ["/calendar", "Calendar"]].map(([to, label]) => (
         <Link key={to} to={to} className={`flex h-full items-center px-3 hover:bg-muted/50 ${linkClass(to)}`}>{label}</Link>
       ))}
     </nav>
@@ -110,6 +111,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/performance" element={<ResumePerformance />} />
             <Route path="/activity" element={<Activity />} />
             <Route path="/calendar" element={<Calendar />} />
+            <Route path="/titles" element={<Titles />} />
             <Route path="/stats" element={<Navigate to="/activity" replace />} />
             <Route path="/backups" element={<Backups />} />
             <Route path="/trash" element={<Trash />} />
