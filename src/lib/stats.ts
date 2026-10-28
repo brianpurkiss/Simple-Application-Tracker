@@ -79,7 +79,7 @@ export function outcomes(jobs: Job[]): Outcome[] {
   const rows: Outcome[] = [
     { key: "waiting", label: "Waiting for Response", color: "#f59e0b", count: jobs.filter((j) => j.status === "Applied").length },
     { key: "interviewed", label: "Interviewed", color: "#3b82f6", count: jobs.filter((j) => j.status === "Interviewed").length },
-    { key: "rejected-post", label: "Rejected After Interview", color: "#dc2626", count: rejected.filter(reachedInterview).length },
+    { key: "rejected-post", label: "Rejected, Post Interview", color: "#dc2626", count: rejected.filter(reachedInterview).length },
     { key: "rejected-pre", label: "Rejected, No Interview", color: "#f87171", count: rejected.filter((j) => !reachedInterview(j)).length },
     { key: "withdrew", label: "Withdrew", color: "#525252", count: jobs.filter((j) => j.status === "Withdrew").length },
     { key: "ghosted", label: "Ghosted", color: "#a3a3a3", count: jobs.filter((j) => j.status === "Ghosted").length },
@@ -249,6 +249,24 @@ export function timing(jobs: Job[]): TimingPoint[] {
     if (j.rejected_date) place(daysBetween(j.applied_date, j.rejected_date), reachedInterview(j) ? "rejected" : "rejectedNoInterview");
   }
   return points;
+}
+
+export type SpanStats = { count: number; min: number; max: number; avg: number; median: number } | null;
+
+// Days from first interview to formal rejection, for jobs that have both.
+export function interviewToRejection(jobs: Job[]): SpanStats {
+  const days = jobs
+    .filter((j) => j.first_interview && j.rejected_date)
+    .map((j) => daysBetween(j.first_interview!, j.rejected_date!))
+    .filter((d) => d >= 0);
+  if (!days.length) return null;
+  return {
+    count: days.length,
+    min: Math.min(...days),
+    max: Math.max(...days),
+    avg: days.reduce((a, b) => a + b, 0) / days.length,
+    median: median(days)!,
+  };
 }
 
 export type Cohort = {

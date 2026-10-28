@@ -130,7 +130,7 @@ export default function ResumePerformance() {
           <h1 className="text-xl font-semibold">Performance</h1>
           <p className={cn("text-sm text-muted-foreground", fade)}>
             {total} Applications Counted
-            {excluded > 0 && `, ${excluded} Too Recent`} · Avg Response {Math.round(baseline * 100)}% · {resumeCount} {resumeCount === 1 ? "Resume" : "Resumes"}
+            {excluded > 0 && `, ${excluded} Too Recent`} · {view.metric === "interview" ? "Avg Interview Rate" : "Avg Rejected, No Interview Rate"} {Math.round(baseline * 100)}% · {resumeCount} {resumeCount === 1 ? "Resume" : "Resumes"}
           </p>
         </div>
         <div className="ml-auto">
@@ -264,8 +264,8 @@ export default function ResumePerformance() {
                 <div className="font-medium text-foreground">Badges</div>
                 <p><span className="text-emerald-400">Standout</span>: at least {minSample} applications and {metric === "interview" ? "above" : "below"} average even at the pessimistic end of its range (at the confidence set above), so it's unlikely to be luck.</p>
                 <p><span className="text-blue-400">Promising</span>: at least {minSample} applications and better than average, but the sample is still too small to rule out luck.</p>
-                <p><span className="text-red-400">Below average</span>: at least {minSample} applications and {metric === "interview" ? "below" : "above"} average even at the optimistic end of its range.</p>
-                <p>Low volume: under {minSample} applications.</p>
+                <p><span className="text-red-400">Below Average</span>: at least {minSample} applications and {metric === "interview" ? "below" : "above"} average even at the optimistic end of its range.</p>
+                <p>Low Volume: under {minSample} applications.</p>
               </div>
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Sorting</div>

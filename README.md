@@ -50,9 +50,14 @@ On Windows and Linux, use Ctrl wherever Cmd is shown. Single-key shortcuts are i
 | `F` | Go to Follow Up |
 | `P` | Go to Performance |
 | `A` | Go to Activity |
+| `T` | Go to Terminology |
 | `Cmd+F` | Jump to the job search |
 | `Esc` | Leave the focused field; otherwise clear the active search/filters on Jobs, Performance and Activity (on a job, back to the Jobs list; on a resume, back to Resumes) |
 | `Cmd+S` | Save changes (job detail page) |
+
+## Terminology
+
+`src/lib/terminology.ts` is the single source of truth for what every status, event, field and metric is called and how it is calculated. It is shown on the Terminology page (`T`). When building or changing a page, label or chart, read it first and use its exact terms and casing, and update it when you add or rename a term.
 
 ## Importing
 

@@ -18,7 +18,7 @@ import SalaryDistribution from "@/components/stats/SalaryDistribution";
 import Timing from "@/components/stats/Timing";
 import WeekdayInsights from "@/components/stats/WeekdayInsights";
 import { type ActivityEvent, type Job, useEvents, useJobs, useResumes } from "@/lib/api";
-import { VERSION_MODES, funnel, kpis, outcomes, resumeFamily, timing, weeklyCohorts } from "@/lib/stats";
+import { VERSION_MODES, funnel, interviewToRejection, kpis, outcomes, resumeFamily, timing, weeklyCohorts } from "@/lib/stats";
 import {
   CATEGORIES,
   type Category,
@@ -339,7 +339,7 @@ export default function Activity() {
         {view === "calendar" && <WeekdayInsights events={filteredEvents} />}
       </div>
       <PipelineCumulative data={progress} />
-      <Timing data={timing(filteredJobs)} />
+      <Timing data={timing(filteredJobs)} afterInterview={interviewToRejection(filteredJobs)} />
       <CohortTable cohorts={weeklyCohorts(filteredJobs)} />
       <SalaryDistribution jobs={filteredJobs} />
       <Extras items={trivia} />

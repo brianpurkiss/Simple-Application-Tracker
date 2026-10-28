@@ -96,7 +96,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
           </p>
         </div>
         <Button asChild variant="outline" title="View jobs that used this resume">
-          <Link to={`/?${new URLSearchParams({ resume: resume.version, status: "all" })}`}><Briefcase /> Jobs</Link>
+          <Link to={`/jobs?${new URLSearchParams({ resume: resume.version, status: "all" })}`}><Briefcase /> Jobs</Link>
         </Button>
         <Button asChild variant="outline" title="View activity for this resume">
           <Link to={`/activity?${new URLSearchParams({ resume: resume.version })}`}><ChartNoAxesCombined /> Activity</Link>
@@ -109,7 +109,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
             <CardHeader><CardTitle>Details</CardTitle></CardHeader>
             <CardContent className="grid gap-4">
               <TextField label="Version" value={draft.version} onChange={set("version")} />
-              <TextAreaField label="Internal notes" value={draft.notes} onChange={set("notes")} rows={8} />
+              <TextAreaField label="Internal Notes" value={draft.notes} onChange={set("notes")} rows={8} />
             </CardContent>
           </Card>
 
@@ -155,7 +155,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
         </Card>
 
         <Card className="lg:col-span-5">
-          <CardHeader><CardTitle>Plain text</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Plain Text</CardTitle></CardHeader>
           <CardContent>
             <TextAreaField
               label="Paste the plain text of this resume. It's what gets compared against job descriptions."

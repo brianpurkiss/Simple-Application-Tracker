@@ -9,6 +9,7 @@ import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { EVENT_COLORS, HistoryPanel } from "@/components/HistoryPanel";
 import { StatusBadge } from "@/components/StatusBadge";
 import { type Job, type JobInput, useDeleteJob, useJob, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
+import { daysSince } from "@/lib/format";
 import { isEditable, useHotkey } from "@/lib/hotkeys";
 import { FilterBox } from "@/components/stats/FilterMenu";
 import { APPLIED_VIA, COMPANY_TYPES, FITS, GHOSTED_DAYS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES } from "@/lib/options";
@@ -31,7 +32,7 @@ export default function JobDetail() {
   const id = Number(useParams().id);
   const { data, isLoading } = useJob(id);
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
-  if (!data) return <p>Job not found. <Link to="/" className="underline">Back to jobs</Link></p>;
+  if (!data) return <p>Job not found. <Link to="/jobs" className="underline">Back to jobs</Link></p>;
   return <JobEditor key={data.id} job={data} />;
 }
 
@@ -70,7 +71,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const remove = () => {
     deleteJob.mutate(job.id, {
       onSuccess: () => {
-        navigate("/");
+        navigate("/jobs");
         toast.success("Moved to trash", {
           description: job.title,
           action: { label: "Undo", onClick: () => restoreJob.mutate(job.id) },
@@ -86,7 +87,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     if (changed.length > 0 && !window.confirm("Discard unsaved changes?")) return;
     // Step back when we came from the list so its filters (kept in the URL) survive.
     if ((location.state as { fromList?: boolean } | null)?.fromList) navigate(-1);
-    else navigate("/");
+    else navigate("/jobs");
   });
 
   // Cmd+S saves from anywhere on the page, including inside a field, and never opens the browser's save dialog.
@@ -96,6 +97,8 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   }, { mod: true });
 
   const restore = () => restoreJob.mutate(job.id, { onSuccess: () => toast.success("Restored from trash") });
+
+  const quiet = daysSince(job.last_activity ?? job.applied_date);
 
   return (
     <div className="space-y-5 pb-20">
@@ -140,7 +143,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
               <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
               <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />
               <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
-              <SelectField label="Location" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />
+              <SelectField label="Work Mode" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />
               <TextField label="Job Description Link" value={draft.jd_link} onChange={set("jd_link")} />
             </CardContent>
           </Card>
@@ -148,7 +151,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           <Card>
             <CardHeader><CardTitle>Application</CardTitle></CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Date" type="date" value={draft.applied_date} onChange={set("applied_date")} />
+              <TextField label="Applied" type="date" value={draft.applied_date} onChange={set("applied_date")} />
               <ComboField label="Resume Version" value={draft.resume_version} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
               <SelectField label="Applied Via" value={draft.applied_via} onChange={set("applied_via")} options={APPLIED_VIA} />
               <ComboField label="Agency Name" value={draft.agency_name} onChange={set("agency_name")} options={agencyNames} />
@@ -197,7 +200,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
 
         <div className="space-y-5 lg:col-span-2">
           <Card className="h-fit">
-            <CardHeader><CardTitle>History</CardTitle></CardHeader>
+            <CardHeader className="flex-row items-baseline justify-between space-y-0">
+              <CardTitle>History</CardTitle>
+              {quiet !== null && (
+                <span className="text-xs text-muted-foreground">
+                  {quiet === 0 ? "Active today" : `${quiet} ${quiet === 1 ? "day" : "days"} since last activity`}
+                </span>
+              )}
+            </CardHeader>
             <CardContent>
               <HistoryPanel jobId={job.id} events={job.events} />
             </CardContent>

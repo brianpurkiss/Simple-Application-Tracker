@@ -34,7 +34,7 @@ export default function SalaryDistribution({ jobs }: { jobs: Job[] }) {
     <div className="space-y-4 rounded-lg border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-medium">Salary range</h2>
+          <h2 className="font-medium">Salary Distribution</h2>
           <p className="text-sm text-muted-foreground">
             {curve.jobCount
               ? `${curve.jobCount} role${curve.jobCount === 1 ? "" : "s"} · ${k(curve.low!)} low · ${k(round(curve.mean!))} mean · ${k(curve.high!)} high · ${curve.openEnded} without range`

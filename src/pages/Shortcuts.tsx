@@ -6,12 +6,13 @@ const GROUPS: { title: string; items: { keys: string[]; label: string }[] }[] = 
   {
     title: "Go to",
     items: [
-      { keys: ["H"], label: "Jobs" },
+      { keys: ["H"], label: "Home" },
       { keys: ["J"], label: "Jobs" },
       { keys: ["F"], label: "Follow Up" },
       { keys: ["R"], label: "Resumes" },
       { keys: ["P"], label: "Performance" },
       { keys: ["A"], label: "Activity" },
+      { keys: ["T"], label: "Terminology" },
     ],
   },
   {

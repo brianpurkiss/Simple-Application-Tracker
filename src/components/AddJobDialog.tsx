@@ -93,14 +93,14 @@ export function AddJobDialog() {
               <SelectField label="Company Type" value={job.company_type!} onChange={set("company_type")} options={COMPANY_TYPES} />
               <SalaryRangeField min={salaryMin} max={salaryMax} onMin={setSalaryMin} onMax={setSalaryMax} invalid={badRange} />
               <SelectField label="Fit" value={job.fit!} onChange={set("fit")} options={FITS} />
-              <SelectField label="Location" value={job.work_mode!} onChange={set("work_mode")} options={WORK_MODES} />
+              <SelectField label="Work Mode" value={job.work_mode!} onChange={set("work_mode")} options={WORK_MODES} />
               <TextField label="Job Description Link" value={job.jd_link!} onChange={set("jd_link")} placeholder="https://" />
             </div>
           </section>
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Application</h3>
             <div className="grid grid-cols-2 gap-4">
-              <TextField label="Date" type="date" value={job.applied_date ?? ""} onChange={set("applied_date")} />
+              <TextField label="Applied" type="date" value={job.applied_date ?? ""} onChange={set("applied_date")} />
               <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
               <SelectField label="Applied Via" value={job.applied_via!} onChange={set("applied_via")} options={APPLIED_VIA} />
               <ComboField label="Agency Name" value={job.agency_name!} onChange={set("agency_name")} options={agencyNames} />

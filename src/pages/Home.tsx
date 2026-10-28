@@ -1,0 +1,155 @@
+import { useMemo } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { AddJobDialog } from "@/components/AddJobDialog";
+import { FOLLOW_UP } from "@/components/GlobalHotkeys";
+import { Kpi } from "@/components/stats/KpiRow";
+import { StatusBadge } from "@/components/StatusBadge";
+import { useEvents, useJobs, type Job } from "@/lib/api";
+import { weekStart } from "@/lib/activity";
+import { daysSince, formatDate, isActive, needsFollowUp, today } from "@/lib/format";
+import { fmtPct, kpis } from "@/lib/stats";
+import { momentum } from "@/lib/insights";
+import { STALE_DAYS } from "@/lib/options";
+import { rowLink } from "@/lib/rowLink";
+
+const WEEKS = 8;
+const LIST_SIZE = 5;
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+// The recruiting agency, when one is recorded.
+const via = (j: Pick<Job, "agency_name"> | undefined) => j?.agency_name || "";
+const quietDays = (j: Job) => daysSince(j.last_activity ?? j.applied_date) ?? 0;
+
+function Card({ title, count, to, children }: { title: string; count?: number; to?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border bg-card">
+      <div className="flex items-center justify-between border-b px-4 py-2.5">
+        <h2 className="font-medium">{title}{count ? <span className="ml-2 text-sm text-muted-foreground">{count}</span> : null}</h2>
+        {to && count ? <Link to={to} className="text-sm text-muted-foreground hover:text-foreground">View all</Link> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function JobRows({ jobs, detail, empty }: { jobs: Job[]; detail: (j: Job) => string; empty: string }) {
+  const navigate = useNavigate();
+  if (!jobs.length) return <p className="px-4 py-6 text-sm text-muted-foreground">{empty}</p>;
+  return (
+    <ul className="divide-y">
+      {jobs.map((j) => (
+        <li key={j.id} {...rowLink(navigate, `/jobs/${j.id}`)} className="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-muted/50">
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-medium">{j.title}</div>
+            <div className="truncate text-sm text-muted-foreground">{j.company || "Unknown"}{via(j) && ` · via ${via(j)}`}</div>
+          </div>
+          <StatusBadge job={j} />
+          <span className="w-28 text-right text-sm whitespace-nowrap text-muted-foreground">{detail(j)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function WeeklyBars({ counts }: { counts: { week: string; n: number }[] }) {
+  const max = Math.max(1, ...counts.map((c) => c.n));
+  return (
+    <div className="flex h-32 items-end gap-2 px-4 pt-4 pb-3">
+      {counts.map((c, i) => (
+        <div key={c.week} className="flex h-full flex-1 flex-col items-center justify-end gap-1" title={`Week of ${formatDate(c.week)}: ${plural(c.n, "application")}`}>
+          <span className="text-xs text-muted-foreground tabular-nums">{c.n}</span>
+          <div className={i === counts.length - 1 ? "w-full rounded-sm bg-primary" : "w-full rounded-sm bg-muted-foreground/40"} style={{ height: `${(c.n / max) * 70}%`, minHeight: 2 }} />
+          <span className="text-[11px] whitespace-nowrap text-muted-foreground">{new Date(`${c.week}T00:00`).toLocaleDateString("en-US", { month: "numeric", day: "numeric" })}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Home() {
+  const { search } = useLocation();
+  const { data: jobs = [], isLoading } = useJobs();
+  const { data: events = [] } = useEvents();
+  const todayIso = today();
+
+  const jobsById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
+
+  const data = useMemo(() => {
+    const followUp = jobs.filter(needsFollowUp).sort((a, b) => quietDays(b) - quietDays(a));
+    const followUpIds = new Set(followUp.map((j) => j.id));
+    // Applied and still waiting: nobody has replied and nothing has been logged for a while.
+    const noReply = jobs
+      .filter((j) => isActive(j) && j.status === "Applied" && !followUpIds.has(j.id) && quietDays(j) >= STALE_DAYS)
+      .sort((a, b) => quietDays(b) - quietDays(a));
+    const thisMonday = weekStart(todayIso);
+    const weeks = Array.from({ length: WEEKS }, (_, i) =>
+      new Date(Date.parse(thisMonday) - (WEEKS - 1 - i) * 7 * 86_400_000).toISOString().slice(0, 10));
+    const weekly = weeks.map((week) => ({ week, n: jobs.filter((j) => j.applied_date && weekStart(j.applied_date) === week).length }));
+    const recent = [...events].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, LIST_SIZE);
+    return { followUp, noReply, weekly, recent, m: momentum(jobs, events, todayIso), k: kpis(jobs, events, todayIso) };
+  }, [jobs, events, todayIso]);
+
+  // Old bookmarks like /?status=followup now live on /jobs.
+  if (search) return <Navigate to={`/jobs${search}`} replace />;
+
+  if (!isLoading && !jobs.length) {
+    return (
+      <div className="mx-auto max-w-md space-y-3 py-16 text-center">
+        <title>Home | Application Tracker</title>
+        <h1 className="text-xl font-semibold">Track your first application</h1>
+        <p className="text-sm text-muted-foreground">Add a job and your follow-ups, streak, and weekly pace will show up here.</p>
+        <AddJobDialog />
+      </div>
+    );
+  }
+
+  const { m, k, followUp, noReply, weekly, recent } = data;
+  return (
+    <div className="space-y-4">
+      <title>Home | Application Tracker</title>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Home</h1>
+        <AddJobDialog />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi label="Applied This Week" value={String(m.thisWeek.applications)}>
+          {m.average ? `Average ${Number.isInteger(m.average.applications) ? m.average.applications : m.average.applications.toFixed(1)} a week` : "Your first week"}
+        </Kpi>
+        <Kpi label="Streak" value={plural(m.streak.current, "day")}>
+          {m.streak.current ? "Days in a row with an application" : "Apply today to start one"} · Best {m.streak.best}
+        </Kpi>
+        <Kpi label="Interviewing" value={String(m.pipeline.interviewing)}>{plural(m.pipeline.active, "active job")}</Kpi>
+        <Kpi label="Response Rate" value={fmtPct(k.responseRate)}>Heard anything back</Kpi>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="space-y-4 lg:col-span-3">
+          <Card title="Follow Up" count={followUp.length} to={FOLLOW_UP}>
+            <JobRows jobs={followUp.slice(0, LIST_SIZE)} detail={(j) => `${quietDays(j)} days quiet`} empty="Nothing is waiting on a follow-up." />
+          </Card>
+          <Card title="Applied, no response" count={noReply.length} to="/jobs?status=Applied">
+            <JobRows jobs={noReply.slice(0, LIST_SIZE)} detail={(j) => `${quietDays(j)} days`} empty="No applications are waiting on a reply." />
+          </Card>
+        </div>
+        <div className="space-y-4 lg:col-span-2">
+          <Card title="Applications, last 8 weeks">
+            <WeeklyBars counts={weekly} />
+          </Card>
+          <Card title="Recent activity" to="/activity" count={recent.length}>
+            <ul className="divide-y">
+              {recent.map((e) => (
+                <li key={e.id}>
+                  <Link to={`/jobs/${e.job_id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-muted/50">
+                    <span className="min-w-0 truncate"><span className="font-medium">{e.type}</span> · {e.company || e.title}{via(jobsById.get(e.job_id)) && ` · via ${via(jobsById.get(e.job_id))}`}</span>
+                    <span className="whitespace-nowrap text-muted-foreground">{formatDate(e.date)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

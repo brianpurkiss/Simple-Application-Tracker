@@ -62,7 +62,7 @@ const columns: ColumnDef<Job>[] = [
       );
     },
   },
-  { accessorKey: "job_type", header: "Type" },
+  { accessorKey: "job_type", header: "Job Type" },
   { accessorKey: "fit", header: "Fit" },
   { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge job={row.original} /> },
   { ...dateCell("applied_date"), header: "Applied" },
@@ -137,7 +137,7 @@ export default function JobsList() {
     ["all", "All"],
     ["active", "Active"],
     ["interviewing", "Interviewing"],
-    ["followup", "Needs follow-up"],
+    ["followup", "Follow Up"],
     ["closed", "Closed"],
   ];
 

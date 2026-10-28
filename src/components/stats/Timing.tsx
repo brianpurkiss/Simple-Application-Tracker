@@ -1,19 +1,20 @@
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
-import type { TimingPoint } from "@/lib/stats";
+import { GHOSTED_DAYS } from "@/lib/options";
+import type { SpanStats, TimingPoint } from "@/lib/stats";
 
 const SERIES = [
   { key: "interview", label: "First Interview", dot: "bg-blue-500" },
   { key: "rejectedNoInterview", label: "Rejected, No Interview", dot: "bg-red-400" },
-  { key: "rejected", label: "Rejected", dot: "bg-red-600" },
+  { key: "rejected", label: "Rejected, Post Interview", dot: "bg-red-600" },
 ] as const;
 
-export default function Timing({ data }: { data: TimingPoint[] }) {
+export default function Timing({ data, afterInterview }: { data: TimingPoint[]; afterInterview: SpanStats }) {
   return (
     <div className="space-y-4 rounded-lg border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-medium">How Long Replies Take</h2>
-          <p className="text-sm text-muted-foreground">Days from applying. Past 21 days silence counts as ghosted.</p>
+          <p className="text-sm text-muted-foreground">Days from applying. Past {GHOSTED_DAYS} days silence counts as ghosted.</p>
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
           {SERIES.map((s) => (
@@ -36,8 +37,30 @@ export default function Timing({ data }: { data: TimingPoint[] }) {
         />
         <Bar dataKey="interview" name="First Interview" fill="#3b82f6" radius={[3, 3, 0, 0]} />
         <Bar dataKey="rejectedNoInterview" name="Rejected, No Interview" fill="#f87171" radius={[3, 3, 0, 0]} />
-        <Bar dataKey="rejected" name="Rejected" fill="#dc2626" radius={[3, 3, 0, 0]} />
+        <Bar dataKey="rejected" name="Rejected, Post Interview" fill="#dc2626" radius={[3, 3, 0, 0]} />
       </BarChart>
+      <div className="border-t pt-4">
+        <h3 className="text-sm font-medium">First Interview to Rejection</h3>
+        <p className="text-sm text-muted-foreground">Days from first interview to a formal rejection.</p>
+        {afterInterview ? (
+          <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-5">
+            {[
+              ["Min", afterInterview.min],
+              ["Max", afterInterview.max],
+              ["Avg", Math.round(afterInterview.avg * 10) / 10],
+              ["Median", afterInterview.median],
+              ["Roles", afterInterview.count],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="text-xl font-semibold tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">No interviewed roles have been rejected yet.</p>
+        )}
+      </div>
     </div>
   );
 }

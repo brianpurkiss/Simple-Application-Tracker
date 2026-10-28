@@ -56,8 +56,8 @@ export function AddResumeDialog() {
               <Label htmlFor="resume-pdf" className="text-xs text-muted-foreground">PDF (optional)</Label>
               <Input id="resume-pdf" type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </div>
-            <TextAreaField label="Internal notes" value={resume.notes!} onChange={set("notes")} rows={3} />
-            <TextAreaField label="Plain text version" value={resume.plain_text!} onChange={set("plain_text")} rows={8} />
+            <TextAreaField label="Internal Notes" value={resume.notes!} onChange={set("notes")} rows={3} />
+            <TextAreaField label="Plain Text Version" value={resume.plain_text!} onChange={set("plain_text")} rows={8} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
