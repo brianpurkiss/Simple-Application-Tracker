@@ -23,7 +23,7 @@ import { type PaletteAction, jobActions, usePalette, usePaletteActions } from "@
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/hooks/appActions";
 import { type Job, useJobs, useProfile, useResumes, useUpdateJob, useUpdateProfile } from "@/lib/api";
 import { loadSelected, saveOrder, saveSelected } from "@/lib/listOrder";
-import { isEditable, overlayOpen } from "@/hooks/hotkeys";
+import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { daysSince, formatDate, isOnHold } from "@/lib/format";
 import { isActive, needsFollowUp, reachedInterview } from "@/lib/jobs";
 import { toast } from "sonner";
@@ -311,6 +311,25 @@ export default function JobsList() {
   ]);
 
   useEffect(() => saveSelected(selectedId), [selectedId]);
+
+  // Cmd/Ctrl+F replaces the browser's find with the list search, on this page only.
+  useHotkey("f", (e) => {
+    if (overlayOpen()) return;
+    e.preventDefault();
+    const input = document.getElementById(SEARCH_INPUT_ID) as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
+  }, { mod: true });
+
+  // Esc also deselects the row (alongside GlobalHotkeys clearing filters), unless it's closing something or leaving a field.
+  useHotkey("Escape", (e) => {
+    if (!isEditable(e.target) && !overlayOpen()) setSelectedId(null);
+  });
+
+  // A selection that filters have hidden (e.g. Esc clearing them) is dropped, so it can't linger unseen.
+  useEffect(() => {
+    if (selectedId !== null && jobs.length && !rows.some((r) => r.original.id === selectedId)) setSelectedId(null);
+  }, [rows, selectedId, jobs.length]);
 
   const hasRows = rows.length > 0;
   useEffect(() => {

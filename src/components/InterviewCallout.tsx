@@ -33,7 +33,7 @@ export function InterviewCallout() {
       title="Go to this interview's job"
       className={`mr-2 rounded-full bg-amber-400 px-3 py-1 text-sm font-semibold text-black hover:bg-amber-300 ${next.minutes <= FLASH_MIN ? "animate-pulse" : ""}`}
     >
-      Interview in {next.minutes}min
+      {next.minutes === 0 ? "Interview Now!" : `Interview in ${next.minutes}min`}
     </Link>
   );
 }

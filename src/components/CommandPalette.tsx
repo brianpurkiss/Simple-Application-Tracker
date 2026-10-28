@@ -54,7 +54,7 @@ function logActions(job: Job, logHistory: Palette["logHistory"], group: string, 
   return [
     ...generic,
     ...EVENT_TYPES.map((t) => ({
-      id: `log-${t}`, label: `Log ${t}`, group, keywords: "history add event", run: () => logHistory(job, t),
+      id: `log-${t}`, label: `Log History: ${t}`, group, keywords: "history add event", run: () => logHistory(job, t),
     })),
   ];
 }
