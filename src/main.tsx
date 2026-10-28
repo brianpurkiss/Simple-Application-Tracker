@@ -4,6 +4,7 @@ import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react
 import { CircleUser, Search } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalHotkeys } from "@/components/GlobalHotkeys";
+import { InterviewCallout } from "@/components/InterviewCallout";
 import { PaletteProvider, usePalette } from "@/components/CommandPalette";
 import { FOLLOW_UP, MOD } from "@/lib/shortcuts";
 import { Toaster } from "@/components/ui/sonner";
@@ -59,6 +60,7 @@ function UserLink() {
   const palette = usePalette();
   return (
     <div className="ml-auto flex items-center">
+      <InterviewCallout />
       <button
         type="button"
         onClick={palette.toggle}
