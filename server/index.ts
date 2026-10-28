@@ -60,6 +60,7 @@ const jobListSql = `
     -- First time they reached out with interest; a rejection doesn't count as contact.
     (SELECT min(date) FROM events e WHERE e.job_id = j.id
       AND e.type IN ('Contact', 'Screen', 'Interview', 'Offer')) AS first_contact,
+    (SELECT min(date) FROM events e WHERE e.job_id = j.id AND e.type IN ('Screen', 'Interview')) AS first_interview,
     (SELECT max(date) FROM events e WHERE e.job_id = j.id AND e.type = 'Rejection') AS rejected_date,
     (SELECT count(*) FROM events e WHERE e.job_id = j.id AND e.type = 'Interview') AS interview_count,
     (SELECT count(*) FROM events e WHERE e.job_id = j.id AND e.type = 'Screen') AS screen_count

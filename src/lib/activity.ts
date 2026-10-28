@@ -1,7 +1,7 @@
 import type { ActivityEvent } from "./api";
 import { DAY } from "./format";
 
-export type Category = "applied" | "interview" | "offer" | "rejection" | "other";
+export type Category = "applied" | "interview" | "offer" | "rejection" | "resume" | "other";
 
 // Colors follow StatusBadge: amber applied, blue interviewing, emerald offers, red rejections.
 export const CATEGORIES: { key: Category; label: string; color: string }[] = [
@@ -9,6 +9,7 @@ export const CATEGORIES: { key: Category; label: string; color: string }[] = [
   { key: "interview", label: "Interviews", color: "#3b82f6" },
   { key: "offer", label: "Offers", color: "#10b981" },
   { key: "rejection", label: "Rejections", color: "#ef4444" },
+  { key: "resume", label: "New Resumes", color: "#8b5cf6" },
   { key: "other", label: "Other", color: "#a3a3a3" },
 ];
 
@@ -21,6 +22,7 @@ const CATEGORY_FOR_TYPE: Record<string, Category> = {
   Offer: "offer",
   Accepted: "offer",
   Rejection: "rejection",
+  "New Resume": "resume",
 };
 
 export const categoryOf = (e: ActivityEvent): Category => CATEGORY_FOR_TYPE[e.type] ?? "other";
@@ -46,7 +48,7 @@ export function weeklySeries(events: ActivityEvent[]): WeekPoint[] {
   const counts = new Map<string, WeekPoint>();
   for (const e of events) {
     const week = weekStart(e.date);
-    const point = counts.get(week) ?? { week, applied: 0, interview: 0, offer: 0, rejection: 0, other: 0 };
+    const point = counts.get(week) ?? { week, applied: 0, interview: 0, offer: 0, rejection: 0, resume: 0, other: 0 };
     point[categoryOf(e)]++;
     counts.set(week, point);
   }
@@ -54,13 +56,13 @@ export function weeklySeries(events: ActivityEvent[]): WeekPoint[] {
   const series: WeekPoint[] = [];
   for (let ms = toUtc(weeks[0]); ms <= toUtc(weeks[weeks.length - 1]); ms += 7 * DAY) {
     const week = fromUtc(ms);
-    series.push(counts.get(week) ?? { week, applied: 0, interview: 0, offer: 0, rejection: 0, other: 0 });
+    series.push(counts.get(week) ?? { week, applied: 0, interview: 0, offer: 0, rejection: 0, resume: 0, other: 0 });
   }
   return series;
 }
 
 // Offers and interviews come first so a busy day's dot overflow never hides them behind a pile of applications.
-const PRIORITY: Category[] = ["offer", "interview", "rejection", "applied", "other"];
+const PRIORITY: Category[] = ["offer", "interview", "rejection", "resume", "applied", "other"];
 
 export function eventsByDay(events: ActivityEvent[]) {
   const byDay = new Map<string, ActivityEvent[]>();
@@ -74,4 +76,15 @@ export function monthGrid(year: number, month: number) {
   const first = Date.UTC(year, month, 1);
   const start = first - ((new Date(first).getUTCDay() + 6) % 7) * DAY;
   return Array.from({ length: 42 }, (_, i) => fromUtc(start + i * DAY));
+}
+
+export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+// Events of one category counted by day of the week (Monday first).
+export function weekdayCounts(events: ActivityEvent[], category: Category) {
+  const counts = WEEKDAYS.map((day) => ({ day, count: 0 }));
+  for (const e of events) {
+    if (categoryOf(e) === category) counts[(new Date(toUtc(e.date)).getUTCDay() + 6) % 7].count++;
+  }
+  return counts;
 }

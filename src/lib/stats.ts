@@ -4,14 +4,14 @@ import { GHOSTED_DAYS } from "./options";
 import { DAY, daysBetween, daysSince, reachedInterview } from "./format";
 
 // Applications newer than this haven't had a fair chance to hear back, so they're left out of rates.
-const MIN_AGE_DAYS = 6;
+export const MIN_AGE_DAYS = 6;
 // Groups smaller than this are shown dimmed; the rate isn't meaningful yet.
-const MIN_SAMPLE = 9;
+export const MIN_SAMPLE = 9;
 
 export const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : null);
 export const fmtPct = (n: number | null) => (n === null ? "–" : `${n}%`);
 
-const median = (nums: number[]) => {
+export const median = (nums: number[]) => {
   if (!nums.length) return null;
   const s = [...nums].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
@@ -21,7 +21,7 @@ const median = (nums: number[]) => {
 const hasOffer = (j: Job) => j.status === "Offer" || j.status === "Accepted";
 export const interviewed = (j: Job) => reachedInterview(j) || hasOffer(j);
 const multipleInterviews = (j: Job) => j.interview_count >= 2 || hasOffer(j);
-const heardBack = (j: Job) => Boolean(j.first_contact || j.rejected_date) || interviewed(j);
+export const heardBack = (j: Job) => Boolean(j.first_contact || j.rejected_date) || interviewed(j);
 
 export type Kpis = {
   applications: number;
@@ -236,17 +236,17 @@ const BUCKETS = [
   { label: "22+", max: Infinity },
 ];
 
-export type TimingPoint = { bucket: string; response: number; rejection: number };
+export type TimingPoint = { bucket: string; interview: number; rejectedNoInterview: number; rejected: number };
 
 export function timing(jobs: Job[]): TimingPoint[] {
-  const points = BUCKETS.map((b) => ({ bucket: b.label, response: 0, rejection: 0 }));
-  const place = (days: number, field: "response" | "rejection") => {
+  const points = BUCKETS.map((b) => ({ bucket: b.label, interview: 0, rejectedNoInterview: 0, rejected: 0 }));
+  const place = (days: number, field: "interview" | "rejectedNoInterview" | "rejected") => {
     points[BUCKETS.findIndex((b) => days <= b.max)][field]++;
   };
   for (const j of jobs) {
     if (!j.applied_date) continue;
-    if (j.first_contact) place(daysBetween(j.applied_date, j.first_contact), "response");
-    if (j.rejected_date) place(daysBetween(j.applied_date, j.rejected_date), "rejection");
+    if (j.first_interview) place(daysBetween(j.applied_date, j.first_interview), "interview");
+    if (j.rejected_date) place(daysBetween(j.applied_date, j.rejected_date), reachedInterview(j) ? "rejected" : "rejectedNoInterview");
   }
   return points;
 }
@@ -256,6 +256,7 @@ export type Cohort = {
   apps: number;
   response: number | null;
   interview: number | null;
+  multiInterview: number | null;
   rejected: number | null;
   ghosted: number | null;
   maturing: boolean;
@@ -275,6 +276,7 @@ export function weeklyCohorts(jobs: Job[]): Cohort[] {
       apps: js.length,
       response: pct(js.filter(heardBack).length, js.length),
       interview: pct(js.filter(interviewed).length, js.length),
+      multiInterview: pct(js.filter(multipleInterviews).length, js.length),
       rejected: pct(js.filter((j) => j.status === "Rejected").length, js.length),
       ghosted: pct(js.filter((j) => j.status === "Ghosted").length, js.length),
       // Most of these applications are still inside the window where silence isn't yet a signal.

@@ -7,9 +7,10 @@ const shade = (value: number | null, rgb: string) =>
   value ? { backgroundColor: `rgba(${rgb}, ${Math.min(0.6, value / 100)})` } : undefined;
 
 export default function CohortTable({ cohorts }: { cohorts: Cohort[] }) {
-  const cols: { key: "response" | "interview" | "rejected" | "ghosted"; label: string; rgb: string }[] = [
+  const cols: { key: "response" | "interview" | "multiInterview" | "rejected" | "ghosted"; label: string; rgb: string }[] = [
     { key: "response", label: "Replied", rgb: "245, 158, 11" },
-    { key: "interview", label: "Interview", rgb: "59, 130, 246" },
+    { key: "interview", label: "Screen/1st Interview", rgb: "59, 130, 246" },
+    { key: "multiInterview", label: "2nd+ Interviews", rgb: "99, 102, 241" },
     { key: "rejected", label: "Rejected", rgb: "239, 68, 68" },
     { key: "ghosted", label: "Ghosted", rgb: "163, 163, 163" },
   ];

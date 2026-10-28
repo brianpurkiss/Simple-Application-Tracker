@@ -2,7 +2,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { fmtPct, type Kpis } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 
-function Kpi({ label, value, children }: { label: string; value: string; children?: React.ReactNode }) {
+export function Kpi({ label, value, children }: { label: string; value: string; children?: React.ReactNode }) {
   return (
     <div className="rounded-lg border bg-card p-5">
       <div className="text-sm text-muted-foreground">{label}</div>
