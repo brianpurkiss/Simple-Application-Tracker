@@ -23,6 +23,10 @@ const GROUPS: { title: string; items: { keys: string[]; label: string }[] }[] = 
       { keys: [MOD, "K"], label: "Search jobs (from any page)" },
       { keys: [MOD, "F"], label: "Search jobs (on the jobs list)" },
       { keys: ["Esc"], label: "Clear search and filters" },
+      { keys: ["↓"], label: "Select the next job (on the jobs list)" },
+      { keys: ["↑"], label: "Select the previous job (on the jobs list)" },
+      { keys: ["Enter"], label: "Open the selected job" },
+      { keys: ["N"], label: "Add history to the selected job" },
     ],
   },
   {

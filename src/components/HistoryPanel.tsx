@@ -16,7 +16,15 @@ export { EVENT_COLORS };
 
 const HISTORY_SIZE = 5;
 
-function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void }) {
+// Confetti for the events worth celebrating; `anchor` is where the smaller burst comes from.
+export function celebrateEvent(type: string, anchor: HTMLElement | null) {
+  if (type === "Offer" || type === "Accepted") celebrate();
+  else if ((type === "Screen" || type === "Interview") && anchor) burstFrom(anchor, 135);
+}
+
+export const blankEvent = (): EventInput => ({ date: today(), type: "Follow-Up", description: "", time: null });
+
+export function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void }) {
   return (
     <>
       <Input type="date" value={value.date} onChange={(e) => onChange({ ...value, date: e.target.value })} className="w-40" />
@@ -96,8 +104,7 @@ function EventRow({ event }: { event: JobEvent }) {
 }
 
 export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEvent[] }) {
-  const blank = (): EventInput => ({ date: today(), type: "Follow-Up", description: "", time: null });
-  const [draft, setDraft] = useState(blank);
+  const [draft, setDraft] = useState(blankEvent);
   const add = useAddEvent(jobId);
   const addButton = useRef<HTMLButtonElement>(null);
   const [showAll, setShowAll] = useState(false);
@@ -109,9 +116,8 @@ export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEven
     const { type } = draft;
     add.mutate(draft, {
       onSuccess: () => {
-        setDraft(blank());
-        if (type === "Offer" || type === "Accepted") celebrate();
-        else if ((type === "Screen" || type === "Interview") && addButton.current) burstFrom(addButton.current, 135);
+        setDraft(blankEvent());
+        celebrateEvent(type, addButton.current);
       },
       onError: (err) => toast.error(err.message),
     });

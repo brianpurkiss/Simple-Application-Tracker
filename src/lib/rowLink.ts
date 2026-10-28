@@ -3,7 +3,7 @@ import type { NavigateFunction } from "react-router-dom";
 
 // Makes a clickable table row behave like a link: plain click navigates in-app,
 // cmd/ctrl/shift-click opens it the way the browser would for an <a>; middle-click acts like cmd/ctrl+shift+click.
-export function rowLink(navigate: NavigateFunction, to: string, state?: unknown) {
+export function rowLink(navigate: NavigateFunction, to: string, state?: unknown, onOpen?: () => void) {
   const openInBrowser = (mods: Pick<MouseEvent, "metaKey" | "ctrlKey" | "shiftKey" | "altKey">) => {
     const a = document.createElement("a");
     a.href = to;
@@ -16,6 +16,7 @@ export function rowLink(navigate: NavigateFunction, to: string, state?: unknown)
   };
   return {
     onClick: (e: MouseEvent) => {
+      onOpen?.();
       if (e.metaKey || e.ctrlKey || e.shiftKey) openInBrowser(e);
       else navigate(to, state === undefined ? undefined : { state });
     },

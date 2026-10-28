@@ -15,7 +15,7 @@ const FILTER_PARAMS: Record<string, string[]> = {
   "/activity": ["job_type", "company_type", "resume", "versions"],
 };
 
-const overlayOpen = () => !!document.querySelector("[role=dialog], [role=listbox]");
+export const overlayOpen = () => !!document.querySelector("[role=dialog], [role=listbox]");
 
 // Focuses the job search, first navigating to the jobs list when elsewhere.
 export function useFocusSearch() {

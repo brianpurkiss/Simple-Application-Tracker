@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { rowLink } from "@/lib/rowLink";
 import {
@@ -10,7 +10,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Search, Trash2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,8 +19,10 @@ import { Segmented } from "@/components/ui/segmented";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_COLORS } from "@/lib/colors";
 import { AddJobDialog } from "@/components/AddJobDialog";
-import { type HotkeyAction, SEARCH_INPUT_ID } from "@/components/GlobalHotkeys";
+import { QuickAddEvent } from "@/components/QuickAddEvent";
+import { type HotkeyAction, SEARCH_INPUT_ID, overlayOpen } from "@/components/GlobalHotkeys";
 import { type Job, useJobs, useProfile, useUpdateProfile } from "@/lib/api";
+import { isEditable } from "@/lib/hotkeys";
 import { daysSince, formatDate, isActive, isOnHold, needsFollowUp, reachedInterview } from "@/lib/format";
 import { COMPANY_TYPES, FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
@@ -50,7 +53,17 @@ const textCell = (key: "resume_version" | "job_type" | "company_type", header: s
   },
 });
 
-const buildColumns = (expanded: boolean): ColumnDef<Job>[] => [
+const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void): ColumnDef<Job>[] => [
+  {
+    id: "actions",
+    header: "",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <Button size="icon" variant="ghost" className="size-7 text-muted-foreground" title="Add history (N)" aria-label={`Add history to ${row.original.title}`} onClick={() => onQuickAdd(row.original)}>
+        <Plus />
+      </Button>
+    ),
+  },
   {
     accessorKey: "title",
     header: "Job Title",
@@ -122,6 +135,17 @@ const buildColumns = (expanded: boolean): ColumnDef<Job>[] => [
   },
 ];
 
+// The selected row survives opening a job and coming back (per tab).
+const SELECTED_KEY = "jobs-list-selected";
+const loadSelected = () => {
+  try {
+    const v = sessionStorage.getItem(SELECTED_KEY);
+    return v ? Number(v) : null;
+  } catch {
+    return null;
+  }
+};
+
 const VIEW_OPTIONS = [
   { key: "compact", label: "Compact" },
   { key: "expanded", label: "Expanded" },
@@ -136,9 +160,12 @@ export default function JobsList() {
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
   const view = profile?.job_list_view ?? "compact";
-  // Compact view: every column but the last hugs its content; the last (Days Since) absorbs the leftover width.
+  // Compact view: every column but the last (Days Since) hugs its content; the last absorbs the leftover width.
   const shrink = view === "compact";
-  const columns = useMemo(() => buildColumns(view === "expanded"), [view]);
+  const [quickAdd, setQuickAdd] = useState<Job | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(loadSelected);
+  const tableWrap = useRef<HTMLDivElement>(null);
+  const columns = useMemo(() => buildColumns(view === "expanded", setQuickAdd), [view]);
 
   // Cmd/Ctrl+F from another page lands here with the request in navigation state.
   useEffect(() => {
@@ -211,6 +238,49 @@ export default function JobsList() {
   // Rows remount (replaying the enter animation) when filters or sort change; search changes keep
   // existing rows in place so only newly matching rows animate in.
   const viewKey = [statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter, sortParam].join("|");
+
+  // Up/Down move the selected row; Enter opens it and N logs history on it. Only from the page itself or the table, so
+  // arrows still work inside the filter dropdowns and search box.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || overlayOpen() || isEditable(e.target)) return;
+      if (e.target !== document.body && !tableWrap.current?.contains(e.target as Node)) return;
+      const at = rows.findIndex((r) => r.original.id === selectedId);
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (!rows.length) return;
+        e.preventDefault();
+        const down = e.key === "ArrowDown";
+        // Based on the previous selection, so quick repeated presses between renders still add up.
+        setSelectedId((prev) => {
+          const from = rows.findIndex((r) => r.original.id === prev);
+          const next = from < 0 ? (down ? 0 : rows.length - 1) : Math.min(rows.length - 1, Math.max(0, from + (down ? 1 : -1)));
+          return rows[next].original.id;
+        });
+      } else if (e.key === "Enter") {
+        // Only from the page itself or a row, so Enter on a focused button still presses it.
+        if (at < 0 || !(e.target === document.body || (e.target as HTMLElement).tagName === "TR")) return;
+        e.preventDefault();
+        navigate(`/jobs/${selectedId}`, { state: { fromList: true } });
+      } else if (e.key.toLowerCase() === "n" && !e.repeat && at >= 0) {
+        e.preventDefault();
+        setQuickAdd(rows[at].original);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [rows, selectedId]);
+
+  useEffect(() => {
+    try {
+      if (selectedId === null) sessionStorage.removeItem(SELECTED_KEY);
+      else sessionStorage.setItem(SELECTED_KEY, String(selectedId));
+    } catch { /* storage unavailable: selection just won't persist */ }
+  }, [selectedId]);
+
+  const hasRows = rows.length > 0;
+  useEffect(() => {
+    if (selectedId !== null) tableWrap.current?.querySelector(`[data-job-id="${selectedId}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, hasRows]);
 
   return (
     <div className="space-y-4">
@@ -304,7 +374,7 @@ export default function JobsList() {
         <Segmented options={VIEW_OPTIONS} value={view} onChange={(v) => updateProfile.mutate({ job_list_view: v })} />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border bg-card">
+      <div ref={tableWrap} className="overflow-x-auto rounded-lg border bg-card">
         <Table>
           <TableHeader className="bg-muted/50">
             {table.getHeaderGroups().map((hg) => (
@@ -339,16 +409,34 @@ export default function JobsList() {
                   </TableRow>
                 )}
               <TableRow
+                data-job-id={row.original.id}
+                data-selected={row.original.id === selectedId || undefined}
                 style={{ animationDelay: `${Math.min(i * 25, 400)}ms` }}
-                {...rowLink(navigate, `/jobs/${row.original.id}`, { fromList: true })}
-                className={cn("row-in cursor-pointer", needsFollowUp(row.original) && "bg-amber-500/10 hover:bg-amber-500/15")}
+                {...rowLink(navigate, `/jobs/${row.original.id}`, { fromList: true }, () => setSelectedId(row.original.id))}
+                className={cn(
+                  "row-in cursor-pointer data-[selected]:bg-accent data-[selected]:outline data-[selected]:-outline-offset-1 data-[selected]:outline-ring",
+                  needsFollowUp(row.original) && "bg-amber-500/10 hover:bg-amber-500/15 data-[selected]:bg-amber-500/25",
+                )}
                 title={needsFollowUp(row.original) ? `No activity in ${STALE_DAYS}+ days` : undefined}
               >
-                {row.getVisibleCells().map((cell, idx, cells) => (
-                  <TableCell key={cell.id} className={cn(shrink && idx < cells.length - 1 && "w-px")}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                {row.getVisibleCells().map((cell, idx, cells) =>
+                  cell.column.id === "actions" ? (
+                    // The dialog is portaled but its events still bubble through React to the row link.
+                    <TableCell
+                      key={cell.id}
+                      className="w-px"
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onAuxClick={(e) => e.stopPropagation()}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ) : (
+                    <TableCell key={cell.id} className={cn(shrink && idx < cells.length - 1 && "w-px")}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ),
+                )}
               </TableRow>
               </Fragment>
             ))}
@@ -362,6 +450,7 @@ export default function JobsList() {
           </TableBody>
         </Table>
       </div>
+      <QuickAddEvent job={quickAdd} onClose={() => setQuickAdd(null)} />
       <Link to="/trash" className="ml-auto flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <Trash2 className="size-4" /> Trash
       </Link>
