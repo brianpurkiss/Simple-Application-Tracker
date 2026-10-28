@@ -121,7 +121,9 @@ export function cumulative(jobs: Job[], todayIso: string): CumulativePoint[] {
   }));
 }
 
-export type Extra = { label: string; value: string; detail?: string; jobId?: number };
+export const EXTRA_GROUPS = ["Responses", "Interviews", "Activity", "Salary"] as const;
+export type ExtraGroup = (typeof EXTRA_GROUPS)[number];
+export type Extra = { group: ExtraGroup; label: string; value: string; detail?: string; jobId?: number };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const money = (n: number) => `$${Math.round(n / 1000)}k`;
@@ -138,16 +140,16 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string): 
   if (replies.length) {
     const fast = replies.reduce((a, b) => (b.days < a.days ? b : a));
     const slow = replies.reduce((a, b) => (b.days > a.days ? b : a));
-    out.push({ label: "Fastest Reply", value: plural(fast.days, "day"), detail: label(fast.j), jobId: fast.j.id });
-    out.push({ label: "Slowest Reply", value: plural(slow.days, "day"), detail: label(slow.j), jobId: slow.j.id });
+    out.push({ group: "Responses", label: "Fastest Reply", value: plural(fast.days, "day"), detail: label(fast.j), jobId: fast.j.id });
+    out.push({ group: "Responses", label: "Slowest Reply", value: plural(slow.days, "day"), detail: label(slow.j), jobId: slow.j.id });
   }
 
   const rejections = applied.filter((j) => j.rejected_date).map((j) => ({ j, days: daysBetween(j.applied_date!, j.rejected_date!) }));
   if (rejections.length) {
     const quick = rejections.reduce((a, b) => (b.days < a.days ? b : a));
     const slow = rejections.reduce((a, b) => (b.days > a.days ? b : a));
-    out.push({ label: "Quickest Rejection", value: plural(quick.days, "day"), detail: label(quick.j), jobId: quick.j.id });
-    out.push({ label: "Slowest Rejection", value: plural(slow.days, "day"), detail: label(slow.j), jobId: slow.j.id });
+    out.push({ group: "Responses", label: "Quickest Rejection", value: plural(quick.days, "day"), detail: label(quick.j), jobId: quick.j.id });
+    out.push({ group: "Responses", label: "Slowest Rejection", value: plural(slow.days, "day"), detail: label(slow.j), jobId: slow.j.id });
   }
 
   const byCompany = new Map<string, number>();
@@ -156,7 +158,7 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string): 
     if (rounds && j.company) byCompany.set(j.company, (byCompany.get(j.company) ?? 0) + rounds);
   }
   const topCompany = [...byCompany].sort((a, b) => b[1] - a[1])[0];
-  if (topCompany) out.push({ label: "Most Interviews at One Company", value: String(topCompany[1]), detail: topCompany[0] });
+  if (topCompany) out.push({ group: "Interviews", label: "Most Interviews at One Company", value: String(topCompany[1]), detail: topCompany[0] });
 
   const byDay = new Map<string, number>();
   const byWeek = new Map<string, number>();
@@ -166,22 +168,22 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string): 
   }
   const busyDay = [...byDay].sort((a, b) => b[1] - a[1])[0];
   const busyWeek = [...byWeek].sort((a, b) => b[1] - a[1])[0];
-  if (busyDay) out.push({ label: "Busiest Day", value: plural(busyDay[1], "application"), detail: formatDate(busyDay[0]) });
-  if (busyWeek) out.push({ label: "Busiest Week", value: plural(busyWeek[1], "application"), detail: `Week of ${formatDate(busyWeek[0])}` });
-  if (byDay.size) out.push({ label: "Applications per Active Day", value: (applied.length / byDay.size).toFixed(1), detail: `across ${plural(byDay.size, "day")} with at least one` });
+  if (busyDay) out.push({ group: "Activity", label: "Busiest Day", value: plural(busyDay[1], "application"), detail: formatDate(busyDay[0]) });
+  if (busyWeek) out.push({ group: "Activity", label: "Busiest Week", value: plural(busyWeek[1], "application"), detail: `Week of ${formatDate(busyWeek[0])}` });
+  if (byDay.size) out.push({ group: "Activity", label: "Applications per Active Day", value: (applied.length / byDay.size).toFixed(1), detail: `across ${plural(byDay.size, "day")} with at least one` });
 
   const lucky = new Map<string, number>();
   for (const j of jobs) if (j.resume_version && reachedInterview(j)) lucky.set(j.resume_version, (lucky.get(j.resume_version) ?? 0) + 1);
   const topResume = [...lucky].sort((a, b) => b[1] - a[1])[0];
-  if (topResume) out.push({ label: "Lucky Resume", value: topResume[0], detail: `${plural(topResume[1], "job")} reached an interview` });
+  if (topResume) out.push({ group: "Interviews", label: "Lucky Resume", value: topResume[0], detail: `${plural(topResume[1], "job")} reached an interview` });
 
   const firstApplied = applied.map((j) => j.applied_date!).sort()[0];
-  if (firstApplied) out.push({ label: "Days Searching", value: String(daysBetween(firstApplied, todayIso)), detail: `since ${formatDate(firstApplied)}` });
+  if (firstApplied) out.push({ group: "Activity", label: "Days Searching", value: String(daysBetween(firstApplied, todayIso)), detail: `since ${formatDate(firstApplied)}` });
   const logged = events.filter((e) => e.job_id).length;
-  if (logged) out.push({ label: "Events Logged", value: String(logged) });
+  if (logged) out.push({ group: "Activity", label: "Events Logged", value: String(logged) });
 
   const ghosted = jobs.filter((j) => j.status === "Ghosted").length;
-  if (ghosted) out.push({ label: "Ghosted", value: String(ghosted), detail: `${pct(ghosted, jobs.length)}% of applications` });
+  if (ghosted) out.push({ group: "Responses", label: "Ghosted", value: String(ghosted), detail: `${pct(ghosted, jobs.length)}% of applications` });
 
   // Day-of-week reply rates, only for applications old enough to have heard back and groups big enough to mean something.
   const rateFor = (dow: number) => {
@@ -190,7 +192,7 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string): 
   };
   const mon = rateFor(1);
   const fri = rateFor(5);
-  if (mon !== null && fri !== null) out.push({ label: "Mondays vs. Fridays", value: `${mon}% vs. ${fri}%`, detail: "Reply rate by the day you applied" });
+  if (mon !== null && fri !== null) out.push({ group: "Responses", label: "Mondays vs. Fridays", value: `${mon}% vs. ${fri}%`, detail: "Reply rate by the day you applied" });
 
   // The top of each posted range is the figure compared here.
   const salaries = jobs
@@ -200,10 +202,10 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string): 
     const high = salaries.reduce((a, b) => (b.pay > a.pay ? b : a));
     const low = salaries.reduce((a, b) => (b.pay < a.pay ? b : a));
     const avg = salaries.reduce((n, s) => n + s.pay, 0) / salaries.length;
-    out.push({ label: "Highest Salary", value: money(high.pay), detail: label(high.j), jobId: high.j.id });
-    out.push({ label: "Lowest Salary", value: money(low.pay), detail: label(low.j), jobId: low.j.id });
-    out.push({ label: "Average Salary", value: money(avg), detail: `Top of range, ${plural(salaries.length, "role")}` });
-    out.push({ label: "Median Salary", value: money(median(salaries.map((s) => s.pay))!), detail: "Top of range" });
+    out.push({ group: "Salary", label: "Highest Salary", value: money(high.pay), detail: label(high.j), jobId: high.j.id });
+    out.push({ group: "Salary", label: "Lowest Salary", value: money(low.pay), detail: label(low.j), jobId: low.j.id });
+    out.push({ group: "Salary", label: "Average Salary", value: money(avg), detail: `Top of range, ${plural(salaries.length, "role")}` });
+    out.push({ group: "Salary", label: "Median Salary", value: money(median(salaries.map((s) => s.pay))!), detail: "Top of range" });
   }
 
   return out;

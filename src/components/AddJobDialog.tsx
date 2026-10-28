@@ -10,7 +10,7 @@ import { type JobInput, useCreateJob, useSuggestions } from "@/lib/api";
 import type { HotkeyAction } from "@/components/GlobalHotkeys";
 import { isEditable, useHotkey } from "@/lib/hotkeys";
 import { today } from "@/lib/format";
-import { APPLIED_VIA, COMPANY_TYPES, FITS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES, latestResumeVersions } from "@/lib/options";
+import { APPLIED_VIA, COMPANY_TYPES, FITS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES, latestResumeVersions, sortResumeVersions } from "@/lib/options";
 
 const blank = (): JobInput => ({
   title: "",
@@ -37,7 +37,7 @@ export function AddJobDialog() {
   const location = useLocation();
   const titles = useSuggestions("title", []);
   const jobTypes = useSuggestions("job_type", JOB_TYPES);
-  const resumeVersions = latestResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS));
+  const resumeVersions = sortResumeVersions(latestResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS)));
   const agencyNames = useSuggestions("agency_name", []);
 
   const set = (key: keyof JobInput) => (value: string) => setJob((j) => ({ ...j, [key]: value }));

@@ -39,6 +39,15 @@ export function latestResumeVersions(labels: string[]): string[] {
   return [...latest.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
+// Latest version of each family pinned to the top, then everything else; each group is highest
+// version first, ties alphabetical (eCom 2.3, Product 2.1, Growth 1.0, eCom 2.2, eCom 2.1, ...).
+export function sortResumeVersions(labels: string[]): string[] {
+  const version = (l: string) => l.match(/(\d+(?:\.\d+)*)$/)?.[1] ?? "";
+  const byVersion = (a: string, b: string) => version(b).localeCompare(version(a), undefined, { numeric: true }) || a.localeCompare(b);
+  const latest = new Set(latestResumeVersions(labels));
+  return [...labels.filter((l) => latest.has(l)).sort(byVersion), ...labels.filter((l) => !latest.has(l)).sort(byVersion)];
+}
+
 // A resume is active when it isn't flagged inactive and is the highest version of its family
 // among the flagged-active ones; everything else (flagged inactive or superseded) is inactive.
 export function splitResumes<T extends { version: string; active: boolean }>(resumes: T[]): { active: T[]; inactive: T[] } {

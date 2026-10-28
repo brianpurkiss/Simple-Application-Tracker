@@ -126,6 +126,10 @@ if (!profileColumns.has("your_name")) {
 if (!profileColumns.has("cover_letter")) {
   db.exec("ALTER TABLE profile ADD COLUMN cover_letter TEXT NOT NULL DEFAULT ''");
 }
+// How the job list is laid out: 'compact' or 'expanded'.
+if (!profileColumns.has("job_list_view")) {
+  db.exec("ALTER TABLE profile ADD COLUMN job_list_view TEXT NOT NULL DEFAULT 'compact'");
+}
 const resumeColumns = new Set((db.pragma("table_info(resumes)") as { name: string }[]).map((c) => c.name));
 if (!resumeColumns.has("active")) {
   db.exec("ALTER TABLE resumes ADD COLUMN active INTEGER NOT NULL DEFAULT 1");

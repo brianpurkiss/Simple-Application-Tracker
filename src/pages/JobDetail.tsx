@@ -12,7 +12,7 @@ import { type Job, type JobInput, useDeleteJob, useJob, useRestoreJob, useSugges
 import { daysSince, formatDate, today } from "@/lib/format";
 import { isEditable, useHotkey } from "@/lib/hotkeys";
 import { FilterAccordion } from "@/components/stats/FilterMenu";
-import { APPLIED_VIA, COMPANY_TYPES, FITS, GHOSTED_DAYS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES } from "@/lib/options";
+import { APPLIED_VIA, COMPANY_TYPES, FITS, GHOSTED_DAYS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES, sortResumeVersions } from "@/lib/options";
 
 // An event type name in its History color.
 const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}</span>;
@@ -46,7 +46,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const location = useLocation();
   const titles = useSuggestions("title", []);
   const jobTypes = useSuggestions("job_type", JOB_TYPES);
-  const resumeVersions = useSuggestions("resume_version", RESUME_VERSIONS);
+  const resumeVersions = sortResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS));
   const agencyNames = useSuggestions("agency_name", []);
 
   const set = (key: keyof Draft) => (value: string) => setDraft((d) => ({ ...d, [key]: value }));

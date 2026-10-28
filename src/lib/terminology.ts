@@ -80,6 +80,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
       { term: "Company Type", definition: "The kind of company: eCommerce, SaaS, B2B, Other." },
       { term: "Fit", definition: "How well the role matches what you want: Good Fit, Stretch, Settle, Pivot." },
       { term: "Work Mode", definition: "Remote, Hybrid or In Office (work_mode).", avoid: ["Location"] },
+      { term: "Expanded View", definition: "Job list layout that adds Resume, Job Type and Company Type columns, with Fit and salary under the title and the recruiter under the company. Compact View is the default dense layout; your choice is remembered." },
       { term: "Applied Via", definition: "How you found the role: Direct, Recruiting Agency, Referral, Inbound Recruiter." },
       { term: "Resume Version", definition: "The resume version sent with the application (resume_version). Matched to the Resumes vault by exact version name.", aliases: ["Resume", "Version"], avoid: ["Resume (as a filter label)", "Version (outside the Resumes pages)"] },
     ],

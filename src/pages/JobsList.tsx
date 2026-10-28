@@ -14,11 +14,12 @@ import { ArrowDown, ArrowUp, Search, Trash2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Segmented } from "@/components/ui/segmented";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_COLORS } from "@/lib/colors";
 import { AddJobDialog } from "@/components/AddJobDialog";
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/components/GlobalHotkeys";
-import { type Job, useJobs } from "@/lib/api";
+import { type Job, useJobs, useProfile, useUpdateProfile } from "@/lib/api";
 import { daysSince, formatDate, isActive, isOnHold, needsFollowUp, reachedInterview } from "@/lib/format";
 import { COMPANY_TYPES, FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
@@ -39,20 +40,37 @@ const dateCell = (key: keyof Job): ColumnDef<Job> => ({
   cell: ({ getValue }) => <span className="whitespace-nowrap">{formatDate(getValue() as string | null)}</span>,
 });
 
-const columns: ColumnDef<Job>[] = [
+const textCell = (key: "resume_version" | "job_type" | "company_type", header: string): ColumnDef<Job> => ({
+  accessorKey: key,
+  header,
+  sortUndefined: "last",
+  cell: ({ getValue }) => {
+    const v = getValue() as string;
+    return v ? <span className="block max-w-[160px] truncate" title={v}>{v}</span> : <span className="text-muted-foreground">—</span>;
+  },
+});
+
+const buildColumns = (expanded: boolean): ColumnDef<Job>[] => [
   {
     accessorKey: "title",
     header: "Job Title",
-    cell: ({ row }) => (
-      <div className="flex max-w-[22rem] items-center gap-1.5">
-        <span className="truncate font-medium" title={row.original.title}>{row.original.title}</span>
-        {isOnHold(row.original) && (
-          <span className="shrink-0 rounded-full border px-1.5 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground" title="Held out of Follow Up and Ghosted until then">
-            Follow up {formatDate(row.original.follow_up_on)}
-          </span>
-        )}
-      </div>
-    ),
+    cell: ({ row }) => {
+      const { title, fit, salary_min, salary_max } = row.original;
+      const detail = expanded ? [fit, formatSalary(salary_min, salary_max)].filter(Boolean).join(" · ") : "";
+      return (
+        <div className="max-w-[22rem]">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate font-medium" title={title}>{title}</span>
+            {isOnHold(row.original) && (
+              <span className="shrink-0 rounded-full border px-1.5 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground" title="Held out of Follow Up and Ghosted until then">
+                Follow up {formatDate(row.original.follow_up_on)}
+              </span>
+            )}
+          </div>
+          {detail && <div className="truncate text-xs text-muted-foreground" title={detail}>{detail}</div>}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "company",
@@ -60,14 +78,25 @@ const columns: ColumnDef<Job>[] = [
     cell: ({ row }) => {
       const { company, agency_name, applied_via } = row.original;
       const via = agency_name || (applied_via === "Recruiting Agency" ? "recruiter" : "");
+      const name = company || (via && <span className="text-muted-foreground italic">Unknown</span>);
+      const tooltip = [company, via && `via ${via}`].filter(Boolean).join(" · ");
+      if (expanded) {
+        return (
+          <div className="max-w-[200px]" title={tooltip}>
+            <div className="truncate">{name}</div>
+            {via && <div className="truncate text-xs text-muted-foreground">via {via}</div>}
+          </div>
+        );
+      }
       return (
-        <span className="block max-w-[200px] truncate" title={[company, via && `via ${via}`].filter(Boolean).join(" · ")}>
-          {company || (via && <span className="text-muted-foreground italic">Unknown</span>)}
+        <span className="block max-w-[200px] truncate" title={tooltip}>
+          {name}
           {via && <span className="text-muted-foreground"> · via {via}</span>}
         </span>
       );
     },
   },
+  ...(expanded ? [textCell("resume_version", "Resume"), textCell("job_type", "Job Type"), textCell("company_type", "Company Type")] : []),
   { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge job={row.original} plain /> },
   { ...dateCell("applied_date"), header: "Applied" },
   { ...dateCell("latest_update"), header: "Update" },
@@ -83,12 +112,23 @@ const columns: ColumnDef<Job>[] = [
   },
 ];
 
+const VIEW_OPTIONS = [
+  { key: "compact", label: "Compact" },
+  { key: "expanded", label: "Expanded" },
+] as const;
+
 export default function JobsList() {
   const { data: jobs = [], isLoading } = useJobs();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const updateParams = useParamUpdater();
   const location = useLocation();
+  const { data: profile } = useProfile();
+  const updateProfile = useUpdateProfile();
+  const view = profile?.job_list_view ?? "compact";
+  // Compact view: every column but the last hugs its content; the last (Days Since) absorbs the leftover width.
+  const shrink = view === "compact";
+  const columns = useMemo(() => buildColumns(view === "expanded"), [view]);
 
   // Cmd/Ctrl+F from another page lands here with the request in navigation state.
   useEffect(() => {
@@ -251,20 +291,21 @@ export default function JobsList() {
           </button>
         )}
         <span className="ml-auto text-sm text-muted-foreground">{rows.length} jobs</span>
+        <Segmented options={VIEW_OPTIONS} value={view} onChange={(v) => updateProfile.mutate({ job_list_view: v })} />
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="overflow-x-auto rounded-lg border bg-card">
         <Table>
           <TableHeader className="bg-muted/50">
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
-                {hg.headers.map((header) => {
+                {hg.headers.map((header, idx) => {
                   const sorted = header.column.getIsSorted();
                   return (
                     <TableHead
                       key={header.id}
                       onClick={header.column.getToggleSortingHandler()}
-                      className="cursor-pointer select-none whitespace-nowrap"
+                      className={cn("cursor-pointer select-none whitespace-nowrap", shrink && idx < hg.headers.length - 1 && "w-px")}
                     >
                       <span className="inline-flex items-center gap-1">
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -293,8 +334,10 @@ export default function JobsList() {
                 className={cn("row-in cursor-pointer", needsFollowUp(row.original) && "bg-amber-500/10 hover:bg-amber-500/15")}
                 title={needsFollowUp(row.original) ? `No activity in ${STALE_DAYS}+ days` : undefined}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                {row.getVisibleCells().map((cell, idx, cells) => (
+                  <TableCell key={cell.id} className={cn(shrink && idx < cells.length - 1 && "w-px")}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
                 ))}
               </TableRow>
               </Fragment>
