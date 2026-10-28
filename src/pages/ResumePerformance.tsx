@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import { Segmented } from "@/components/ui/segmented";
-import { useJobs, useProfile, useStarredGroups, useTitleSynonyms } from "@/lib/api";
+import { useJobs, useProfile, useStarredGroups } from "@/lib/api";
+import { useFactContext } from "@/hooks/useFactContext";
 import { applicationsNeeded, type Combo, comboBy, type Metric, PERF_DIMS, type PerfDim, VERSION_MODES } from "@/lib/stats";
-import { consolidateTitles } from "@/lib/titles/consolidate";
 import { perfDimValues } from "@/lib/titles/perfDims";
 import { GHOSTED_DAYS } from "@/lib/options";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
@@ -94,11 +94,8 @@ export default function ResumePerformance() {
   const { shown: view, phase } = useSettled(live, JSON.stringify(live));
   const vConfidence = CONFIDENCE.find((c) => c.key === view.conf) ?? CONFIDENCE[1];
   const { data: stars = [] } = useStarredGroups();
-  const { data: synonyms = [] } = useTitleSynonyms();
-  const values = useMemo(
-    () => perfDimValues(stars, consolidateTitles(jobs, { synonyms: synonyms.map((s) => s.terms) })),
-    [jobs, stars, synonyms],
-  );
+  const factCtx = useFactContext(jobs);
+  const values = useMemo(() => perfDimValues(stars, factCtx), [stars, factCtx]);
   const { combos, baseline, total, excluded } = useMemo(
     () => comboBy(jobs, view.dims, { values, metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z, ghostDays: view.ghostDays }),
     // eslint-disable-next-line react-hooks/exhaustive-deps

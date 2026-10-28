@@ -17,7 +17,10 @@ import PipelineCumulative from "@/components/stats/PipelineCumulative";
 import SalaryDistribution from "@/components/stats/SalaryDistribution";
 import Timing from "@/components/stats/Timing";
 import WeekdayInsights from "@/components/stats/WeekdayInsights";
-import { type ActivityEvent, type Job, type StarKind, useEvents, useJobs, useResumes, useStarredGroups, useTitleSynonyms } from "@/lib/api";
+import { type ActivityEvent, type Job, useEvents, useJobs, useResumes, useStarredGroups } from "@/lib/api";
+import { resolveCompanyType, resolveJobType, type FactContext } from "@/lib/jobFacts";
+import { useFactContext } from "@/hooks/useFactContext";
+import { COMPANY_TYPE_PARAM, RESUME_PARAM, STAR_FILTERS } from "@/lib/jobFilters";
 import { VERSION_MODES, funnel, interviewToRejection, kpis, outcomes, resumeFamily, timing, weeklyCohorts } from "@/lib/stats";
 import {
   CATEGORIES,
@@ -27,27 +30,21 @@ import {
 import { today } from "@/lib/format";
 import { cumulative, extras, momentum, rollingAverage } from "@/lib/insights";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
-import { consolidateTitles } from "@/lib/titles/consolidate";
 import { jobGroupKeys } from "@/lib/titles/starred";
 
 // Each filter lives in the URL as a repeated param so views can be shared and survive reloads.
 const FILTERS = [
-  { param: "job_type", label: "Job Type", field: "job_type" },
-  { param: "company_type", label: "Company Type", field: "company_type" },
-  { param: "resume", label: "Resume Version", field: "resume_version" },
-  { param: "applied_via", label: "Applied Via", field: "applied_via" },
+  { param: COMPANY_TYPE_PARAM, label: "Company Type", field: "company_type" },
+  { param: RESUME_PARAM, label: "Resume Version", field: "resume_version" },
 ] as const;
 
-// Groups starred on the Job Titles page, one filter per kind. A job matches when it is in any picked group.
-const STAR_FILTERS: { param: string; label: string; kind: StarKind }[] = [
-  { param: "star_title", label: "Starred Titles", kind: "title" },
-  { param: "star_seniority", label: "Starred Seniority", kind: "seniority" },
-  { param: "star_type", label: "Starred Job Types", kind: "type" },
-];
-
+// A job matches when it is in any picked starred group (see STAR_FILTERS in jobFilters).
 const valueOf = (j: Job, field: (typeof FILTERS)[number]["field"], grouped: boolean) => {
-  const v = (j[field] ?? "").trim();
-  return field === "resume_version" && grouped ? resumeFamily(v) : v;
+  if (field === "resume_version") {
+    const v = j.resume_version.trim();
+    return grouped ? resumeFamily(v) : v;
+  }
+  return resolveCompanyType(j).value;
 };
 
 const shortDate = (iso: string) => {
@@ -136,16 +133,16 @@ export default function Activity() {
   const updateParams = useParamUpdater();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { data: stars = [] } = useStarredGroups();
-  const { data: synonyms = [] } = useTitleSynonyms();
+  const factCtx = useFactContext(jobs);
   const grouped = params.get("versions") === "grouped";
   const selected = FILTERS.map((f) => params.getAll(f.param).map((v) => (f.field === "resume_version" && grouped ? resumeFamily(v) : v)));
 
   const starSelected = STAR_FILTERS.map((f) => params.getAll(f.param));
   // Group keys per job, for matching against the starred filters.
-  const jobKeys = useMemo(() => {
-    const titles = consolidateTitles(jobs, { synonyms: synonyms.map((s) => s.terms) });
-    return new Map(jobs.map((j) => [j.id, jobGroupKeys(j, titles.get(j.id))]));
-  }, [jobs, synonyms]);
+  const jobKeys = useMemo(
+    () => new Map(jobs.map((j) => [j.id, jobGroupKeys(factCtx.titles.get(j.id), resolveJobType(j, factCtx).value)])),
+    [jobs, factCtx],
+  );
   const starOptions = useMemo(
     () =>
       STAR_FILTERS.map((f) =>
@@ -168,7 +165,7 @@ export default function Activity() {
         }
         return [...counts].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
       }),
-    [jobs, grouped],
+    [jobs, grouped, factCtx],
   );
   const filteredJobs = useMemo(
     () =>
@@ -178,7 +175,7 @@ export default function Activity() {
           STAR_FILTERS.every((f, i) => !starSelected[i].length || starSelected[i].some((k) => jobKeys.get(j.id)?.[f.kind].includes(k))),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, grouped, jobKeys, params.toString()],
+    [jobs, grouped, jobKeys, factCtx, params.toString()],
   );
   const filteredEvents = useMemo(() => {
     const ids = new Set(filteredJobs.map((j) => j.id));

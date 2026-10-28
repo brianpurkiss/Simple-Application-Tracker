@@ -3,15 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight, Star } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
+import { JobTypeMatches } from "@/components/JobTypeMatches";
 import { TitleSynonyms } from "@/components/TitleSynonyms";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useJobs, useStarredGroups, useTitleSynonyms, useToggleStar, type Job, type StarredGroup } from "@/lib/api";
+import { useJobs, useStarredGroups, useToggleStar, type Job, type StarredGroup } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { type FactContext, resolveJobType } from "@/lib/jobFacts";
+import { useFactContext } from "@/hooks/useFactContext";
 import { rowLink } from "@/lib/rowLink";
 import { fmtPct, interviewed, MIN_SAMPLE, pct } from "@/lib/stats";
-import { consolidateTitles } from "@/lib/titles/consolidate";
 import { titleGroups, type TitleGroup, type TitleVariant } from "@/lib/titles/groups";
 import { isStarred, starSet } from "@/lib/titles/starred";
 import type { TitleInfo } from "@/lib/titles/types";
@@ -38,10 +40,10 @@ const GROUP_BYS: { key: GroupBy; label: string }[] = [
 ];
 
 // Groups jobs by one attribute; each distinct title becomes a variant so rows still expand to their jobs.
-function attributeGroups(jobs: Job[], titles: Map<number, TitleInfo>, by: "seniority" | "type"): TitleGroup[] {
+function attributeGroups(jobs: Job[], ctx: FactContext, by: "seniority" | "type"): TitleGroup[] {
   const groups = new Map<string, Job[]>();
   for (const j of jobs) {
-    const label = (by === "seniority" ? titles.get(j.id)?.seniority.label : j.job_type?.trim()) || "Unspecified";
+    const label = (by === "seniority" ? ctx.titles.get(j.id)?.seniority.label : resolveJobType(j, ctx).value) || "Unspecified";
     groups.set(label, [...(groups.get(label) ?? []), j]);
   }
   return [...groups].map(([label, list]) => {
@@ -68,7 +70,7 @@ function emptyRow(s: StarredGroup): Row {
 
 export default function Titles() {
   const { data: jobs = [], isLoading } = useJobs();
-  const { data: synonyms = [] } = useTitleSynonyms();
+  const factCtx = useFactContext(jobs);
   const [sort, setSort] = useState<SortKey>("jobs");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [showTail, setShowTail] = useState(false);
@@ -80,8 +82,7 @@ export default function Titles() {
   const jobRows: Row[] = useMemo(
     () =>
       ((): TitleGroup[] => {
-        const titles = consolidateTitles(jobs, { synonyms: synonyms.map((s) => s.terms) });
-        return groupBy === "title" ? titleGroups(jobs, titles) : attributeGroups(jobs, titles, groupBy);
+        return groupBy === "title" ? titleGroups(jobs, factCtx.titles) : attributeGroups(jobs, factCtx, groupBy);
       })().map((g) => {
         const applied = g.jobs.filter((j) => j.applied_date);
         const interviews = applied.filter(interviewed);
@@ -96,7 +97,7 @@ export default function Titles() {
           rate: pct(interviews.length, applied.length),
         };
       }),
-    [jobs, synonyms, groupBy],
+    [jobs, factCtx, groupBy],
   );
   const rows = useMemo(() => {
     const have = new Set(jobRows.map((r) => r.key));
@@ -139,6 +140,7 @@ export default function Titles() {
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-xl font-semibold">Job Titles</h1>
           {groupBy === "title" && <TitleSynonyms />}
+          {groupBy === "type" && <JobTypeMatches />}
         </div>
         <div className="mt-3">
           <Segmented options={GROUP_BYS} value={groupBy} onChange={setGroupBy} />

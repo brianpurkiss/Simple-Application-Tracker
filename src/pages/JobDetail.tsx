@@ -10,7 +10,9 @@ import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { EVENT_COLORS } from "@/lib/colors";
 import { StatusBadge } from "@/components/StatusBadge";
-import { type Job, type JobInput, useDeleteJob, useJob, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
+import { type Job, type JobInput, useDeleteJob, useJob, useJobs, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
+import { resolveJobType } from "@/lib/jobFacts";
+import { useFactContext } from "@/hooks/useFactContext";
 import { daysSince, formatDate, today } from "@/lib/format";
 import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { useDraftForm } from "@/hooks/useDraftForm";
@@ -54,6 +56,10 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const jobTypes = useSuggestions("job_type", JOB_TYPES);
   const resumeVersions = sortResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS));
   const agencyNames = useSuggestions("agency_name", []);
+  // The automatic Job Type comes from every job's titles, so this page reads the same rules as the lists.
+  const { data: allJobs = [] } = useJobs();
+  const factCtx = useFactContext(allJobs);
+  const autoJobType = resolveJobType(job, factCtx);
 
   const { draft, setDraft, saved, setSaved, set, changed, canSave, save } = useDraftForm(EDITABLE, toDraft(job), {
     update,
@@ -168,7 +174,17 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                 placeholder="Optional. e.g. Director of eCommerce"
                 className="sm:col-span-2"
               />
-              <ComboField label="Job Type" value={draft.job_type} onChange={set("job_type")} options={jobTypes} />
+              <div className="space-y-1">
+                <ComboField label="Job Type" value={draft.job_type} onChange={set("job_type")} options={jobTypes} />
+                {!draft.job_type.trim() && autoJobType.source === "auto" && (
+                  <p className="text-xs text-muted-foreground">
+                    Automatic: {autoJobType.value}.{" "}
+                    <button type="button" className="underline underline-offset-4 hover:text-foreground" onClick={() => set("job_type")(autoJobType.value)}>
+                      Use it
+                    </button>
+                  </p>
+                )}
+              </div>
               <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
               <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
               <SelectField label="Work Mode" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />

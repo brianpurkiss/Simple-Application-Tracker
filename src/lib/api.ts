@@ -232,3 +232,22 @@ export const useUpdateTitleSynonym = () =>
   useSynonymMutation(({ id, terms }: TitleSynonym) => request<TitleSynonym[]>("PATCH", `/api/title-synonyms/${id}`, { terms }));
 export const useDeleteTitleSynonym = () =>
   useSynonymMutation((id: number) => request<void>("DELETE", `/api/title-synonyms/${id}`));
+
+export type JobTypeMatch = { id: number; term: string; job_type: string };
+type JobTypeMatchInput = Pick<JobTypeMatch, "term" | "job_type">;
+
+export const useJobTypeMatches = () =>
+  useQuery({ queryKey: ["job-type-matches"], queryFn: () => request<JobTypeMatch[]>("GET", "/api/job-type-matches") });
+
+function useJobTypeMatchMutation<V, R>(fn: (vars: V) => Promise<R>) {
+  const qc = useQueryClient();
+  // Job Type is worked out on read from these rules, so the Job Type views refresh with them.
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["job-type-matches"] }) });
+}
+
+export const useCreateJobTypeMatch = () =>
+  useJobTypeMatchMutation((m: JobTypeMatchInput) => request<JobTypeMatch[]>("POST", "/api/job-type-matches", m));
+export const useUpdateJobTypeMatch = () =>
+  useJobTypeMatchMutation(({ id, ...m }: JobTypeMatchInput & { id: number }) => request<JobTypeMatch[]>("PATCH", `/api/job-type-matches/${id}`, m));
+export const useDeleteJobTypeMatch = () =>
+  useJobTypeMatchMutation((id: number) => request<JobTypeMatch[]>("DELETE", `/api/job-type-matches/${id}`));

@@ -10,7 +10,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Plus, Rows2, Rows4, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,13 +23,18 @@ import { MissingDataDialog } from "@/components/MissingDataDialog";
 import { isMissing, missingField } from "@/lib/missing";
 import { type PaletteAction, jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/hooks/appActions";
-import { type Job, useJobs, useProfile, useResumes, useUpdateJob, useUpdateProfile } from "@/lib/api";
+import { type Job, type StarKind, useJobs, useProfile, useResumes, useStarredGroups, useUpdateJob, useUpdateProfile } from "@/lib/api";
+import { resolveCompanyType, resolveJobType, type FactContext } from "@/lib/jobFacts";
+import { useFactContext } from "@/hooks/useFactContext";
+import { COMPANY_TYPE_PARAM, STAR_FILTERS, STAR_PARAMS } from "@/lib/jobFilters";
+import { jobGroupKeys } from "@/lib/titles/starred";
+import type { TitleInfo } from "@/lib/titles/types";
 import { loadSelected, saveOrder, saveSelected } from "@/lib/listOrder";
 import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { daysSince, formatDate, isOnHold } from "@/lib/format";
 import { isActive, needsFollowUp, reachedInterview } from "@/lib/jobs";
 import { toast } from "sonner";
-import { COMPANY_TYPES, FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
+import { COMPANY_TYPES, FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { cn } from "@/lib/utils";
@@ -48,8 +53,9 @@ const dateCell = (key: keyof Job): ColumnDef<Job> => ({
   cell: ({ getValue }) => <span className="whitespace-nowrap">{formatDate(getValue() as string | null)}</span>,
 });
 
-const textCell = (key: "resume_version" | "job_type" | "company_type", header: string): ColumnDef<Job> => ({
-  accessorKey: key,
+const textCell = (id: string, header: string, value: (job: Job) => string): ColumnDef<Job> => ({
+  id,
+  accessorFn: value,
   header,
   sortUndefined: "last",
   cell: ({ getValue }) => {
@@ -58,7 +64,7 @@ const textCell = (key: "resume_version" | "job_type" | "company_type", header: s
   },
 });
 
-const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void): ColumnDef<Job>[] => [
+const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void, ctx: FactContext): ColumnDef<Job>[] => [
   {
     id: "actions",
     header: "",
@@ -69,6 +75,7 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void): Column
       </Button>
     ),
   },
+  { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge job={row.original} plain /> },
   {
     accessorKey: "title",
     header: "Job Title",
@@ -114,8 +121,16 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void): Column
       );
     },
   },
-  ...(expanded ? [textCell("resume_version", "Resume"), textCell("job_type", "Job Type"), textCell("company_type", "Company Type")] : []),
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge job={row.original} plain /> },
+  // Expanded view shows the same values the filters match on, so a filtered list reads the same as its dropdowns.
+  ...(expanded
+    ? [
+        textCell("job_type", "Job Type", (j) => resolveJobType(j, ctx).value),
+        textCell("company_type", "Company Type", (j) => resolveCompanyType(j).value),
+        textCell("resume", "Resume", (j) => j.resume_version),
+        textCell("seniority", "Seniority", (j) => ctx.titles.get(j.id)?.seniority.label ?? ""),
+        textCell("title_group", "Title Group", (j) => ctx.titles.get(j.id)?.family ?? ""),
+      ]
+    : []),
   ...(expanded
     ? [{
         accessorKey: "interview_count",
@@ -141,12 +156,26 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void): Column
 ];
 
 // The status chips are views, not filters: with one of them picked and nothing else set, there's nothing to clear.
-const FILTER_KEYS = ["q", "status", "type", "fit", "company_type", "resume", "missing"];
+// The "all" choice on each starred dropdown. Activity keeps its own labels.
+const STAR_ALL_LABELS: Record<StarKind, string> = { title: "All Titles", seniority: "All Seniority", type: "All Job Types" };
+
+// Count shown after each dropdown option. Triggers hide it, so the closed dropdown shows only the picked name.
+const FacetCount = ({ n }: { n: number }) => <span className="facet-count ml-2 text-muted-foreground">({n})</span>;
+
+// The list search: the text has to appear in the title, company, notes, agency, contact or salary.
+const matchesSearch = (j: Job, value: string) => {
+  if (!value) return true;
+  const haystack = [j.title, j.company, j.notes, j.agency_name, j.contact_name, formatSalary(j.salary_min, j.salary_max)].join(" ").toLowerCase();
+  return haystack.includes(value.toLowerCase());
+};
+
+// Job Type is filtered through the starred groups only (STAR_PARAMS).
+const FILTER_KEYS = ["q", "status", "fit", COMPANY_TYPE_PARAM, "resume", "missing", ...STAR_PARAMS];
 const VIEW_STATUSES = new Set(["active", "interviewing", "followup"]);
 
 const VIEW_OPTIONS = [
-  { key: "compact", label: "Compact" },
-  { key: "expanded", label: "Expanded" },
+  { key: "compact", label: <Rows4 className="size-4" />, title: "Compact" },
+  { key: "expanded", label: <Rows2 className="size-4" />, title: "Expanded" },
 ] as const;
 
 export default function JobsList() {
@@ -162,8 +191,12 @@ export default function JobsList() {
   const shrink = view === "compact";
   const { logHistory } = usePalette();
   const [selectedId, setSelectedId] = useState<number | null>(loadSelected);
+  const [showMore, setShowMore] = useState(false);
   const tableWrap = useRef<HTMLDivElement>(null);
-  const columns = useMemo(() => buildColumns(view === "expanded", logHistory), [view, logHistory]);
+  // Title groups and stars come from the Job Titles page, so the columns and filters read the same groups.
+  const { data: stars = [] } = useStarredGroups();
+  const factCtx = useFactContext(jobs);
+  const columns = useMemo(() => buildColumns(view === "expanded", logHistory, factCtx), [view, logHistory, factCtx]);
 
   // Cmd/Ctrl+F from another page lands here with the request in navigation state.
   useEffect(() => {
@@ -174,9 +207,9 @@ export default function JobsList() {
 
   const search = params.get("q") ?? "";
   const statusFilter = params.get("status") ?? "active";
-  const typeFilter = params.get("type") ?? "all";
   const fitFilter = params.get("fit") ?? "all";
-  const companyTypeFilter = params.get("company_type") ?? "all";
+  const companyTypeFilter = params.get(COMPANY_TYPE_PARAM) ?? "all";
+  const starPicked = STAR_FILTERS.map((f) => params.get(f.param) ?? "all");
   const resumeFilter = params.get("resume") ?? "";
   const missing = missingField(params.get("missing") ?? "");
   const filtersApplied = FILTER_KEYS.some((k) => k !== "status" && params.get(k) && params.get(k) !== "all") || !VIEW_STATUSES.has(statusFilter);
@@ -196,17 +229,63 @@ export default function JobsList() {
 
   const setParam = (key: string, value: string) => updateParams((p) => p.set(key, value));
 
-  const filtered = useMemo(
-    () =>
-      jobs.filter((j) => {
-        const statusOk = GROUP_FILTERS[statusFilter]?.(j) || (statusFilter === "followup" && isOnHold(j)) || (!GROUP_FILTERS[statusFilter] && (statusFilter === "all" || j.status === statusFilter));
-        return statusOk && (typeFilter === "all" || j.job_type === typeFilter) && (fitFilter === "all" || j.fit === fitFilter)
-          && (companyTypeFilter === "all" || j.company_type === companyTypeFilter)
-          && (!resumeFilter || j.resume_version === resumeFilter)
-          && (!missing || isMissing(j, missing));
-      }),
-    [jobs, statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter, missing],
+  // Group keys per job (title, seniority, type), for matching against the starred filters. Stars are read live.
+  const jobKeys = useMemo(() => new Map(jobs.map((j) => [j.id, jobGroupKeys(factCtx.titles.get(j.id), resolveJobType(j, factCtx).value)])), [jobs, factCtx]);
+  // Only starred groups with at least one job are offered.
+  const starOptions = useMemo(
+    () => STAR_FILTERS.map((f) => stars.filter((s) => s.kind === f.kind && jobs.some((j) => jobKeys.get(j.id)?.[f.kind].includes(s.key)))),
+    [stars, jobs, jobKeys],
   );
+
+  // Starred-group dropdown for one kind, hidden until a group of that kind with jobs is starred.
+  const renderStar = (kind: StarKind, width: string) => {
+    const i = STAR_FILTERS.findIndex((f) => f.kind === kind);
+    if (!starOptions[i].length) return null;
+    const param = STAR_FILTERS[i].param;
+    return (
+      <Select value={starPicked[i]} onValueChange={(v) => setParam(param, v)}>
+        <SelectTrigger className={cn(width, "bg-card [&_.facet-count]:hidden")}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{STAR_ALL_LABELS[kind]}<FacetCount n={facetCount(param, "all")} /></SelectItem>
+          {starOptions[i].map((o) => <SelectItem key={o.key} value={o.key}>{o.label}<FacetCount n={facetCount(param, o.key)} /></SelectItem>)}
+        </SelectContent>
+      </Select>
+    );
+  };
+  // Filters behind "More Filters": how many are set, so the closed button still shows them.
+  const picked = (kind: StarKind) => starPicked[STAR_FILTERS.findIndex((f) => f.kind === kind)];
+  const moreApplied = [resumeFilter !== "", fitFilter !== "all", picked("title") !== "all", picked("seniority") !== "all"].filter(Boolean).length;
+
+  // Each filter's test for one job, keyed by its URL param. "all" (or no resume) matches every job.
+  const facetTest: Record<string, (j: Job, v: string) => boolean> = {
+    status: (j, v) => GROUP_FILTERS[v]?.(j) || (v === "followup" && isOnHold(j)) || (!GROUP_FILTERS[v] && (v === "all" || j.status === v)),
+    fit: (j, v) => v === "all" || j.fit === v,
+    [COMPANY_TYPE_PARAM]: (j, v) => v === "all" || resolveCompanyType(j).value === v,
+    resume: (j, v) => !v || v === "all" || j.resume_version === v,
+    ...Object.fromEntries(STAR_FILTERS.map((f) => [f.param, (j: Job, v: string) => v === "all" || !!jobKeys.get(j.id)?.[f.kind].includes(v)])),
+  };
+  const selection: Record<string, string> = {
+    status: statusFilter, fit: fitFilter, [COMPANY_TYPE_PARAM]: companyTypeFilter, resume: resumeFilter,
+    ...Object.fromEntries(STAR_FILTERS.map((f, i) => [f.param, starPicked[i]])),
+  };
+  const facetKeys = Object.keys(facetTest);
+  // A job passes when every filter matches it, except the one named by `skip`, and the missing-data list if one is picked.
+  const passes = (j: Job, skip?: string) => facetKeys.every((k) => k === skip || facetTest[k](j, selection[k])) && (!missing || isMissing(j, missing));
+
+  const filtered = useMemo(
+    () => jobs.filter((j) => passes(j)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [jobs, statusFilter, fitFilter, companyTypeFilter, resumeFilter, missing, jobKeys, factCtx, starPicked.join("|")],
+  );
+
+  // Jobs that match the search and every filter except the one being counted. Each dropdown option's count is how many
+  // jobs it would show with the other filters applied, so it moves as other filters are picked.
+  const facetBase = useMemo(
+    () => Object.fromEntries(facetKeys.map((k) => [k, jobs.filter((j) => matchesSearch(j, search) && passes(j, k))])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [jobs, search, statusFilter, fitFilter, companyTypeFilter, resumeFilter, missing, jobKeys, starPicked.join("|")],
+  );
+  const facetCount = (key: string, value: string) => facetBase[key].filter((j: Job) => facetTest[key](j, value)).length;
 
   const table = useReactTable({
     data: filtered,
@@ -220,11 +299,7 @@ export default function JobsList() {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     autoResetPageIndex: false,
-    globalFilterFn: (row, _columnId, value: string) => {
-      const j = row.original;
-      const haystack = [j.title, j.company, j.notes, j.agency_name, j.contact_name, formatSalary(j.salary_min, j.salary_max)].join(" ").toLowerCase();
-      return haystack.includes(value.toLowerCase());
-    },
+    globalFilterFn: (row, _columnId, value: string) => matchesSearch(row.original, value),
   });
 
   const counts = {
@@ -245,7 +320,7 @@ export default function JobsList() {
   const firstScheduled = splitScheduled ? rows.findIndex((r) => isOnHold(r.original)) : -1;
   // Rows remount (replaying the enter animation) when filters or sort change; search changes keep
   // existing rows in place so only newly matching rows animate in.
-  const viewKey = [statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter, missing?.key, sortParam].join("|");
+  const viewKey = [statusFilter, fitFilter, companyTypeFilter, resumeFilter, missing?.key, sortParam, ...starPicked].join("|");
 
   // Up/Down (or K/J) move the selected row; Enter (or O) opens it and L logs history on it. Only from the page itself or the table, so
   // arrows still work inside the filter dropdowns and search box.
@@ -313,7 +388,6 @@ export default function JobsList() {
       { id: "s-closed", label: "Closed", group: "", run: () => setParam("status", "closed") },
       ...STATUSES.map((st) => ({ id: `s-${st}`, label: st, group: "", run: () => setParam("status", st) })),
     ] },
-    { id: "f-type", label: "Filter by job type…", group: "Jobs list", choices: choose("type", JOB_TYPES, "All job types") },
     { id: "f-fit", label: "Filter by fit…", group: "Jobs list", choices: choose("fit", FITS, "All fits") },
     { id: "f-company", label: "Filter by company type…", group: "Jobs list", choices: choose("company_type", COMPANY_TYPES, "All company types") },
     { id: "f-resume", label: "Filter by resume…", group: "Jobs list", choices: choose("resume", resumes.map((r) => r.version), "Any resume", "") },
@@ -367,7 +441,6 @@ export default function JobsList() {
               updateParams((p) => {
                 if (!search && value) {
                   p.set("status", "all");
-                  p.set("type", "all");
                 }
                 p.set("q", value);
               });
@@ -394,68 +467,94 @@ export default function JobsList() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={statusFilter} onValueChange={(v) => setParam("status", v)}>
-          <SelectTrigger className="w-52 bg-card [&_.status-dot]:hidden"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {chips.map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}
-            <SelectItem value="closed">Closed</SelectItem>
-            <SelectSeparator />
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                <span className={cn("status-dot mr-2 inline-block size-2.5 rounded-full align-middle", STATUS_COLORS[s]?.dot)} />
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={typeFilter} onValueChange={(v) => setParam("type", v)}>
-          <SelectTrigger className="w-48 bg-card"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All job types</SelectItem>
-            {JOB_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={fitFilter} onValueChange={(v) => setParam("fit", v)}>
-          <SelectTrigger className="w-40 bg-card"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All fits</SelectItem>
-            {FITS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={companyTypeFilter} onValueChange={(v) => setParam("company_type", v)}>
-          <SelectTrigger className="w-48 bg-card"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All company types</SelectItem>
-            {COMPANY_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {resumeFilter && (
-          <button
-            onClick={() => updateParams((p) => p.delete("resume"))}
-            className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm hover:bg-accent"
-            title="Clear resume filter"
-          >
-            Resume: {resumeFilter} <X className="size-3.5" />
-          </button>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={statusFilter} onValueChange={(v) => setParam("status", v)}>
+            <SelectTrigger className="w-52 bg-card [&_.status-dot]:hidden [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All<FacetCount n={facetCount("status", "all")} /></SelectItem>
+              {chips.map(([key, label]) => <SelectItem key={key} value={key}>{label}<FacetCount n={facetCount("status", key)} /></SelectItem>)}
+              <SelectItem value="closed">Closed<FacetCount n={facetCount("status", "closed")} /></SelectItem>
+              <SelectSeparator />
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  <span className={cn("status-dot mr-2 inline-block size-2.5 rounded-full align-middle", STATUS_COLORS[s]?.dot)} />
+                  {s}
+                  <FacetCount n={facetCount("status", s)} />
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {renderStar("type", "w-52")}
+          <Select value={companyTypeFilter} onValueChange={(v) => setParam("company_type", v)}>
+            <SelectTrigger className="w-48 bg-card [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All company types<FacetCount n={facetCount(COMPANY_TYPE_PARAM, "all")} /></SelectItem>
+              {COMPANY_TYPES.map((t) => <SelectItem key={t} value={t}>{t}<FacetCount n={facetCount(COMPANY_TYPE_PARAM, t)} /></SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore}>
+            More Filters
+            {moreApplied > 0 && <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground">{moreApplied}</span>}
+            <ChevronDown className={cn("transition-transform", showMore && "rotate-180")} />
+          </Button>
+          {resumeFilter && (
+            <button
+              onClick={() => updateParams((p) => p.delete("resume"))}
+              className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm hover:bg-accent"
+              title="Clear resume filter"
+            >
+              Resume: {resumeFilter} <X className="size-3.5" />
+            </button>
+          )}
+          {missing && (
+            <button
+              onClick={() => updateParams((p) => p.delete("missing"))}
+              className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm hover:bg-accent"
+              title="Clear missing data filter"
+            >
+              Missing: {missing.label} <X className="size-3.5" />
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+            {filtersApplied && (
+              <>
+                <button onClick={clearFilters} className="underline-offset-4 hover:text-foreground hover:underline">
+                  Clear Filters
+                </button>
+                <span aria-hidden>·</span>
+              </>
+            )}
+            <span>{rows.length} Jobs</span>
+          </div>
+          <Segmented options={VIEW_OPTIONS} value={view} onChange={(v) => updateProfile.mutate({ job_list_view: v })} />
+        </div>
+        {showMore && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={resumeFilter || "all"}
+              onValueChange={(v) => updateParams((p) => {
+                if (v === "all") p.delete("resume");
+                else p.set("resume", v);
+              })}
+            >
+              <SelectTrigger className="w-52 bg-card [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any resume<FacetCount n={facetCount("resume", "all")} /></SelectItem>
+                {resumes.map((r) => <SelectItem key={r.version} value={r.version}>{r.version}<FacetCount n={facetCount("resume", r.version)} /></SelectItem>)}
+              </SelectContent>
+            </Select>
+            {renderStar("seniority", "w-52")}
+            {renderStar("title", "w-52")}
+            <Select value={fitFilter} onValueChange={(v) => setParam("fit", v)}>
+              <SelectTrigger className="w-40 bg-card [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All fits<FacetCount n={facetCount("fit", "all")} /></SelectItem>
+                {FITS.map((f) => <SelectItem key={f} value={f}>{f}<FacetCount n={facetCount("fit", f)} /></SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         )}
-        {missing && (
-          <button
-            onClick={() => updateParams((p) => p.delete("missing"))}
-            className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-sm hover:bg-accent"
-            title="Clear missing data filter"
-          >
-            Missing: {missing.label} <X className="size-3.5" />
-          </button>
-        )}
-        {filtersApplied && (
-          <button onClick={clearFilters} className="px-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-            Clear Filters
-          </button>
-        )}
-        <span className="ml-auto text-sm text-muted-foreground">{rows.length} jobs</span>
-        <Segmented options={VIEW_OPTIONS} value={view} onChange={(v) => updateProfile.mutate({ job_list_view: v })} />
       </div>
 
       <div ref={tableWrap} className="overflow-x-auto rounded-lg border bg-card">

@@ -254,6 +254,34 @@ app.delete("/api/title-synonyms/:id", (req, res) => {
   res.status(204).end();
 });
 
+// A term in a job's title function that sets its Job Type. Terms are matched on normalized words in the app.
+const jobTypeMatchSchema = z.object({
+  term: text.min(1, "Enter a term"),
+  job_type: text.min(1, "Choose a job type"),
+});
+const getJobTypeMatches = () => db.prepare("SELECT id, term, job_type FROM job_type_matches ORDER BY id").all();
+
+app.get("/api/job-type-matches", (_req, res) => res.json(getJobTypeMatches()));
+
+app.post("/api/job-type-matches", (req, res) => {
+  const parsed = jobTypeMatchSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  db.prepare("INSERT INTO job_type_matches (term, job_type) VALUES (?, ?)").run(parsed.data.term, parsed.data.job_type);
+  res.status(201).json(getJobTypeMatches());
+});
+
+app.patch("/api/job-type-matches/:id", (req, res) => {
+  const parsed = jobTypeMatchSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  db.prepare("UPDATE job_type_matches SET term = ?, job_type = ?, updated_at = datetime('now') WHERE id = ?").run(parsed.data.term, parsed.data.job_type, req.params.id);
+  res.json(getJobTypeMatches());
+});
+
+app.delete("/api/job-type-matches/:id", (req, res) => {
+  db.prepare("DELETE FROM job_type_matches WHERE id = ?").run(req.params.id);
+  res.json(getJobTypeMatches());
+});
+
 const starSchema = z.object({
   kind: z.enum(["title", "seniority", "type"]),
   key: text.min(1),

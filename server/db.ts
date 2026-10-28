@@ -176,6 +176,58 @@ if ((db.pragma("user_version", { simple: true }) as number) < 1) {
   })();
 }
 
+// Job Type is worked out from the title's function: a word or phrase in the function maps to a Job Type.
+// Longest term wins. Seeded once (user_version 2), so deleting a rule never brings it back.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS job_type_matches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    term TEXT NOT NULL,
+    job_type TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+if ((db.pragma("user_version", { simple: true }) as number) < 2) {
+  const seeds: [string, string][] = [
+    ["ecommerce", "eCom Lead"],
+    ["e commerce", "eCom Lead"],
+    ["product", "Product Management"],
+    ["growth", "Marketing/Growth"],
+    ["marketing", "Marketing/Growth"],
+    ["seo", "Marketing/Growth"],
+    ["acquisition", "Marketing/Growth"],
+    ["cro", "CRO Lead"],
+    ["web", "Website Management"],
+    ["website", "Website Management"],
+    ["shopify", "Website Management"],
+    ["engineering", "Dev/Engineering"],
+    ["engineer", "Dev/Engineering"],
+    ["developer", "Dev/Engineering"],
+    ["software", "Dev/Engineering"],
+  ];
+  const insert = db.prepare("INSERT INTO job_type_matches (term, job_type) VALUES (?, ?)");
+  db.transaction(() => {
+    for (const [term, jobType] of seeds) insert.run(term, jobType);
+    db.pragma("user_version = 2");
+  })();
+}
+// Terms found by checking the rules against hand-set Job Types (the shadow report). Added once (user_version 3).
+if ((db.pragma("user_version", { simple: true }) as number) < 3) {
+  const seeds: [string, string][] = [
+    ["dtc", "eCom Lead"],
+    ["d2c", "eCom Lead"],
+    ["direct to consumer", "eCom Lead"],
+    ["commerce", "eCom Lead"],
+    ["conversion", "CRO Lead"],
+    ["lifecycle", "Marketing/Growth"],
+  ];
+  const insert = db.prepare("INSERT INTO job_type_matches (term, job_type) VALUES (?, ?)");
+  db.transaction(() => {
+    for (const [term, jobType] of seeds) insert.run(term, jobType);
+    db.pragma("user_version = 3");
+  })();
+}
+
 // Profile fields and the resume active flag were added after the first version.
 const profileColumns = new Set((db.pragma("table_info(profile)") as { name: string }[]).map((c) => c.name));
 if (!profileColumns.has("your_name")) {
