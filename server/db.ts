@@ -6,6 +6,8 @@ import { parseSalary } from "./salary.ts";
 
 const dataDir = path.resolve(import.meta.dirname, "../data");
 fs.mkdirSync(dataDir, { recursive: true });
+export const backupsDir = path.join(dataDir, "backups");
+fs.mkdirSync(backupsDir, { recursive: true });
 
 export const db = new Database(path.join(dataDir, "jobs.db"));
 db.pragma("journal_mode = WAL");

@@ -104,6 +104,17 @@ export const useRestoreJob = () =>
 export const useDeleteForever = () =>
   useInvalidatingMutation((id: number) => request<void>("DELETE", `/api/trash/${id}`));
 
+export type Backup = { name: string; size: number; created_at: string };
+
+export const useBackups = () => useQuery({ queryKey: ["backups"], queryFn: () => request<Backup[]>("GET", "/api/backups") });
+export const useCreateBackup = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => request<Backup>("POST", "/api/backups", { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["backups"] }),
+  });
+};
+
 export type Resume = {
   id: number;
   version: string;

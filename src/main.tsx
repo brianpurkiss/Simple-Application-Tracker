@@ -17,6 +17,7 @@ import ResumeDetail from "@/pages/ResumeDetail";
 import ResumePerformance from "@/pages/ResumePerformance";
 import Activity from "@/pages/Activity";
 import Calendar from "@/pages/Calendar";
+import Backups from "@/pages/Backups";
 import Trash from "@/pages/Trash";
 import Shortcuts from "@/pages/Shortcuts";
 import Terminology from "@/pages/Terminology";
@@ -110,6 +111,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/activity" element={<Activity />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/stats" element={<Navigate to="/activity" replace />} />
+            <Route path="/backups" element={<Backups />} />
             <Route path="/trash" element={<Trash />} />
             <Route path="/shortcuts" element={<Shortcuts />} />
             <Route path="/terminology" element={<Terminology />} />
@@ -121,6 +123,7 @@ createRoot(document.getElementById("root")!).render(
             <div className="flex items-center gap-4">
               <Link to="/shortcuts" className="hover:text-foreground">Keyboard Shortcuts</Link>
               <Link to="/terminology" className="hover:text-foreground">Terminology</Link>
+              <Link to="/backups" className="hover:text-foreground">Backups</Link>
             </div>
             <div className="flex items-center gap-4">
               <a href="https://github.com/brianpurkiss/Simple-Application-Tracker" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-foreground">

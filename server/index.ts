@@ -1,6 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
 import express from "express";
 import { z } from "zod";
-import { db } from "./db.ts";
+import { backupsDir, db } from "./db.ts";
 import { daysSince, isOnHold } from "../src/lib/format.ts";
 import { GHOSTED_DAYS, STATUS_FOR_EVENT, TIMED_EVENT_TYPES, UPDATE_EVENT_TYPES } from "../src/lib/options.ts";
 
@@ -309,6 +311,34 @@ app.delete("/api/resumes/:id/pdf", (req, res) => {
   db.prepare("UPDATE resumes SET pdf = NULL, pdf_name = NULL, pdf_size = NULL, updated_at = datetime('now') WHERE id = ?")
     .run(req.params.id);
   res.json(getResume(Number(req.params.id)));
+});
+
+// Backups live in data/backups. Names are only ever matched against what's on disk, never joined into a path.
+const backupFiles = () =>
+  fs.readdirSync(backupsDir)
+    .filter((name) => name.endsWith(".db"))
+    .map((name) => {
+      const stat = fs.statSync(path.join(backupsDir, name));
+      return { name, size: stat.size, created_at: stat.mtime.toISOString() };
+    })
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+app.get("/api/backups", (_req, res) => res.json(backupFiles()));
+
+app.post("/api/backups", async (req, res) => {
+  const { name } = z.object({ name: z.string().trim().min(1, "Name is required") }).parse(req.body);
+  const base = name.replace(/\.db$/i, "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[-.]+|-+$/g, "");
+  if (!base) return res.status(400).json({ error: "Name needs at least one letter or number" });
+  const file = `${base}.db`;
+  if (fs.existsSync(path.join(backupsDir, file))) return res.status(409).json({ error: `A backup named ${file} already exists` });
+  await db.backup(path.join(backupsDir, file));
+  res.status(201).json(backupFiles().find((b) => b.name === file));
+});
+
+app.get("/api/backups/:name/download", (req, res) => {
+  const file = backupFiles().find((b) => b.name === req.params.name);
+  if (!file) return res.status(404).json({ error: "Backup not found" });
+  res.download(path.join(backupsDir, file.name), file.name);
 });
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
