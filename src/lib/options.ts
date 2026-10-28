@@ -7,16 +7,6 @@ export const CLOSED_STATUSES = new Set<string>(["Accepted", "Rejected", "Withdre
 
 export const INTERVIEWING_STATUSES = new Set<string>(["Scheduled", "Interviewed", "Offer"]);
 
-export const JOB_TYPES = [
-  "eCom Lead",
-  "Product Management",
-  "Marketing/Growth",
-  "CRO Lead",
-  "Website Management",
-  "Dev/Engineering",
-  "Other",
-];
-
 export const RESUME_VERSIONS = [
   "eCom 1.0", "eCom 1.1", "eCom 1.2", "eCom 2.0", "eCom 2.1", "eCom 2.2", "eCom 2.3",
   "Product 1.0", "Product 2.0", "Product 2.1",
@@ -59,7 +49,7 @@ export function splitResumes<T extends { version: string; active: boolean }>(res
   };
 }
 
-export const COMPANY_TYPES =["eCommerce", "SaaS", "B2B", "Other"];
+// Job Types and Company Types are the user's own lists now (fact_types; see src/lib/jobFacts.ts).
 
 // How well a role matches what I'm after.
 export const FITS = ["Good Fit", "Stretch", "Settle", "Pivot"];

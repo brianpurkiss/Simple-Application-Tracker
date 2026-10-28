@@ -1,10 +1,12 @@
 import type { Job } from "./api";
+import { type FactContext, resolveCompanyType, resolveJobTypes } from "./jobFacts";
 
 export type MissingField = {
   key: string;
   label: string;
   section: string;
-  isMissing: (job: Job) => boolean;
+  /** `ctx` is needed for the worked-out fields (Job Type, Company Type). */
+  isMissing: (job: Job, ctx: FactContext) => boolean;
   /** Jobs the field doesn't apply to never count as missing it. */
   appliesTo?: (job: Job) => boolean;
 };
@@ -17,8 +19,9 @@ const field = (key: keyof Job, label: string, section: string, extra?: Partial<M
 export const MISSING_FIELDS: MissingField[] = [
   field("company", "Company", "Job"),
   field("normalized_title", "Normalized Title", "Job"),
-  field("job_type", "Job Type", "Job"),
-  field("company_type", "Company Type", "Job"),
+  // Worked-out values count as filled in; a "Likely" hint doesn't until it's accepted.
+  { key: "job_types", label: "Job Type", section: "Job", isMissing: (j, ctx) => !resolveJobTypes(j, ctx).values.length },
+  { key: "company_type", label: "Company Type", section: "Job", isMissing: (j, ctx) => !resolveCompanyType(j, ctx).value },
   field("fit", "Fit", "Job"),
   field("work_mode", "Work Mode", "Job"),
   field("jd_link", "Job Description Link", "Job"),
@@ -39,6 +42,6 @@ export const MISSING_FIELDS: MissingField[] = [
 
 export const missingField = (key: string) => MISSING_FIELDS.find((f) => f.key === key);
 
-export const isMissing = (job: Job, f: MissingField) => (f.appliesTo?.(job) ?? true) && f.isMissing(job);
+export const isMissing = (job: Job, f: MissingField, ctx: FactContext) => (f.appliesTo?.(job) ?? true) && f.isMissing(job, ctx);
 
-export const missingCount = (jobs: Job[], f: MissingField) => jobs.filter((j) => isMissing(j, f)).length;
+export const missingCount = (jobs: Job[], f: MissingField, ctx: FactContext) => jobs.filter((j) => isMissing(j, f, ctx)).length;

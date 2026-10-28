@@ -175,3 +175,90 @@ export function ComboField({ label, value, onChange, options, className, placeho
     </Field>
   );
 }
+
+/** What the app worked out for a fact field, shown while the field is left on automatic. */
+export type FactHint = { values: string[]; reason: string; likely?: { value: string; reason: string } };
+
+function FactStatus({ manual, auto, onReset, onUseLikely }: { manual: boolean; auto: FactHint; onReset: () => void; onUseLikely: (v: string) => void }) {
+  const link = "underline underline-offset-4 hover:text-foreground";
+  if (manual) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Set by hand.{" "}
+        {auto.values.length > 0 && <button type="button" className={link} onClick={onReset}>Back to automatic ({auto.values.join(", ")})</button>}
+      </p>
+    );
+  }
+  if (auto.values.length) return <p className="text-xs text-muted-foreground">Automatic · {auto.reason}</p>;
+  if (auto.likely) {
+    return (
+      <p className="text-xs text-amber-600 dark:text-amber-500">
+        Likely {auto.likely.value}: {auto.likely.reason}.{" "}
+        <button type="button" className={link} onClick={() => onUseLikely(auto.likely!.value)}>Use it</button>
+      </p>
+    );
+  }
+  return <p className="text-xs text-amber-600 dark:text-amber-500">Unknown: {auto.reason.toLowerCase()}. Pick one.</p>;
+}
+
+// Job Types: one pill per type. Left alone it shows the automatic types; toggling a pill sets them by hand,
+// starting from what's shown.
+export function JobTypesField({ label = "Job Type", value, onChange, options, auto, className }: {
+  label?: string; value: string[]; onChange: (value: string[]) => void; options: readonly string[]; auto: FactHint; className?: string;
+}) {
+  const manual = value.length > 0;
+  const shown = manual ? value : auto.values;
+  const all = [...options, ...value.filter((v) => !options.includes(v))];
+  const toggle = (o: string) => onChange(shown.includes(o) ? shown.filter((v) => v !== o) : [...shown, o]);
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="flex flex-wrap gap-1.5 text-xs" role="group" aria-label={label}>
+        {all.map((o) => {
+          const on = shown.includes(o);
+          return (
+            <button
+              key={o}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(o)}
+              className={cn(
+                "rounded-full border px-2.5 py-0.5",
+                on && manual && "border-transparent bg-primary text-primary-foreground",
+                on && !manual && "border-dashed border-primary text-foreground",
+                !on && "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {o}
+            </button>
+          );
+        })}
+      </div>
+      <FactStatus manual={manual} auto={auto} onReset={() => onChange([])} onUseLikely={(v) => onChange([v])} />
+    </div>
+  );
+}
+
+// Company Type: a select whose empty state shows the automatic value. Picking one sets it by hand.
+export function CompanyTypeField({ label = "Company Type", value, onChange, options, auto, className }: {
+  label?: string; value: string; onChange: (value: string) => void; options: readonly string[]; auto: FactHint; className?: string;
+}) {
+  const id = useId();
+  const all = value && !options.includes(value) ? [value, ...options] : options;
+  const { plain, touch } = useInline();
+  const set = (v: string) => { touch(); onChange(v); };
+  return (
+    <Field label={label} id={id} className={className}>
+      {/* Keyed on manual vs automatic so clearing the value brings the placeholder back. */}
+      <Select key={value ? "manual" : "auto"} value={value || undefined} onValueChange={set}>
+        <SelectTrigger id={id} className={cn("w-full", plain)}>
+          <SelectValue placeholder={auto.values[0] ? <span className="italic">{auto.values[0]}</span> : "Unknown"} />
+        </SelectTrigger>
+        <SelectContent>
+          {all.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <FactStatus manual={!!value} auto={auto} onReset={() => set("")} onUseLikely={set} />
+    </Field>
+  );
+}

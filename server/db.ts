@@ -4,7 +4,8 @@ import Database from "better-sqlite3";
 import { STATUS_FOR_EVENT } from "../src/lib/options.ts";
 import { parseSalary } from "./salary.ts";
 
-const dataDir = path.resolve(import.meta.dirname, "../data");
+// DATA_DIR points the app at another copy of the data, e.g. for trying out a change.
+const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.resolve(import.meta.dirname, "../data");
 fs.mkdirSync(dataDir, { recursive: true });
 export const backupsDir = path.join(dataDir, "backups");
 fs.mkdirSync(backupsDir, { recursive: true });
@@ -176,56 +177,46 @@ if ((db.pragma("user_version", { simple: true }) as number) < 1) {
   })();
 }
 
-// Job Type is worked out from the title's function: a word or phrase in the function maps to a Job Type.
-// Longest term wins. Seeded once (user_version 2), so deleting a rule never brings it back.
+// The Job Types and Company Types a job can be labeled with. They're the user's own list, seeded once
+// (user_version 5) with a generic starter set. `starter_key` ties a starter to its built-in vocabulary in
+// src/lib/factVocab.ts, so renaming it keeps the words that recognize it. Custom types have none and are
+// learned from the jobs labeled with them.
 db.exec(`
-  CREATE TABLE IF NOT EXISTS job_type_matches (
+  CREATE TABLE IF NOT EXISTS fact_types (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    term TEXT NOT NULL,
-    job_type TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    kind TEXT NOT NULL CHECK (kind IN ('job', 'company')),
+    name TEXT NOT NULL,
+    sort INTEGER NOT NULL DEFAULT 0,
+    starter_key TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE UNIQUE INDEX IF NOT EXISTS fact_types_name ON fact_types(kind, name COLLATE NOCASE);
 `);
-if ((db.pragma("user_version", { simple: true }) as number) < 2) {
-  const seeds: [string, string][] = [
-    ["ecommerce", "eCom Lead"],
-    ["e commerce", "eCom Lead"],
-    ["product", "Product Management"],
-    ["growth", "Marketing/Growth"],
-    ["marketing", "Marketing/Growth"],
-    ["seo", "Marketing/Growth"],
-    ["acquisition", "Marketing/Growth"],
-    ["cro", "CRO Lead"],
-    ["web", "Website Management"],
-    ["website", "Website Management"],
-    ["shopify", "Website Management"],
-    ["engineering", "Dev/Engineering"],
-    ["engineer", "Dev/Engineering"],
-    ["developer", "Dev/Engineering"],
-    ["software", "Dev/Engineering"],
-  ];
-  const insert = db.prepare("INSERT INTO job_type_matches (term, job_type) VALUES (?, ?)");
+if ((db.pragma("user_version", { simple: true }) as number) < 5) {
+  const starters: Record<"job" | "company", [string, string | null][]> = {
+    job: [
+      ["Product", "product"], ["Engineering", "engineering"], ["Design", "design"], ["Data & Analytics", "data"],
+      ["Marketing", "marketing"], ["Growth", "growth"], ["eCommerce", "ecommerce"], ["Sales", "sales"],
+      ["Customer Success", "customer"], ["Operations", "operations"], ["Finance", "finance"], ["People", "people"],
+      ["General Management", "general"], ["Other", null],
+    ],
+    company: [
+      ["eCommerce/DTC", "ecommerce"], ["Retail", "retail"], ["SaaS", "saas"], ["B2B Services", "b2b"],
+      ["Agency/Consulting", "agency"], ["Marketplace", "marketplace"], ["Fintech", "fintech"], ["Healthcare", "healthcare"],
+      ["Nonprofit/Gov", "nonprofit"], ["Other", null],
+    ],
+  };
+  const insert = db.prepare("INSERT OR IGNORE INTO fact_types (kind, name, sort, starter_key) VALUES (?, ?, ?, ?)");
   db.transaction(() => {
-    for (const [term, jobType] of seeds) insert.run(term, jobType);
-    db.pragma("user_version = 2");
+    for (const kind of ["job", "company"] as const) starters[kind].forEach(([name, key], i) => insert.run(kind, name, i, key));
+    db.pragma("user_version = 5");
   })();
 }
-// Terms found by checking the rules against hand-set Job Types (the shadow report). Added once (user_version 3).
-if ((db.pragma("user_version", { simple: true }) as number) < 3) {
-  const seeds: [string, string][] = [
-    ["dtc", "eCom Lead"],
-    ["d2c", "eCom Lead"],
-    ["direct to consumer", "eCom Lead"],
-    ["commerce", "eCom Lead"],
-    ["conversion", "CRO Lead"],
-    ["lifecycle", "Marketing/Growth"],
-  ];
-  const insert = db.prepare("INSERT INTO job_type_matches (term, job_type) VALUES (?, ?)");
-  db.transaction(() => {
-    for (const [term, jobType] of seeds) insert.run(term, jobType);
-    db.pragma("user_version = 3");
-  })();
+
+// Job Types became a list (a job can be Product and Growth). The old single `job_type` column is no longer
+// read; it stays in the database untouched until labels are reset.
+if (!jobColumns.has("job_types")) {
+  db.exec("ALTER TABLE jobs ADD COLUMN job_types TEXT NOT NULL DEFAULT '[]'");
 }
 
 // Profile fields and the resume active flag were added after the first version.

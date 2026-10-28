@@ -30,7 +30,8 @@ const jobSchema = z.object({
   fit: text,
   salary_min: salary,
   salary_max: salary,
-  job_type: text,
+  // Stored as a JSON array; the first is the main one.
+  job_types: z.array(text).transform((t) => JSON.stringify([...new Set(t.filter(Boolean))])),
   resume_version: text,
   work_mode: text,
   applied_date: date.nullable(),
@@ -93,17 +94,20 @@ function withAutoGhost<T extends { status: string; last_heard: string | null; ap
   return { ...job, status: ghosted ? "Ghosted" : job.status, auto_ghosted: ghosted };
 }
 
+// Job types are stored as JSON text. The old single `job_type` column isn't part of the app anymore.
+const withJobTypes = ({ job_type: _legacy, ...job }: any) => ({ ...job, job_types: JSON.parse(job.job_types || "[]") as string[] });
+
 // Descriptions and cover letters can be long; the list views only need to know whether they're filled in.
 const listJobs = (where: string, order: string) =>
   (db.prepare(`${jobListSql} WHERE ${where} ORDER BY ${order}`).all(...UPDATE_EVENT_TYPES) as any[])
     .map(({ job_description, cover_letter, ...job }) =>
-      withAutoGhost({ ...job, has_job_description: !!job_description.trim(), has_cover_letter: !!cover_letter.trim() }));
+      withAutoGhost(withJobTypes({ ...job, has_job_description: !!job_description.trim(), has_cover_letter: !!cover_letter.trim() })));
 
 const getEvent = (id: number | string) => db.prepare("SELECT * FROM events WHERE id = ?").get(id);
 
 const getJob = (id: number) => {
   const job = db.prepare(`${jobListSql} WHERE j.id = ?`).get(...UPDATE_EVENT_TYPES, id) as any;
-  return job && withAutoGhost(job);
+  return job && withAutoGhost(withJobTypes(job));
 };
 
 const getProfile = () => db.prepare("SELECT salary_target, your_name, cover_letter, job_list_view FROM profile WHERE id = 1").get();
@@ -254,32 +258,87 @@ app.delete("/api/title-synonyms/:id", (req, res) => {
   res.status(204).end();
 });
 
-// A term in a job's title function that sets its Job Type. Terms are matched on normalized words in the app.
-const jobTypeMatchSchema = z.object({
-  term: text.min(1, "Enter a term"),
-  job_type: text.min(1, "Choose a job type"),
-});
-const getJobTypeMatches = () => db.prepare("SELECT id, term, job_type FROM job_type_matches ORDER BY id").all();
+// The user's Job Types and Company Types. Renaming or deleting one carries through to the jobs labeled with it.
+const factKind = z.enum(["job", "company"]);
+const factTypeSchema = z.object({ kind: factKind, name: text.min(1, "Enter a name") });
+const getFactTypes = () => db.prepare("SELECT id, kind, name, sort, starter_key FROM fact_types ORDER BY kind, sort, id").all();
+type FactTypeRow = { id: number; kind: "job" | "company"; name: string };
+const getFactType = (id: string) => db.prepare("SELECT id, kind, name FROM fact_types WHERE id = ?").get(id) as FactTypeRow | undefined;
 
-app.get("/api/job-type-matches", (_req, res) => res.json(getJobTypeMatches()));
+const nameTaken = (kind: string, name: string, exceptId?: number) =>
+  !!db.prepare("SELECT 1 FROM fact_types WHERE kind = ? AND name = ? COLLATE NOCASE AND id != ?").get(kind, name, exceptId ?? -1);
 
-app.post("/api/job-type-matches", (req, res) => {
-  const parsed = jobTypeMatchSchema.safeParse(req.body);
+// Swaps (or, with `to` null, removes) a type name on every job that carries it.
+function relabelJobs(kind: "job" | "company", from: string, to: string | null) {
+  if (kind === "company") {
+    db.prepare("UPDATE jobs SET company_type = ? WHERE company_type = ? COLLATE NOCASE").run(to ?? "", from);
+    return;
+  }
+  const rows = db.prepare("SELECT id, job_types FROM jobs WHERE job_types != '[]'").all() as { id: number; job_types: string }[];
+  const update = db.prepare("UPDATE jobs SET job_types = ? WHERE id = ?");
+  for (const r of rows) {
+    const types = JSON.parse(r.job_types) as string[];
+    if (!types.some((t) => t.toLowerCase() === from.toLowerCase())) continue;
+    const next = types.flatMap((t) => (t.toLowerCase() === from.toLowerCase() ? (to ? [to] : []) : [t]));
+    update.run(JSON.stringify([...new Set(next)]), r.id);
+  }
+}
+
+app.get("/api/fact-types", (_req, res) => res.json(getFactTypes()));
+
+app.post("/api/fact-types", (req, res) => {
+  const parsed = factTypeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
-  db.prepare("INSERT INTO job_type_matches (term, job_type) VALUES (?, ?)").run(parsed.data.term, parsed.data.job_type);
-  res.status(201).json(getJobTypeMatches());
+  const { kind, name } = parsed.data;
+  if (nameTaken(kind, name)) return res.status(409).json({ error: `${name} is already in the list` });
+  const { sort } = db.prepare("SELECT coalesce(max(sort), -1) + 1 AS sort FROM fact_types WHERE kind = ?").get(kind) as { sort: number };
+  db.prepare("INSERT INTO fact_types (kind, name, sort) VALUES (?, ?, ?)").run(kind, name, sort);
+  res.status(201).json(getFactTypes());
 });
 
-app.patch("/api/job-type-matches/:id", (req, res) => {
-  const parsed = jobTypeMatchSchema.safeParse(req.body);
+app.patch("/api/fact-types/:id", (req, res) => {
+  const parsed = z.object({ name: text.min(1, "Enter a name") }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
-  db.prepare("UPDATE job_type_matches SET term = ?, job_type = ?, updated_at = datetime('now') WHERE id = ?").run(parsed.data.term, parsed.data.job_type, req.params.id);
-  res.json(getJobTypeMatches());
+  const current = getFactType(req.params.id);
+  if (!current) return res.status(404).json({ error: "Not found" });
+  if (nameTaken(current.kind, parsed.data.name, current.id)) return res.status(409).json({ error: `${parsed.data.name} is already in the list` });
+  db.transaction(() => {
+    db.prepare("UPDATE fact_types SET name = ? WHERE id = ?").run(parsed.data.name, current.id);
+    relabelJobs(current.kind, current.name, parsed.data.name);
+  })();
+  res.json(getFactTypes());
 });
 
-app.delete("/api/job-type-matches/:id", (req, res) => {
-  db.prepare("DELETE FROM job_type_matches WHERE id = ?").run(req.params.id);
-  res.json(getJobTypeMatches());
+// The full order for one kind, as ids.
+app.put("/api/fact-types/order", (req, res) => {
+  const parsed = z.object({ kind: factKind, ids: z.array(z.number().int()) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const update = db.prepare("UPDATE fact_types SET sort = ? WHERE id = ? AND kind = ?");
+  db.transaction(() => parsed.data.ids.forEach((id, i) => update.run(i, id, parsed.data.kind)))();
+  res.json(getFactTypes());
+});
+
+app.delete("/api/fact-types/:id", (req, res) => {
+  const current = getFactType(req.params.id);
+  if (!current) return res.status(404).json({ error: "Not found" });
+  db.transaction(() => {
+    db.prepare("DELETE FROM fact_types WHERE id = ?").run(current.id);
+    relabelJobs(current.kind, current.name, null);
+  })();
+  res.json(getFactTypes());
+});
+
+// Starts Job Type and Company Type over: backs up the database, then clears every job's labels and drops the
+// old rule tables. The type lists themselves are kept.
+app.post("/api/facts/reset", async (_req, res) => {
+  const file = `jobs-pre-label-reset-${new Date().toISOString().replace(/[:.]/g, "-")}.db`;
+  await db.backup(path.join(backupsDir, file));
+  db.transaction(() => {
+    db.exec("UPDATE jobs SET job_types = '[]', job_type = '', company_type = ''");
+    db.exec("DROP TABLE IF EXISTS job_type_matches");
+    db.exec("DROP TABLE IF EXISTS company_type_rules");
+  })();
+  res.json({ backup: file });
 });
 
 const starSchema = z.object({
@@ -432,5 +491,6 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(500).json({ error: "Server error" });
 });
 
-const port = 3001;
+// API_PORT runs a second copy next to the usual one (with DATA_DIR pointing at other data).
+const port = Number(process.env.API_PORT ?? 3001);
 app.listen(port, () => console.log(`API on http://localhost:${port}`));

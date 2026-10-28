@@ -3,20 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight, Star } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
-import { JobTypeMatches } from "@/components/JobTypeMatches";
+import { FactTypes, LabelPicker } from "@/components/FactTypes";
 import { TitleSynonyms } from "@/components/TitleSynonyms";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useJobs, useStarredGroups, useToggleStar, type Job, type StarredGroup } from "@/lib/api";
+import { type Job, type StarKind, type StarredGroup, useJobs, useStarredGroups, useToggleStar } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { type FactContext, resolveJobType } from "@/lib/jobFacts";
+import { type FactContext, type FactKind, type FactSource, resolveCompanyType, resolveJobTypes } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { rowLink } from "@/lib/rowLink";
 import { fmtPct, interviewed, MIN_SAMPLE, pct } from "@/lib/stats";
 import { titleGroups, type TitleGroup, type TitleVariant } from "@/lib/titles/groups";
 import { isStarred, starSet } from "@/lib/titles/starred";
-import type { TitleInfo } from "@/lib/titles/types";
 import { cn } from "@/lib/utils";
 
 type SortKey = "label" | "jobs" | "applications" | "rejections" | "totalInterviews" | "uniqueInterviews" | "rate";
@@ -31,20 +30,37 @@ const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
   { key: "rate", label: "Interview Rate", numeric: true },
 ];
 
-type GroupBy = "title" | "seniority" | "type";
+// The tabs: Job Titles groups by title or seniority; Job Type and Company Type review the automatic values.
+type Tab = "title" | "seniority" | "jobType" | "companyType";
+type GroupBy = "title" | "seniority" | "type" | "company";
 
-const GROUP_BYS: { key: GroupBy; label: string }[] = [
-  { key: "title", label: "Job Title" },
+const TABS: { key: Tab; label: string }[] = [
+  { key: "title", label: "Job Titles" },
   { key: "seniority", label: "Seniority" },
-  { key: "type", label: "Type" },
+  { key: "jobType", label: "Job Type" },
+  { key: "companyType", label: "Company Type" },
 ];
 
+const LABEL_HEADERS: Record<GroupBy, string> = { title: "Job Title", seniority: "Seniority", type: "Job Type", company: "Company Type" };
+
+const SOURCE_LABEL: Record<FactSource, string> = {
+  manual: "Hand-set", family: "Title family", company: "Same company", learned: "Learned", starter: "Title words", none: "Unknown",
+};
+
+// Jobs with no Job Type or Company Type, worked out or hand-set. Pinned first so they're labeled first.
+const UNKNOWN = "Unknown";
+
 // Groups jobs by one attribute; each distinct title becomes a variant so rows still expand to their jobs.
-function attributeGroups(jobs: Job[], ctx: FactContext, by: "seniority" | "type"): TitleGroup[] {
+// A job with several Job Types is in each of their groups.
+function attributeGroups(jobs: Job[], ctx: FactContext, by: "seniority" | "type" | "company"): TitleGroup[] {
+  const labelsOf = (j: Job): string[] =>
+    by === "seniority" ? [ctx.titles.get(j.id)?.seniority.label || "Unspecified"]
+      : by === "type" ? resolveJobTypes(j, ctx).values
+      : [resolveCompanyType(j, ctx).value].filter(Boolean);
   const groups = new Map<string, Job[]>();
   for (const j of jobs) {
-    const label = (by === "seniority" ? ctx.titles.get(j.id)?.seniority.label : resolveJobType(j, ctx).value) || "Unspecified";
-    groups.set(label, [...(groups.get(label) ?? []), j]);
+    const labels = labelsOf(j);
+    for (const label of labels.length ? labels : [UNKNOWN]) groups.set(label, [...(groups.get(label) ?? []), j]);
   }
   return [...groups].map(([label, list]) => {
     const byTitle = new Map<string, TitleVariant>();
@@ -74,16 +90,18 @@ export default function Titles() {
   const [sort, setSort] = useState<SortKey>("jobs");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [showTail, setShowTail] = useState(false);
-  const [groupBy, setGroupBy] = useState<GroupBy>("title");
+  const [tab, setTab] = useState<Tab>("title");
+  const groupBy: GroupBy = tab === "jobType" ? "type" : tab === "companyType" ? "company" : tab;
+  const factKind: FactKind | null = tab === "jobType" ? "job" : tab === "companyType" ? "company" : null;
+  // Company Type isn't a starred group, so its rows have no star.
+  const starKind: StarKind | null = groupBy === "company" ? null : groupBy;
   const { data: stars = [] } = useStarredGroups();
   const starred = useMemo(() => starSet(stars), [stars]);
   const toggleStar = useToggleStar();
 
   const jobRows: Row[] = useMemo(
     () =>
-      ((): TitleGroup[] => {
-        return groupBy === "title" ? titleGroups(jobs, factCtx.titles) : attributeGroups(jobs, factCtx, groupBy);
-      })().map((g) => {
+      (groupBy === "title" ? titleGroups(jobs, factCtx.titles) : attributeGroups(jobs, factCtx, groupBy)).map((g) => {
         const applied = g.jobs.filter((j) => j.applied_date);
         const interviews = applied.filter(interviewed);
         return {
@@ -101,12 +119,14 @@ export default function Titles() {
   );
   const rows = useMemo(() => {
     const have = new Set(jobRows.map((r) => r.key));
-    return [...jobRows, ...stars.filter((s) => s.kind === groupBy && !have.has(s.key)).map(emptyRow)];
-  }, [jobRows, stars, groupBy]);
+    return [...jobRows, ...stars.filter((s) => s.kind === starKind && !have.has(s.key)).map(emptyRow)];
+  }, [jobRows, stars, starKind]);
 
-  const isStar = (r: Row) => isStarred(starred, groupBy, r.key);
-  // Starred groups lead, then the chosen sort applies within each half.
+  const isStar = (r: Row) => !!starKind && isStarred(starred, starKind, r.key);
+  const isUnknown = (r: Row) => factKind !== null && r.label === UNKNOWN;
+  // Unknown leads on the review tabs, then starred groups, then the chosen sort applies within each part.
   const sorted = [...rows].sort((a, b) =>
+    Number(isUnknown(b)) - Number(isUnknown(a)) ||
     Number(isStar(b)) - Number(isStar(a)) ||
     (sort === "label"
       ? a.label.localeCompare(b.label)
@@ -131,19 +151,34 @@ export default function Titles() {
 
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
 
-  const table = (list: Row[]) => <TitleTable rows={list} labelHeader={GROUP_BYS.find((g) => g.key === groupBy)!.label} sort={sort} onSort={setSort} open={open} onToggle={toggle} isStar={isStar} onStar={(key, label, on) => toggleStar.mutate({ kind: groupBy, key, label, starred: on }, { onError: (e) => toast.error(e.message) })} />;
+  // On the review tabs, each job shows where its value came from, and can be labeled right there.
+  const sourceOf = tab === "jobType" ? (j: Job) => resolveJobTypes(j, factCtx) : tab === "companyType" ? (j: Job) => resolveCompanyType(j, factCtx) : undefined;
+
+  const table = (list: Row[]) => (
+    <TitleTable
+      rows={list}
+      labelHeader={LABEL_HEADERS[groupBy]}
+      sort={sort}
+      onSort={setSort}
+      open={open}
+      onToggle={toggle}
+      isStar={isStar}
+      onStar={starKind ? (key, label, on) => toggleStar.mutate({ kind: starKind, key, label, starred: on }, { onError: (e) => toast.error(e.message) }) : undefined}
+      sourceOf={sourceOf}
+      factKind={factKind}
+      factCtx={factCtx}
+    />
+  );
 
   return (
     <div className="space-y-4">
       <title>Job Titles | Application Tracker</title>
-      <div>
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-semibold">Job Titles</h1>
-          {groupBy === "title" && <TitleSynonyms />}
-          {groupBy === "type" && <JobTypeMatches />}
-        </div>
-        <div className="mt-3">
-          <Segmented options={GROUP_BYS} value={groupBy} onChange={setGroupBy} />
+      <div className="space-y-3">
+        <h1 className="text-xl font-semibold">Job Titles</h1>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b pb-3">
+          <Segmented options={TABS} value={tab} onChange={setTab} />
+          {tab === "title" && <span className="ml-auto"><TitleSynonyms /></span>}
+          {factKind && <FactTypes kind={factKind} jobs={jobs} factCtx={factCtx} />}
         </div>
       </div>
 
@@ -161,7 +196,7 @@ export default function Titles() {
   );
 }
 
-function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, onStar }: {
+function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, onStar, sourceOf, factKind, factCtx }: {
   rows: Row[];
   labelHeader: string;
   sort: SortKey;
@@ -169,7 +204,12 @@ function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, o
   open: Set<string>;
   onToggle: (key: string) => void;
   isStar: (row: Row) => boolean;
-  onStar: (key: string, label: string, starred: boolean) => void;
+  /** Undefined on tabs whose groups can't be starred. */
+  onStar?: (key: string, label: string, starred: boolean) => void;
+  /** Set on the review tabs: where each job's value came from, and why. */
+  sourceOf?: (job: Job) => { source: FactSource; reason: string };
+  factKind: FactKind | null;
+  factCtx: FactContext;
 }) {
   const navigate = useNavigate();
   return (
@@ -200,19 +240,21 @@ function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, o
                   <TableCell className={cn("font-medium", r.missing && "text-orange-500")} title={r.missing ? "No jobs in this group right now" : undefined}>
                     <span className="flex items-center gap-1.5">
                       <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-90", r.missing && "invisible")} />
-                      <button
-                        type="button"
-                        title={starred ? "Unstar" : "Star"}
-                        aria-label={`${starred ? "Unstar" : "Star"} ${r.label}`}
-                        aria-pressed={starred}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onStar(r.key, r.label, !starred);
-                        }}
-                        className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-                      >
-                        <Star className={cn("size-4", starred && "fill-amber-400 text-amber-400")} />
-                      </button>
+                      {onStar && (
+                        <button
+                          type="button"
+                          title={starred ? "Unstar" : "Star"}
+                          aria-label={`${starred ? "Unstar" : "Star"} ${r.label}`}
+                          aria-pressed={starred}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onStar(r.key, r.label, !starred);
+                          }}
+                          className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                        >
+                          <Star className={cn("size-4", starred && "fill-amber-400 text-amber-400")} />
+                        </button>
+                      )}
                       {r.label}
                       {r.shared && (
                         <span title="Created automatically from words these titles share" className="rounded-full border px-1.5 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
@@ -251,6 +293,11 @@ function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, o
                                 </span>
                                 <span className="w-48 truncate text-muted-foreground">{j.company}</span>
                                 <span className="w-24 whitespace-nowrap text-muted-foreground">{formatDate(j.applied_date)}</span>
+                                {sourceOf && (() => {
+                                  const { source, reason } = sourceOf(j);
+                                  return <span title={reason} className={cn("w-24 text-xs", source === "none" ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground")}>{SOURCE_LABEL[source]}</span>;
+                                })()}
+                                {factKind && <LabelPicker job={j} kind={factKind} factCtx={factCtx} />}
                                 <span className="w-44 text-right"><StatusBadge job={j} /></span>
                               </li>
                             )),

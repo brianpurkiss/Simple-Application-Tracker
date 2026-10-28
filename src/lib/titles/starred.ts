@@ -10,23 +10,24 @@ export const starSet = (stars: StarredGroup[]) => new Set(stars.map((s) => starI
 
 export const isStarred = (set: Set<string>, kind: StarKind, key: string) => set.has(starId(kind, key));
 
-/** The group keys a job falls under for each kind. A title can sit in several groups because titles roll up.
- * `jobType` is the resolved Job Type (manual or automatic), see resolveJobType. */
-export function jobGroupKeys(info: TitleInfo | undefined, jobType: string): Record<StarKind, string[]> {
+/** The group keys a job falls under for each kind. A title can sit in several groups because titles roll up,
+ * and a job in several types because it can have more than one. `jobTypes` are the resolved Job Types
+ * (hand-set or automatic), see resolveJobTypes. */
+export function jobGroupKeys(info: TitleInfo | undefined, jobTypes: string[]): Record<StarKind, string[]> {
   return {
     title: info ? [info.familyKey, ...info.rollsUpTo.map((p) => p.key)] : [],
     seniority: [`seniority:${info?.seniority.label || "Unspecified"}`],
-    type: [`type:${jobType || "Unspecified"}`],
+    type: jobTypes.length ? jobTypes.map((t) => `type:${t}`) : ["type:Unknown"],
   };
 }
 
 /** True when the job is in a starred group of any of the given kinds (all kinds by default). */
 export function jobMatchesStars(
   info: TitleInfo | undefined,
-  jobType: string,
+  jobTypes: string[],
   set: Set<string>,
   kinds: StarKind[] = ["title", "seniority", "type"],
 ) {
-  const keys = jobGroupKeys(info, jobType);
+  const keys = jobGroupKeys(info, jobTypes);
   return kinds.some((k) => keys[k].some((key) => set.has(starId(k, key))));
 }

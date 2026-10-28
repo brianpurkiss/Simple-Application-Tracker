@@ -4,19 +4,21 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ComboField, SalaryRangeField, SelectField, TextField } from "@/components/fields";
+import { ComboField, CompanyTypeField, JobTypesField, SalaryRangeField, SelectField, TextField } from "@/components/fields";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
-import { type JobInput, useCreateJob, useSuggestions } from "@/lib/api";
+import { type JobInput, useCreateJob, useJobs, useSuggestions } from "@/lib/api";
+import { useFactContext } from "@/hooks/useFactContext";
+import { factHints, typeNames } from "@/lib/jobFacts";
 import type { HotkeyAction } from "@/hooks/appActions";
 import { today } from "@/lib/format";
-import { APPLIED_VIA, COMPANY_TYPES, FITS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES, latestResumeVersions, sortResumeVersions } from "@/lib/options";
+import { APPLIED_VIA, FITS, RESUME_VERSIONS, WORK_MODES, latestResumeVersions, sortResumeVersions } from "@/lib/options";
 
 const blank = (): JobInput => ({
   title: "",
   company: "",
   company_type: "",
   fit: "",
-  job_type: "",
+  job_types: [],
   resume_version: "",
   work_mode: "Remote",
   applied_date: today(),
@@ -36,11 +38,14 @@ export function AddJobDialog() {
   const navigate = useNavigate();
   const location = useLocation();
   const titles = useSuggestions("title", []);
-  const jobTypes = useSuggestions("job_type", JOB_TYPES);
+  // Job Type and Company Type are worked out live from the other jobs as the title and company are typed.
+  const { data: jobs = [] } = useJobs();
+  const factCtx = useFactContext(jobs);
+  const hints = factHints({ id: -1, title: job.title!, normalized_title: "", company: job.company!, company_type: "", job_types: [] }, factCtx);
   const resumeVersions = sortResumeVersions(latestResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS)));
   const agencyNames = useSuggestions("agency_name", []);
 
-  const set = (key: keyof JobInput) => (value: string) => setJob((j) => ({ ...j, [key]: value }));
+  const set = (key: Exclude<keyof JobInput, "job_types">) => (value: string) => setJob((j) => ({ ...j, [key]: value }));
 
   // The "c" shortcut and the palette's "Add a job" land here with the request in navigation state.
   useEffect(() => {
@@ -87,8 +92,8 @@ export function AddJobDialog() {
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Additional Details</h3>
             <div className="grid grid-cols-2 gap-4">
-              <ComboField label="Job Type" value={job.job_type!} onChange={set("job_type")} options={jobTypes} />
-              <SelectField label="Company Type" value={job.company_type!} onChange={set("company_type")} options={COMPANY_TYPES} />
+              <JobTypesField value={job.job_types!} onChange={(v) => setJob((j) => ({ ...j, job_types: v }))} options={typeNames(factCtx, "job")} auto={hints.jobTypes} className="col-span-2" />
+              <CompanyTypeField value={job.company_type!} onChange={set("company_type")} options={typeNames(factCtx, "company")} auto={hints.companyType} />
               <SalaryRangeField min={salaryMin} max={salaryMax} onMin={setSalaryMin} onMax={setSalaryMax} invalid={badRange} />
               <SelectField label="Fit" value={job.fit!} onChange={set("fit")} options={FITS} />
               <SelectField label="Work Mode" value={job.work_mode!} onChange={set("work_mode")} options={WORK_MODES} />

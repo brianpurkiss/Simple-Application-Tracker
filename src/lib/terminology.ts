@@ -82,8 +82,9 @@ export const TERM_CATEGORIES: TermCategory[] = [
     title: "Job fields",
     terms: [
       { term: "Applied date", definition: "The date you applied (applied_date). Basis for waiting times, weekly cohorts and eligibility.", aliases: ["Applied (form label and list column)"], avoid: ["Date"] },
-      { term: "Job Type", definition: "The kind of role: eCom Lead, Product Management, Marketing/Growth, CRO Lead, Website Management, Dev/Engineering, Other.", avoid: ["Type"] },
-      { term: "Company Type", definition: "The kind of company: eCommerce, SaaS, B2B, Other." },
+      { term: "Job Type", definition: "The discipline of the role (Product, Marketing, eCommerce…), separate from its level (Seniority) and the industry (Company Type). A job can have more than one; the first is the main one. Worked out automatically when not set by hand: from jobs in the same title family, then words in the title. Unknown when nothing says.", avoid: ["Type"] },
+      { term: "Company Type", definition: "The kind of company: eCommerce/DTC, SaaS, B2B Services… Worked out automatically when not set by hand: from your other jobs at the same company, then words in the title that name it. Unknown otherwise, sometimes with a Likely hint from the job description to accept." },
+      { term: "Likely", definition: "A Company Type guess from the job description or from titles that usually go with one type. Shown on the job page with Use it; never counted until accepted." },
       { term: "Fit", definition: "How well the role matches what you want: Good Fit, Stretch, Settle, Pivot." },
       { term: "Work Mode", definition: "Remote, Hybrid or In Office (work_mode).", avoid: ["Location"] },
       { term: "Expanded View", definition: "Job list layout that adds Resume, Job Type and Company Type columns, with Fit and salary under the title and the recruiter under the company. Compact View is the default dense layout; your choice is remembered." },

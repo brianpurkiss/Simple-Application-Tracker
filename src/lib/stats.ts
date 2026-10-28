@@ -95,6 +95,7 @@ export const PERF_DIMS = [
   { key: "title", label: "Job Title" },
   { key: "seniority", label: "Seniority" },
   { key: "type", label: "Type" },
+  { key: "company", label: "Company Type" },
 ] as const;
 export type PerfDim = (typeof PERF_DIMS)[number]["key"];
 // The values a job takes for a non-resume dimension (a job can sit in several starred titles). Empty = not in any starred group.

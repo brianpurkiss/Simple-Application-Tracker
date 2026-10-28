@@ -24,7 +24,7 @@ import { isMissing, missingField } from "@/lib/missing";
 import { type PaletteAction, jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/hooks/appActions";
 import { type Job, type StarKind, useJobs, useProfile, useResumes, useStarredGroups, useUpdateJob, useUpdateProfile } from "@/lib/api";
-import { resolveCompanyType, resolveJobType, type FactContext } from "@/lib/jobFacts";
+import { resolveCompanyType, resolveJobTypes, typeNames, type FactContext } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { COMPANY_TYPE_PARAM, STAR_FILTERS, STAR_PARAMS } from "@/lib/jobFilters";
 import { jobGroupKeys } from "@/lib/titles/starred";
@@ -34,7 +34,7 @@ import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { daysSince, formatDate, isOnHold } from "@/lib/format";
 import { isActive, needsFollowUp, reachedInterview } from "@/lib/jobs";
 import { toast } from "sonner";
-import { COMPANY_TYPES, FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options";
+import { FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { cn } from "@/lib/utils";
@@ -124,8 +124,8 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void, ctx: Fa
   // Expanded view shows the same values the filters match on, so a filtered list reads the same as its dropdowns.
   ...(expanded
     ? [
-        textCell("job_type", "Job Type", (j) => resolveJobType(j, ctx).value),
-        textCell("company_type", "Company Type", (j) => resolveCompanyType(j).value),
+        textCell("job_type", "Job Type", (j) => resolveJobTypes(j, ctx).values.join(", ")),
+        textCell("company_type", "Company Type", (j) => resolveCompanyType(j, ctx).value),
         textCell("resume", "Resume", (j) => j.resume_version),
         textCell("seniority", "Seniority", (j) => ctx.titles.get(j.id)?.seniority.label ?? ""),
         textCell("title_group", "Title Group", (j) => ctx.titles.get(j.id)?.family ?? ""),
@@ -230,7 +230,7 @@ export default function JobsList() {
   const setParam = (key: string, value: string) => updateParams((p) => p.set(key, value));
 
   // Group keys per job (title, seniority, type), for matching against the starred filters. Stars are read live.
-  const jobKeys = useMemo(() => new Map(jobs.map((j) => [j.id, jobGroupKeys(factCtx.titles.get(j.id), resolveJobType(j, factCtx).value)])), [jobs, factCtx]);
+  const jobKeys = useMemo(() => new Map(jobs.map((j) => [j.id, jobGroupKeys(factCtx.titles.get(j.id), resolveJobTypes(j, factCtx).values)])), [jobs, factCtx]);
   // Only starred groups with at least one job are offered.
   const starOptions = useMemo(
     () => STAR_FILTERS.map((f) => stars.filter((s) => s.kind === f.kind && jobs.some((j) => jobKeys.get(j.id)?.[f.kind].includes(s.key)))),
@@ -260,7 +260,7 @@ export default function JobsList() {
   const facetTest: Record<string, (j: Job, v: string) => boolean> = {
     status: (j, v) => GROUP_FILTERS[v]?.(j) || (v === "followup" && isOnHold(j)) || (!GROUP_FILTERS[v] && (v === "all" || j.status === v)),
     fit: (j, v) => v === "all" || j.fit === v,
-    [COMPANY_TYPE_PARAM]: (j, v) => v === "all" || resolveCompanyType(j).value === v,
+    [COMPANY_TYPE_PARAM]: (j, v) => v === "all" || resolveCompanyType(j, factCtx).value === v,
     resume: (j, v) => !v || v === "all" || j.resume_version === v,
     ...Object.fromEntries(STAR_FILTERS.map((f) => [f.param, (j: Job, v: string) => v === "all" || !!jobKeys.get(j.id)?.[f.kind].includes(v)])),
   };
@@ -270,7 +270,7 @@ export default function JobsList() {
   };
   const facetKeys = Object.keys(facetTest);
   // A job passes when every filter matches it, except the one named by `skip`, and the missing-data list if one is picked.
-  const passes = (j: Job, skip?: string) => facetKeys.every((k) => k === skip || facetTest[k](j, selection[k])) && (!missing || isMissing(j, missing));
+  const passes = (j: Job, skip?: string) => facetKeys.every((k) => k === skip || facetTest[k](j, selection[k])) && (!missing || isMissing(j, missing, factCtx));
 
   const filtered = useMemo(
     () => jobs.filter((j) => passes(j)),
@@ -389,7 +389,7 @@ export default function JobsList() {
       ...STATUSES.map((st) => ({ id: `s-${st}`, label: st, group: "", run: () => setParam("status", st) })),
     ] },
     { id: "f-fit", label: "Filter by fit…", group: "Jobs list", choices: choose("fit", FITS, "All fits") },
-    { id: "f-company", label: "Filter by company type…", group: "Jobs list", choices: choose("company_type", COMPANY_TYPES, "All company types") },
+    { id: "f-company", label: "Filter by company type…", group: "Jobs list", choices: choose("company_type", typeNames(factCtx, "company"), "All company types") },
     { id: "f-resume", label: "Filter by resume…", group: "Jobs list", choices: choose("resume", resumes.map((r) => r.version), "Any resume", "") },
     { id: "sort", label: "Sort by…", group: "Jobs list", keywords: "order", choices: ([
       ["Applied, newest first", "applied_date:desc"], ["Applied, oldest first", "applied_date:asc"],
@@ -490,7 +490,7 @@ export default function JobsList() {
             <SelectTrigger className="w-48 bg-card [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All company types<FacetCount n={facetCount(COMPANY_TYPE_PARAM, "all")} /></SelectItem>
-              {COMPANY_TYPES.map((t) => <SelectItem key={t} value={t}>{t}<FacetCount n={facetCount(COMPANY_TYPE_PARAM, t)} /></SelectItem>)}
+              {typeNames(factCtx, "company").map((t) => <SelectItem key={t} value={t}>{t}<FacetCount n={facetCount(COMPANY_TYPE_PARAM, t)} /></SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="ghost" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore}>
@@ -634,7 +634,7 @@ export default function JobsList() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <MissingDataDialog jobs={jobs} value={missing?.key ?? ""} onPick={showMissing} />
+        <MissingDataDialog jobs={jobs} factCtx={factCtx} value={missing?.key ?? ""} onPick={showMissing} />
         <Link to="/trash" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <Trash2 className="size-4" /> Trash
         </Link>

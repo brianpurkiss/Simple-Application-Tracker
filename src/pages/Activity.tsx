@@ -18,7 +18,7 @@ import SalaryDistribution from "@/components/stats/SalaryDistribution";
 import Timing from "@/components/stats/Timing";
 import WeekdayInsights from "@/components/stats/WeekdayInsights";
 import { type ActivityEvent, type Job, useEvents, useJobs, useResumes, useStarredGroups } from "@/lib/api";
-import { resolveCompanyType, resolveJobType, type FactContext } from "@/lib/jobFacts";
+import { resolveCompanyType, resolveJobTypes, type FactContext } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { COMPANY_TYPE_PARAM, RESUME_PARAM, STAR_FILTERS } from "@/lib/jobFilters";
 import { VERSION_MODES, funnel, interviewToRejection, kpis, outcomes, resumeFamily, timing, weeklyCohorts } from "@/lib/stats";
@@ -39,12 +39,12 @@ const FILTERS = [
 ] as const;
 
 // A job matches when it is in any picked starred group (see STAR_FILTERS in jobFilters).
-const valueOf = (j: Job, field: (typeof FILTERS)[number]["field"], grouped: boolean) => {
+const valueOf = (j: Job, field: (typeof FILTERS)[number]["field"], grouped: boolean, ctx: FactContext) => {
   if (field === "resume_version") {
     const v = j.resume_version.trim();
     return grouped ? resumeFamily(v) : v;
   }
-  return resolveCompanyType(j).value;
+  return resolveCompanyType(j, ctx).value;
 };
 
 const shortDate = (iso: string) => {
@@ -140,7 +140,7 @@ export default function Activity() {
   const starSelected = STAR_FILTERS.map((f) => params.getAll(f.param));
   // Group keys per job, for matching against the starred filters.
   const jobKeys = useMemo(
-    () => new Map(jobs.map((j) => [j.id, jobGroupKeys(factCtx.titles.get(j.id), resolveJobType(j, factCtx).value)])),
+    () => new Map(jobs.map((j) => [j.id, jobGroupKeys(factCtx.titles.get(j.id), resolveJobTypes(j, factCtx).values)])),
     [jobs, factCtx],
   );
   const starOptions = useMemo(
@@ -160,7 +160,7 @@ export default function Activity() {
       FILTERS.map((f) => {
         const counts = new Map<string, number>();
         for (const j of jobs) {
-          const v = valueOf(j, f.field, grouped);
+          const v = valueOf(j, f.field, grouped, factCtx);
           if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
         }
         return [...counts].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
@@ -171,7 +171,7 @@ export default function Activity() {
     () =>
       jobs.filter(
         (j) =>
-          FILTERS.every((f, i) => !selected[i].length || selected[i].includes(valueOf(j, f.field, grouped))) &&
+          FILTERS.every((f, i) => !selected[i].length || selected[i].includes(valueOf(j, f.field, grouped, factCtx))) &&
           STAR_FILTERS.every((f, i) => !starSelected[i].length || starSelected[i].some((k) => jobKeys.get(j.id)?.[f.kind].includes(k))),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps

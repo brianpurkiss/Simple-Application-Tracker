@@ -3,6 +3,7 @@ import { ListX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Job } from "@/lib/api";
+import type { FactContext } from "@/lib/jobFacts";
 import { MISSING_FIELDS, type MissingField, missingCount } from "@/lib/missing";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,7 @@ const LAYOUT: { column: string; sections: string[] }[] = [
   { column: "sm:col-span-2", sections: ["Notes", "Job Description", "Cover Letter"] },
 ];
 
-export function MissingDataDialog({ jobs, value, onPick }: { jobs: Job[]; value: string; onPick: (key: string) => void }) {
+export function MissingDataDialog({ jobs, factCtx, value, onPick }: { jobs: Job[]; factCtx: FactContext; value: string; onPick: (key: string) => void }) {
   const [open, setOpen] = useState(false);
   const pick = (f: MissingField) => {
     onPick(f.key);
@@ -39,7 +40,7 @@ export function MissingDataDialog({ jobs, value, onPick }: { jobs: Job[]; value:
                   <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{section}</h3>
                   <div className={cn("grid gap-1.5", column === "sm:col-span-3" && "sm:grid-cols-2")}>
                     {MISSING_FIELDS.filter((f) => f.section === section).map((f) => {
-                      const n = missingCount(jobs, f);
+                      const n = missingCount(jobs, f, factCtx);
                       return (
                         <Button
                           key={f.key}

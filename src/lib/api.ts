@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { FactKind, FactType } from "./jobFacts.ts";
 
 export type Job = {
   id: number;
@@ -10,7 +11,8 @@ export type Job = {
   fit: string;
   salary_min: number | null;
   salary_max: number | null;
-  job_type: string;
+  /** Hand-set Job Types, main one first. Empty means worked out automatically (see jobFacts.ts). */
+  job_types: string[];
   resume_version: string;
   work_mode: string;
   status: string;
@@ -70,7 +72,7 @@ export const useJobs = () =>
   useQuery({ queryKey: ["jobs"], queryFn: () => request<Job[]>("GET", "/api/jobs") });
 
 // Preset options plus any other values already used on jobs, for autocomplete.
-export function useSuggestions(field: "title" | "job_type" | "resume_version" | "agency_name", preset: readonly string[]) {
+export function useSuggestions(field: "title" | "resume_version" | "agency_name", preset: readonly string[]) {
   const { data: jobs = [] } = useJobs();
   const { data: resumes = [] } = useResumes();
   const used = jobs.map((j) => j[field]).filter(Boolean);
@@ -233,21 +235,27 @@ export const useUpdateTitleSynonym = () =>
 export const useDeleteTitleSynonym = () =>
   useSynonymMutation((id: number) => request<void>("DELETE", `/api/title-synonyms/${id}`));
 
-export type JobTypeMatch = { id: number; term: string; job_type: string };
-type JobTypeMatchInput = Pick<JobTypeMatch, "term" | "job_type">;
+export type { FactType } from "./jobFacts.ts";
 
-export const useJobTypeMatches = () =>
-  useQuery({ queryKey: ["job-type-matches"], queryFn: () => request<JobTypeMatch[]>("GET", "/api/job-type-matches") });
+export const useFactTypes = () =>
+  useQuery({ queryKey: ["fact-types"], queryFn: () => request<FactType[]>("GET", "/api/fact-types") });
 
-function useJobTypeMatchMutation<V, R>(fn: (vars: V) => Promise<R>) {
+function useFactTypeMutation<V, R>(fn: (vars: V) => Promise<R>) {
   const qc = useQueryClient();
-  // Job Type is worked out on read from these rules, so the Job Type views refresh with them.
-  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["job-type-matches"] }) });
+  // Renaming or deleting a type relabels jobs too, so both refresh.
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["fact-types"] }), qc.invalidateQueries({ queryKey: ["jobs"] })]),
+  });
 }
 
-export const useCreateJobTypeMatch = () =>
-  useJobTypeMatchMutation((m: JobTypeMatchInput) => request<JobTypeMatch[]>("POST", "/api/job-type-matches", m));
-export const useUpdateJobTypeMatch = () =>
-  useJobTypeMatchMutation(({ id, ...m }: JobTypeMatchInput & { id: number }) => request<JobTypeMatch[]>("PATCH", `/api/job-type-matches/${id}`, m));
-export const useDeleteJobTypeMatch = () =>
-  useJobTypeMatchMutation((id: number) => request<JobTypeMatch[]>("DELETE", `/api/job-type-matches/${id}`));
+export const useCreateFactType = () =>
+  useFactTypeMutation((t: Pick<FactType, "kind" | "name">) => request<FactType[]>("POST", "/api/fact-types", t));
+export const useRenameFactType = () =>
+  useFactTypeMutation(({ id, name }: Pick<FactType, "id" | "name">) => request<FactType[]>("PATCH", `/api/fact-types/${id}`, { name }));
+export const useReorderFactTypes = () =>
+  useFactTypeMutation((o: { kind: FactKind; ids: number[] }) => request<FactType[]>("PUT", "/api/fact-types/order", o));
+export const useDeleteFactType = () =>
+  useFactTypeMutation((id: number) => request<FactType[]>("DELETE", `/api/fact-types/${id}`));
+export const useResetFactLabels = () =>
+  useFactTypeMutation(() => request<{ backup: string }>("POST", "/api/facts/reset"));

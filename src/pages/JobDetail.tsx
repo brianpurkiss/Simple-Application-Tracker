@@ -5,13 +5,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ComboField, InlineFields, SalaryRangeField, SelectField, TextAreaField, TextField } from "@/components/fields";
+import { ComboField, CompanyTypeField, InlineFields, JobTypesField, SalaryRangeField, SelectField, TextAreaField, TextField } from "@/components/fields";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { EVENT_COLORS } from "@/lib/colors";
 import { StatusBadge } from "@/components/StatusBadge";
 import { type Job, type JobInput, useDeleteJob, useJob, useJobs, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
-import { resolveJobType } from "@/lib/jobFacts";
+import { factHints, typeNames } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { daysSince, formatDate, today } from "@/lib/format";
 import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
@@ -20,21 +20,22 @@ import { loadOrder, saveSelected } from "@/lib/listOrder";
 import { jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { MOD } from "@/lib/shortcuts";
 import { FilterAccordion } from "@/components/stats/FilterMenu";
-import { APPLIED_VIA, COMPANY_TYPES, FITS, GHOSTED_DAYS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES, sortResumeVersions } from "@/lib/options";
+import { APPLIED_VIA, FITS, GHOSTED_DAYS, RESUME_VERSIONS, WORK_MODES, sortResumeVersions } from "@/lib/options";
 
 // An event type name in its History color.
 const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}</span>;
 
 const EDITABLE = [
-  "title", "normalized_title", "company", "company_type", "fit", "salary_min", "salary_max", "job_type", "resume_version", "work_mode", "applied_date",
+  "title", "normalized_title", "company", "company_type", "fit", "salary_min", "salary_max", "job_types", "resume_version", "work_mode", "applied_date",
   "follow_up_on", "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "contact_linkedin", "offer_info", "notes",
   "job_description", "cover_letter",
 ] as const satisfies readonly (keyof JobInput)[];
 
 type Draft = Record<(typeof EDITABLE)[number], string>;
 
+// Every draft value is a string; Job Types are held as JSON so a change in the list counts as an edit.
 const toDraft = (job: Job): Draft =>
-  Object.fromEntries(EDITABLE.map((k) => [k, String(job[k] ?? "")])) as Draft;
+  Object.fromEntries(EDITABLE.map((k) => [k, k === "job_types" ? JSON.stringify(job.job_types ?? []) : String(job[k] ?? "")])) as Draft;
 
 export default function JobDetail() {
   const id = Number(useParams().id);
@@ -53,23 +54,27 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const navigate = useNavigate();
   const location = useLocation();
   const titles = useSuggestions("title", []);
-  const jobTypes = useSuggestions("job_type", JOB_TYPES);
   const resumeVersions = sortResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS));
   const agencyNames = useSuggestions("agency_name", []);
-  // The automatic Job Type comes from every job's titles, so this page reads the same rules as the lists.
+  // The automatic Job Type and Company Type come from every job, so this page reads the same model as the lists.
   const { data: allJobs = [] } = useJobs();
   const factCtx = useFactContext(allJobs);
-  const autoJobType = resolveJobType(job, factCtx);
 
   const { draft, setDraft, saved, setSaved, set, changed, canSave, save } = useDraftForm(EDITABLE, toDraft(job), {
     update,
     valid: (d) => !!d.title.trim() && !salaryRangeInvalid(d.salary_min, d.salary_max),
-    toPatch: (k, v) => (k === "applied_date" || k === "follow_up_on" ? v || null : k === "salary_min" || k === "salary_max" ? toSalary(v) : v),
+    toPatch: (k, v) =>
+      k === "applied_date" || k === "follow_up_on" ? v || null
+        : k === "salary_min" || k === "salary_max" ? toSalary(v)
+        : k === "job_types" ? JSON.parse(v)
+        : v,
     onSaved: () => setEpoch((n) => n + 1),
     // Step back when we came from the list so its filters (kept in the URL) survive.
     onLeave: () => ((location.state as { fromList?: boolean } | null)?.fromList ? navigate(-1) : navigate("/jobs")),
   });
   const badRange = salaryRangeInvalid(draft.salary_min, draft.salary_max);
+  // Worked out from the draft, so the hints follow the title, company and description as they're edited.
+  const hints = factHints({ id: job.id, title: draft.title, normalized_title: draft.normalized_title, company: draft.company, company_type: "", job_types: [], job_description: draft.job_description }, factCtx);
 
   const remove = () => {
     deleteJob.mutate(job.id, {
@@ -174,18 +179,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                 placeholder="Optional. e.g. Director of eCommerce"
                 className="sm:col-span-2"
               />
-              <div className="space-y-1">
-                <ComboField label="Job Type" value={draft.job_type} onChange={set("job_type")} options={jobTypes} />
-                {!draft.job_type.trim() && autoJobType.source === "auto" && (
-                  <p className="text-xs text-muted-foreground">
-                    Automatic: {autoJobType.value}.{" "}
-                    <button type="button" className="underline underline-offset-4 hover:text-foreground" onClick={() => set("job_type")(autoJobType.value)}>
-                      Use it
-                    </button>
-                  </p>
-                )}
-              </div>
-              <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
+              <JobTypesField
+                value={JSON.parse(draft.job_types) as string[]}
+                onChange={(v) => set("job_types")(JSON.stringify(v))}
+                options={typeNames(factCtx, "job")}
+                auto={hints.jobTypes}
+                className="sm:col-span-2"
+              />
+              <CompanyTypeField value={draft.company_type} onChange={set("company_type")} options={typeNames(factCtx, "company")} auto={hints.companyType} />
               <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
               <SelectField label="Work Mode" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />
               <TextField label="Job Description Link" value={draft.jd_link} onChange={set("jd_link")} />
