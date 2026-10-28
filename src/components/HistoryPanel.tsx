@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,7 +85,9 @@ function EventRow({ event }: { event: JobEvent }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2 text-sm">
           <span className="font-medium">{event.type}</span>
-          <span className="text-muted-foreground">{formatDate(event.date)}{event.time && ` · ${formatTime(event.time)}`}</span>
+          <Link to={`/calendar?date=${event.date}`} title="View on calendar" className="text-muted-foreground hover:text-foreground hover:underline">
+            {formatDate(event.date)}{event.time && ` · ${formatTime(event.time)}`}
+          </Link>
         </div>
         {event.description && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{event.description}</p>}
       </div>

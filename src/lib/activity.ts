@@ -79,6 +79,14 @@ export function monthGrid(year: number, month: number) {
   return Array.from({ length: 42 }, (_, i) => fromUtc(start + i * DAY));
 }
 
+export const addDays = (iso: string, n: number) => fromUtc(toUtc(iso) + n * DAY);
+
+// Every day of one month as YYYY-MM-DD; `month` is 0-based.
+export function monthDays(year: number, month: number) {
+  const count = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return Array.from({ length: count }, (_, i) => fromUtc(Date.UTC(year, month, i + 1)));
+}
+
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 // Events of one category counted by day of the week (Monday first).

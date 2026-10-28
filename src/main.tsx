@@ -15,6 +15,7 @@ import Resumes from "@/pages/Resumes";
 import ResumeDetail from "@/pages/ResumeDetail";
 import ResumePerformance from "@/pages/ResumePerformance";
 import Activity from "@/pages/Activity";
+import Calendar from "@/pages/Calendar";
 import Trash from "@/pages/Trash";
 import Shortcuts from "@/pages/Shortcuts";
 import Terminology from "@/pages/Terminology";
@@ -45,7 +46,7 @@ function Nav() {
 
   return (
     <nav className="flex h-full text-sm">
-      {[["/jobs", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/performance", "Performance"], ["/activity", "Activity"]].map(([to, label]) => (
+      {[["/jobs", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/performance", "Performance"], ["/activity", "Activity"], ["/calendar", "Calendar"]].map(([to, label]) => (
         <Link key={to} to={to} className={`flex h-full items-center px-3 hover:bg-muted/50 ${linkClass(to)}`}>{label}</Link>
       ))}
     </nav>
@@ -87,7 +88,7 @@ createRoot(document.getElementById("root")!).render(
         <ScrollToTop />
         <GlobalHotkeys />
         <div className="flex min-h-screen flex-col">
-        <header className="border-b bg-card">
+        <header className="sticky top-0 z-30 border-b bg-card">
           <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-5 px-3">
             <Link to="/" className="px-3 text-lg font-semibold">Application Tracker</Link>
             <Nav />
@@ -105,6 +106,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/resumes/:id" element={<ResumeDetail />} />
             <Route path="/performance" element={<ResumePerformance />} />
             <Route path="/activity" element={<Activity />} />
+            <Route path="/calendar" element={<Calendar />} />
             <Route path="/stats" element={<Navigate to="/activity" replace />} />
             <Route path="/trash" element={<Trash />} />
             <Route path="/shortcuts" element={<Shortcuts />} />

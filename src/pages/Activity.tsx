@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Area, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Legend } from "@/components/stats/Legend";
 import { FilterBox, FilterPanel, FilterToggle } from "@/components/stats/FilterMenu";
 import { Label } from "@/components/ui/label";
 import { PillToggle } from "@/components/ui/pill-toggle";
@@ -22,18 +22,11 @@ import { VERSION_MODES, funnel, interviewToRejection, kpis, outcomes, resumeFami
 import {
   CATEGORIES,
   type Category,
-  categoryOf,
-  colorOf,
-  eventsByDay,
-  monthGrid,
   weeklySeries,
 } from "@/lib/activity";
-import { formatDate, today } from "@/lib/format";
+import { today } from "@/lib/format";
 import { cumulative, extras, momentum, rollingAverage } from "@/lib/insights";
 import { useParamUpdater } from "@/lib/useParamUpdater";
-import { cn } from "@/lib/utils";
-
-const VIEWS = [{ key: "chart", label: "Chart" }, { key: "calendar", label: "Calendar" }] as const;
 
 // Each filter lives in the URL as a repeated param so views can be shared and survive reloads.
 const FILTERS = [
@@ -48,36 +41,10 @@ const valueOf = (j: Job, field: (typeof FILTERS)[number]["field"], grouped: bool
   return field === "resume_version" && grouped ? resumeFamily(v) : v;
 };
 
-// New resumes are squares so they stand apart from job events.
-const shapeOf = (c: Category) => (c === "resume" ? "rounded-[2px]" : "rounded-full");
-
 const shortDate = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
-
-function Legend({ keys, hidden, onToggle }: { keys: Category[]; hidden?: Set<Category>; onToggle?: (c: Category) => void }) {
-  return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-      {CATEGORIES.filter((c) => keys.includes(c.key)).map((c) => {
-        const off = hidden?.has(c.key);
-        const body = (
-          <>
-            <span className={cn("size-2.5", shapeOf(c.key))} style={{ backgroundColor: c.color, opacity: off ? 0.3 : 1 }} />
-            <span className={cn(off && "text-muted-foreground line-through")}>{c.label}</span>
-          </>
-        );
-        return onToggle ? (
-          <button key={c.key} type="button" onClick={() => onToggle(c.key)} className="inline-flex items-center gap-1.5">
-            {body}
-          </button>
-        ) : (
-          <span key={c.key} className="inline-flex items-center gap-1.5">{body}</span>
-        );
-      })}
-    </div>
-  );
-}
 
 function AreaView({ events }: { events: ActivityEvent[] }) {
   // Rejections start hidden so the applications and interviews trend reads first.
@@ -152,120 +119,12 @@ function AreaView({ events }: { events: ActivityEvent[] }) {
   );
 }
 
-function CalendarView({ events }: { events: ActivityEvent[] }) {
-  const now = today();
-  const [cursor, setCursor] = useState(() => {
-    // Start on the month of the latest event so the page opens on something.
-    const latest = events.length ? events[events.length - 1].date : now;
-    const [y, m] = latest.split("-").map(Number);
-    return { year: y, month: m - 1 };
-  });
-  const [selected, setSelected] = useState<string | null>(null);
-  const [hidden, setHidden] = useState<Set<Category>>(new Set(["rejection"]));
-  const toggle = (c: Category) =>
-    setHidden((h) => {
-      const next = new Set(h);
-      if (!next.delete(c)) next.add(c);
-      return next;
-    });
-  const byDay = eventsByDay(events.filter((e) => !hidden.has(categoryOf(e))));
-  const days = monthGrid(cursor.year, cursor.month);
-  const shift = (delta: number) => {
-    const d = new Date(Date.UTC(cursor.year, cursor.month + delta, 1));
-    setCursor({ year: d.getUTCFullYear(), month: d.getUTCMonth() });
-  };
-  const goToday = () => {
-    const [y, m] = now.split("-").map(Number);
-    setCursor({ year: y, month: m - 1 });
-    setSelected(now);
-  };
-  const title = new Date(cursor.year, cursor.month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const picked = selected ? byDay.get(selected) ?? [] : [];
-
-  return (
-    <div className="space-y-4 rounded-lg border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => shift(-1)} aria-label="Previous month">
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => shift(1)} aria-label="Next month">
-            <ChevronRight className="size-4" />
-          </Button>
-          <Button variant="outline" onClick={goToday}>Today</Button>
-          <h2 className="ml-2 text-lg font-semibold">{title}</h2>
-        </div>
-        <Legend keys={CATEGORIES.map((c) => c.key)} hidden={hidden} onToggle={toggle} />
-      </div>
-
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[560px] grid-cols-7 gap-px overflow-hidden rounded-md border bg-border">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-            <div key={d} className="bg-card px-2 py-1.5 text-xs text-muted-foreground">{d}</div>
-          ))}
-          {days.map((day) => {
-            const items = byDay.get(day) ?? [];
-            const inMonth = Number(day.slice(5, 7)) - 1 === cursor.month;
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => setSelected(day)}
-                className={cn(
-                  "flex min-h-24 flex-col items-start gap-1.5 bg-card p-2 text-left hover:bg-accent/50",
-                  !inMonth && "opacity-40",
-                  selected === day && "ring-2 ring-primary ring-inset",
-                )}
-              >
-                <span
-                  className={cn(
-                    "text-xs tabular-nums",
-                    day === now ? "rounded-full bg-primary px-1.5 py-0.5 font-medium text-primary-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {Number(day.slice(8))}
-                </span>
-                <span className="flex flex-wrap gap-1">
-                  {items.map((e) => (
-                    <span key={e.id} className={cn("size-2.5", shapeOf(categoryOf(e)))} style={{ backgroundColor: colorOf(categoryOf(e)) }} />
-                  ))}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {selected && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium">
-            {formatDate(selected)} · {picked.length} event{picked.length === 1 ? "" : "s"}
-          </h3>
-          {picked.length === 0 && <p className="text-sm text-muted-foreground">Nothing logged this day.</p>}
-          <ul className="divide-y rounded-md border">
-            {picked.map((e) => (
-              <li key={e.id}>
-                <Link to={e.resume_id ? `/resumes/${e.resume_id}` : `/jobs/${e.job_id}`} className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent/50">
-                  <span className={cn("size-2.5 shrink-0", shapeOf(categoryOf(e)))} style={{ backgroundColor: colorOf(categoryOf(e)) }} />
-                  <span className="w-32 shrink-0 text-muted-foreground">{e.type}</span>
-                  <span className="truncate">{e.title}{e.company && <span className="text-muted-foreground"> · {e.company}</span>}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function Activity() {
   const { data: events = [], isLoading: loadingEvents } = useEvents();
   const { data: jobs = [], isLoading: loadingJobs } = useJobs();
   const { data: resumes = [] } = useResumes();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const updateParams = useParamUpdater();
-  const view = params.get("view") === "calendar" ? "calendar" : "chart";
   const [filtersOpen, setFiltersOpen] = useState(false);
   const grouped = params.get("versions") === "grouped";
   const selected = FILTERS.map((f) => params.getAll(f.param).map((v) => (f.field === "resume_version" && grouped ? resumeFamily(v) : v)));
@@ -338,12 +197,9 @@ export default function Activity() {
         <OutcomeBar outcomes={outcomes(filteredJobs)} />
       </div>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium">Timeline</h2>
-        <Segmented options={VIEWS} value={view} onChange={(key) => setParams(key === "chart" ? {} : { view: key })} />
-      </div>
-        {view === "chart" ? <AreaView events={filteredEvents} /> : <CalendarView events={filteredEvents} />}
-        {view === "calendar" && <WeekdayInsights events={filteredEvents} />}
+        <h2 className="font-medium">Timeline</h2>
+        <AreaView events={filteredEvents} />
+        <WeekdayInsights events={filteredEvents} />
       </div>
       <PipelineCumulative data={progress} />
       <Timing data={timing(filteredJobs)} afterInterview={interviewToRejection(filteredJobs)} />
