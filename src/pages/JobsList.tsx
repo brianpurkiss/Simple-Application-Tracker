@@ -20,15 +20,16 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_COLORS } from "@/lib/colors";
 import { AddJobDialog } from "@/components/AddJobDialog";
 import { type PaletteAction, jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
-import { type HotkeyAction, SEARCH_INPUT_ID } from "@/lib/appActions";
+import { type HotkeyAction, SEARCH_INPUT_ID } from "@/hooks/appActions";
 import { type Job, useJobs, useProfile, useResumes, useUpdateJob, useUpdateProfile } from "@/lib/api";
 import { loadSelected, saveOrder, saveSelected } from "@/lib/listOrder";
-import { isEditable, overlayOpen } from "@/lib/hotkeys";
-import { daysSince, formatDate, isActive, isOnHold, needsFollowUp, reachedInterview } from "@/lib/format";
+import { isEditable, overlayOpen } from "@/hooks/hotkeys";
+import { daysSince, formatDate, isOnHold } from "@/lib/format";
+import { isActive, needsFollowUp, reachedInterview } from "@/lib/jobs";
 import { toast } from "sonner";
 import { COMPANY_TYPES, FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
-import { useParamUpdater } from "@/lib/useParamUpdater";
+import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { cn } from "@/lib/utils";
 
 const GROUP_FILTERS: Record<string, (job: Job) => boolean> = {

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { ComboField, SalaryRangeField, SelectField, TextField } from "@/components/fields";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { type JobInput, useCreateJob, useSuggestions } from "@/lib/api";
-import type { HotkeyAction } from "@/lib/appActions";
+import type { HotkeyAction } from "@/hooks/appActions";
 import { today } from "@/lib/format";
 import { APPLIED_VIA, COMPANY_TYPES, FITS, JOB_TYPES, RESUME_VERSIONS, WORK_MODES, latestResumeVersions, sortResumeVersions } from "@/lib/options";
 

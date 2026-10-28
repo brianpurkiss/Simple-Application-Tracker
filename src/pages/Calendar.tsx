@@ -4,7 +4,7 @@ import { Legend, shapeOf } from "@/components/stats/Legend";
 import { type Category, CATEGORIES, WEEKDAYS, addDays, categoryOf, colorOf, eventsByDay, monthDays } from "@/lib/activity";
 import { useEvents, useResumes, type ActivityEvent } from "@/lib/api";
 import { formatDate, today } from "@/lib/format";
-import { isEditable, overlayOpen } from "@/lib/hotkeys";
+import { isEditable, overlayOpen } from "@/hooks/hotkeys";
 import { cn } from "@/lib/utils";
 
 const ARROWS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };

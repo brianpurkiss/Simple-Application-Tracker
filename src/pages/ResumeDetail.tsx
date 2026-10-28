@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChartNoAxesCombined, ExternalLink, FileUp, Briefcase, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -8,7 +8,7 @@ import { TextAreaField, TextField } from "@/components/fields";
 import {
   type Resume, useDeleteResume, useRemoveResumePdf, useResume, useUpdateResume, useUploadResumePdf,
 } from "@/lib/api";
-import { isEditable, useHotkey } from "@/lib/hotkeys";
+import { useDraftForm } from "@/hooks/useDraftForm";
 import { usePaletteActions } from "@/components/CommandPalette";
 import { MOD } from "@/lib/shortcuts";
 
@@ -28,8 +28,6 @@ export default function ResumeDetail() {
 }
 
 function ResumeEditor({ resume }: { resume: Resume }) {
-  const [draft, setDraft] = useState(() => toDraft(resume));
-  const [saved, setSaved] = useState(() => toDraft(resume));
   const update = useUpdateResume(resume.id);
   const upload = useUploadResumePdf(resume.id);
   const removePdf = useRemoveResumePdf(resume.id);
@@ -37,20 +35,11 @@ function ResumeEditor({ resume }: { resume: Resume }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  const set = (key: keyof Draft) => (value: string) => setDraft((d) => ({ ...d, [key]: value }));
-  const changed = EDITABLE.filter((k) => draft[k] !== saved[k]);
-
-  const save = () => {
-    (document.activeElement as HTMLElement | null)?.blur();
-    const patch = Object.fromEntries(changed.map((k) => [k, draft[k]]));
-    update.mutate(patch, {
-      onSuccess: () => {
-        setSaved(draft);
-        toast.success("Saved");
-      },
-      onError: (err) => toast.error(err.message),
-    });
-  };
+  const { draft, setDraft, saved, set, changed, canSave, save } = useDraftForm(EDITABLE, toDraft(resume), {
+    update,
+    valid: (d) => !!d.version.trim(),
+    onLeave: () => navigate("/resumes"),
+  });
 
   const onFile = (file: File | undefined) => {
     if (!file) return;
@@ -71,19 +60,8 @@ function ResumeEditor({ resume }: { resume: Resume }) {
     });
   };
 
-  useHotkey("Escape", (e) => {
-    if (isEditable(e.target)) return (e.target as HTMLElement).blur();
-    if (changed.length > 0 && !window.confirm("Discard unsaved changes?")) return;
-    navigate("/resumes");
-  });
-
-  useHotkey("s", (e) => {
-    e.preventDefault();
-    if (changed.length > 0 && !update.isPending && draft.version.trim()) save();
-  }, { mod: true });
-
   usePaletteActions([
-    ...(changed.length > 0 ? [{ id: "save", label: "Save changes", group: "This resume", keys: [MOD, "S"], run: () => { if (!update.isPending && draft.version.trim()) save(); } }] : []),
+    ...(changed.length > 0 ? [{ id: "save", label: "Save changes", group: "This resume", keys: [MOD, "S"], run: () => { if (canSave) save(); } }] : []),
     { id: "jobs", label: "Show jobs that used this resume", group: "This resume", run: () => navigate(`/jobs?${new URLSearchParams({ resume: resume.version, status: "all" })}`) },
   ]);
 

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Keys } from "@/components/Keys";
 import { QuickAddEvent } from "@/components/QuickAddEvent";
 import { type Job, useJobs, useResumes } from "@/lib/api";
-import { useAddJob, useFocusSearch } from "@/lib/appActions";
+import { useAddJob, useFocusSearch } from "@/hooks/appActions";
 import { DAY, formatDate } from "@/lib/format";
 import { EVENT_TYPES } from "@/lib/options";
 import { GO_TO } from "@/lib/shortcuts";
@@ -47,7 +47,7 @@ export function usePaletteActions(actions: PaletteAction[]) {
 }
 
 // "Log history…" plus one entry per event type, all opening the quick-add dialog for `job`.
-export function logActions(job: Job, logHistory: Palette["logHistory"], group: string, withGeneric: boolean): PaletteAction[] {
+function logActions(job: Job, logHistory: Palette["logHistory"], group: string, withGeneric: boolean): PaletteAction[] {
   const generic: PaletteAction[] = withGeneric
     ? [{ id: "log", label: "Log history…", group, keys: ["L"], keywords: "add event note", run: () => logHistory(job) }]
     : [];

@@ -7,11 +7,13 @@ import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogT
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComboField, InlineFields, SalaryRangeField, SelectField, TextAreaField, TextField } from "@/components/fields";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
-import { EVENT_COLORS, HistoryPanel } from "@/components/HistoryPanel";
+import { HistoryPanel } from "@/components/HistoryPanel";
+import { EVENT_COLORS } from "@/lib/colors";
 import { StatusBadge } from "@/components/StatusBadge";
 import { type Job, type JobInput, useDeleteJob, useJob, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
 import { daysSince, formatDate, today } from "@/lib/format";
-import { isEditable, overlayOpen, useHotkey } from "@/lib/hotkeys";
+import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
+import { useDraftForm } from "@/hooks/useDraftForm";
 import { loadOrder, saveSelected } from "@/lib/listOrder";
 import { jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { MOD } from "@/lib/shortcuts";
@@ -41,8 +43,6 @@ export default function JobDetail() {
 }
 
 function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]> }) {
-  const [draft, setDraft] = useState(() => toDraft(job));
-  const [saved, setSaved] = useState(() => toDraft(job));
   // Bumped on save and discard so edited fields go back to plain text.
   const [epoch, setEpoch] = useState(0);
   const update = useUpdateJob(job.id);
@@ -55,25 +55,15 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const resumeVersions = sortResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS));
   const agencyNames = useSuggestions("agency_name", []);
 
-  const set = (key: keyof Draft) => (value: string) => setDraft((d) => ({ ...d, [key]: value }));
-  const changed = EDITABLE.filter((k) => draft[k] !== saved[k]);
+  const { draft, setDraft, saved, setSaved, set, changed, canSave, save } = useDraftForm(EDITABLE, toDraft(job), {
+    update,
+    valid: (d) => !!d.title.trim() && !salaryRangeInvalid(d.salary_min, d.salary_max),
+    toPatch: (k, v) => (k === "applied_date" || k === "follow_up_on" ? v || null : k === "salary_min" || k === "salary_max" ? toSalary(v) : v),
+    onSaved: () => setEpoch((n) => n + 1),
+    // Step back when we came from the list so its filters (kept in the URL) survive.
+    onLeave: () => ((location.state as { fromList?: boolean } | null)?.fromList ? navigate(-1) : navigate("/jobs")),
+  });
   const badRange = salaryRangeInvalid(draft.salary_min, draft.salary_max);
-
-  const save = () => {
-    (document.activeElement as HTMLElement | null)?.blur();
-    const patch = Object.fromEntries(changed.map((k) => [
-      k,
-      k === "applied_date" || k === "follow_up_on" ? draft[k] || null : k === "salary_min" || k === "salary_max" ? toSalary(draft[k]) : draft[k],
-    ]));
-    update.mutate(patch, {
-      onSuccess: () => {
-        setSaved(draft);
-        setEpoch((n) => n + 1);
-        toast.success("Saved");
-      },
-      onError: (err) => toast.error(err.message),
-    });
-  };
 
   const remove = () => {
     deleteJob.mutate(job.id, {
@@ -87,21 +77,6 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
       },
     });
   };
-
-  // Escape leaves a focused field first; a second press returns to the jobs list.
-  useHotkey("Escape", (e) => {
-    if (isEditable(e.target)) return (e.target as HTMLElement).blur();
-    if (changed.length > 0 && !window.confirm("Discard unsaved changes?")) return;
-    // Step back when we came from the list so its filters (kept in the URL) survive.
-    if ((location.state as { fromList?: boolean } | null)?.fromList) navigate(-1);
-    else navigate("/jobs");
-  });
-
-  // Cmd+S saves from anywhere on the page, including inside a field, and never opens the browser's save dialog.
-  useHotkey("s", (e) => {
-    e.preventDefault();
-    if (changed.length > 0 && !update.isPending && draft.title.trim() && !badRange) save();
-  }, { mod: true });
 
   const { logHistory } = usePalette();
 
@@ -139,7 +114,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     ...(nextId !== undefined ? [{ id: "next", label: "Next job", group: "This job", keys: ["J"], keywords: "following", run: () => step(nextId) }] : []),
     ...(prevId !== undefined ? [{ id: "prev", label: "Previous job", group: "This job", keys: ["K"], keywords: "back", run: () => step(prevId) }] : []),
     ...(job.deleted_at ? [] : jobActions(job, { logHistory, setFollowUp, group: "This job", withGeneric: false })),
-    ...(changed.length > 0 ? [{ id: "save", label: "Save changes", group: "This job", keys: [MOD, "S"], run: () => { if (!update.isPending && draft.title.trim() && !badRange) save(); } }] : []),
+    ...(changed.length > 0 ? [{ id: "save", label: "Save changes", group: "This job", keys: [MOD, "S"], run: () => { if (canSave) save(); } }] : []),
   ]);
 
   const restore = () => restoreJob.mutate(job.id, { onSuccess: () => toast.success("Restored from trash") });

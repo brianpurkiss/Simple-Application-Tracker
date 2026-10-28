@@ -72,13 +72,6 @@ export function eventsByDay(events: ActivityEvent[]) {
   return byDay;
 }
 
-// 6 rows of 7 days (Monday first) covering the month, as YYYY-MM-DD; `month` is 0-based.
-export function monthGrid(year: number, month: number) {
-  const first = Date.UTC(year, month, 1);
-  const start = first - ((new Date(first).getUTCDay() + 6) % 7) * DAY;
-  return Array.from({ length: 42 }, (_, i) => fromUtc(start + i * DAY));
-}
-
 export const addDays = (iso: string, n: number) => fromUtc(toUtc(iso) + n * DAY);
 
 // Every day of one month as YYYY-MM-DD; `month` is 0-based.

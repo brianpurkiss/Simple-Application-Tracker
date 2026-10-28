@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useParamUpdater } from "@/lib/useParamUpdater";
-import { isEditable, overlayOpen, useHotkey, useSequence } from "@/lib/hotkeys";
-import { SEARCH_INPUT_ID, useAddJob, useFocusSearch } from "@/lib/appActions";
+import { useParamUpdater } from "@/hooks/useParamUpdater";
+import { isEditable, overlayOpen, useHotkey, useSequence } from "@/hooks/hotkeys";
+import { SEARCH_INPUT_ID, useAddJob, useFocusSearch } from "@/hooks/appActions";
 import { GO_TO } from "@/lib/shortcuts";
 import { usePalette } from "@/components/CommandPalette";
 

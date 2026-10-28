@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EventFields, blankEvent, celebrateEvent } from "@/components/HistoryPanel";
+import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
 import { type Job, useAddEvent } from "@/lib/api";
 
 // Jobs list dialog: log a history event without opening the job. Open while `job` is set.

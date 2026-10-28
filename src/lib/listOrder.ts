@@ -1,6 +1,6 @@
 // The jobs list remembers which row is selected and the order its rows are in (per tab), so a job
 // page can step to the next or previous job and the list comes back on the right row.
-export const SELECTED_KEY = "jobs-list-selected";
+const SELECTED_KEY = "jobs-list-selected";
 const ORDER_KEY = "jobs-list-order";
 
 export function loadSelected() {

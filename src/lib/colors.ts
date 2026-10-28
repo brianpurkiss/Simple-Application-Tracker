@@ -51,8 +51,6 @@ export const CHART = {
   neutral: "#a3a3a3",
 };
 
-// The Events status filter and badges use status names; map them to the event whose color they share.
-export const eventForStatus = (s: string) => (s === "Interviewed" || s === "Scheduled" ? "Interview" : s === "Rejected" ? "Rejection" : s);
 
 // slate-500 and stone-400, for rgba() cell shading.
 export const RGB = { amber: "245, 158, 11", blue: "59, 130, 246", deepBlue: "37, 99, 235", slate: "100, 116, 139", stone: "168, 162, 158" };

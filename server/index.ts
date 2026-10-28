@@ -4,6 +4,12 @@ import { db } from "./db.ts";
 import { daysSince, isOnHold } from "../src/lib/format.ts";
 import { GHOSTED_DAYS, STATUS_FOR_EVENT, TIMED_EVENT_TYPES, UPDATE_EVENT_TYPES } from "../src/lib/options.ts";
 
+// Builds INSERT / UPDATE statements from the keys of a validated body, using named parameters.
+const insertSql = (table: string, cols: string[]) =>
+  `INSERT INTO ${table} (${cols.join(",")}) VALUES (${cols.map((c) => "@" + c).join(",")})`;
+const updateSql = (table: string, cols: string[], touch: boolean, where = "id = @id") =>
+  `UPDATE ${table} SET ${cols.map((c) => `${c} = @${c}`).join(", ")}${touch ? ", updated_at = datetime('now')" : ""} WHERE ${where}`;
+
 const app = express();
 app.use(express.json());
 
@@ -107,8 +113,7 @@ app.patch("/api/profile", (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Invalid profile" });
   const cols = Object.keys(parsed.data);
   if (cols.length) {
-    db.prepare(`UPDATE profile SET ${cols.map((c) => `${c} = @${c}`).join(", ")}, updated_at = datetime('now') WHERE id = 1`)
-      .run(parsed.data);
+    db.prepare(updateSql("profile", cols, true, "id = 1")).run(parsed.data);
   }
   res.json(getProfile());
 });
@@ -150,7 +155,7 @@ app.post("/api/jobs", (req, res) => {
   const cols = Object.keys(body);
   const create = db.transaction(() => {
     const { lastInsertRowid } = db
-      .prepare(`INSERT INTO jobs (${cols.join(",")}) VALUES (${cols.map((c) => "@" + c).join(",")})`)
+      .prepare(insertSql("jobs", cols))
       .run(body);
     if (body.applied_date) {
       db.prepare("INSERT INTO events (job_id, date, type) VALUES (?, ?, 'Applied')").run(lastInsertRowid, body.applied_date);
@@ -170,8 +175,7 @@ app.patch("/api/jobs/:id", (req, res) => {
   if (badRange) return res.status(400).json({ error: badRange });
   const cols = Object.keys(body);
   if (cols.length) {
-    db.prepare(`UPDATE jobs SET ${cols.map((c) => `${c} = @${c}`).join(", ")}, updated_at = datetime('now') WHERE id = @id`)
-      .run({ ...body, id: Number(req.params.id) });
+    db.prepare(updateSql("jobs", cols, true)).run({ ...body, id: Number(req.params.id) });
   }
   res.json(getJob(Number(req.params.id)));
 });
@@ -206,8 +210,7 @@ app.patch("/api/events/:id", (req, res) => {
   if (body.type && !TIMED_EVENT_TYPES.has(body.type)) body.time = null;
   const cols = Object.keys(body);
   if (cols.length) {
-    db.prepare(`UPDATE events SET ${cols.map((c) => `${c} = @${c}`).join(", ")} WHERE id = @id`)
-      .run({ ...body, id: Number(req.params.id) });
+    db.prepare(updateSql("events", cols, false)).run({ ...body, id: Number(req.params.id) });
   }
   res.json(getEvent(req.params.id));
 });
@@ -237,14 +240,17 @@ const resumeSql = `
         AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Screen'))) AS interview_company_count
   FROM resumes r`;
 
+type ResumeRow = { has_pdf: number; active: number } & Record<string, unknown>;
+const toResume = (r: ResumeRow) => ({ ...r, has_pdf: !!r.has_pdf, active: !!r.active });
+
 const getResume = (id: number) => {
-  const r = db.prepare(`${resumeSql} WHERE r.id = ? AND r.deleted_at IS NULL`).get(id) as any;
-  return r && { ...r, has_pdf: !!r.has_pdf, active: !!r.active };
+  const r = db.prepare(`${resumeSql} WHERE r.id = ? AND r.deleted_at IS NULL`).get(id) as ResumeRow | undefined;
+  return r && toResume(r);
 };
 
 app.get("/api/resumes", (_req, res) => {
-  const rows = db.prepare(`${resumeSql} WHERE r.deleted_at IS NULL ORDER BY r.created_at DESC, r.id DESC`).all() as any[];
-  res.json(rows.map((r) => ({ ...r, has_pdf: !!r.has_pdf, active: !!r.active })));
+  const rows = db.prepare(`${resumeSql} WHERE r.deleted_at IS NULL ORDER BY r.created_at DESC, r.id DESC`).all() as ResumeRow[];
+  res.json(rows.map(toResume));
 });
 
 app.get("/api/resumes/:id", (req, res) => {
@@ -257,7 +263,7 @@ app.post("/api/resumes", (req, res) => {
   const body = resumeSchema.partial().required({ version: true }).parse(req.body);
   const cols = Object.keys(body);
   const { lastInsertRowid } = db
-    .prepare(`INSERT INTO resumes (${cols.join(",")}) VALUES (${cols.map((c) => "@" + c).join(",")})`)
+    .prepare(insertSql("resumes", cols))
     .run(body);
   res.status(201).json(getResume(Number(lastInsertRowid)));
 });
@@ -266,8 +272,7 @@ app.patch("/api/resumes/:id", (req, res) => {
   const body = resumeSchema.partial().parse(req.body);
   const cols = Object.keys(body);
   if (cols.length) {
-    db.prepare(`UPDATE resumes SET ${cols.map((c) => `${c} = @${c}`).join(", ")}, updated_at = datetime('now') WHERE id = @id`)
-      .run({ ...body, id: Number(req.params.id) });
+    db.prepare(updateSql("resumes", cols, true)).run({ ...body, id: Number(req.params.id) });
   }
   res.json(getResume(Number(req.params.id)));
 });

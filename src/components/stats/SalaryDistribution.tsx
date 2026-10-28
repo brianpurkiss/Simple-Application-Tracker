@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import type { Job } from "@/lib/api";
-import { reachedInterview } from "@/lib/format";
+import { reachedInterview } from "@/lib/jobs";
 import { k, salaryCurve } from "@/lib/salary";
 
 const STEP = 5000;

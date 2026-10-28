@@ -162,7 +162,7 @@ export const useUpdateEvent = () =>
 export const useDeleteEvent = () =>
   useInvalidatingMutation((id: number) => request<void>("DELETE", `/api/events/${id}`));
 
-export type JobListView = "compact" | "expanded";
+type JobListView = "compact" | "expanded";
 export type Profile = { salary_target: number | null; your_name: string; cover_letter: string; job_list_view: JobListView };
 
 export const useProfile = () =>

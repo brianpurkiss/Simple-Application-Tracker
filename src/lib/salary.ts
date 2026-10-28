@@ -8,7 +8,7 @@ export function formatSalary(min: number | null, max: number | null): string {
   return min === max ? k(min) : `${k(min)}–${k(max)}`;
 }
 
-export type SalaryPoint = { salary: number; count: number; smooth: number };
+type SalaryPoint = { salary: number; count: number; smooth: number };
 export type SalaryCurve = {
   points: SalaryPoint[];
   jobCount: number; // roles that contributed

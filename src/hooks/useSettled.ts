@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { prefersReducedMotion } from "./motion";
+import { prefersReducedMotion } from "@/lib/motion";
 
 export type Phase = "in" | "out";
 

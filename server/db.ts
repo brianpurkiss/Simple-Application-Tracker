@@ -100,7 +100,7 @@ if (!jobColumns.has("follow_up_on")) {
 }
 
 // Optional start time (HH:MM) for scheduled interviews.
-if (!db.prepare("PRAGMA table_info(events)").all().some((c: any) => c.name === "time")) {
+if (!db.prepare("PRAGMA table_info(events)").all().some((c) => (c as { name: string }).name === "time")) {
   db.exec("ALTER TABLE events ADD COLUMN time TEXT");
 }
 

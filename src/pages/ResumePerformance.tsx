@@ -13,8 +13,8 @@ import { Segmented } from "@/components/ui/segmented";
 import { useJobs, useProfile } from "@/lib/api";
 import { applicationsNeeded, type Combo, comboBy, DIMENSIONS, type DimensionKey, type Metric, VERSION_MODES } from "@/lib/stats";
 import { GHOSTED_DAYS } from "@/lib/options";
-import { useParamUpdater } from "@/lib/useParamUpdater";
-import { useSettled } from "@/lib/useSettled";
+import { useParamUpdater } from "@/hooks/useParamUpdater";
+import { useSettled } from "@/hooks/useSettled";
 import { cn } from "@/lib/utils";
 
 // This page's own defaults; Activity keeps using the shared constants in stats.ts.

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { TextAreaField, TextField } from "@/components/fields";
 import SalaryTarget from "@/components/stats/SalaryTarget";
 import { useProfile, useResumes, useUpdateProfile } from "@/lib/api";
-import { isEditable, useHotkey } from "@/lib/hotkeys";
+import { isEditable, useHotkey } from "@/hooks/hotkeys";
 import { splitResumes } from "@/lib/options";
 
 function Section({ title, children, action, className = "space-y-3" }: { title: string; children: React.ReactNode; action?: React.ReactNode; className?: string }) {

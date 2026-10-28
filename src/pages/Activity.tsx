@@ -26,7 +26,7 @@ import {
 } from "@/lib/activity";
 import { today } from "@/lib/format";
 import { cumulative, extras, momentum, rollingAverage } from "@/lib/insights";
-import { useParamUpdater } from "@/lib/useParamUpdater";
+import { useParamUpdater } from "@/hooks/useParamUpdater";
 
 // Each filter lives in the URL as a repeated param so views can be shared and survive reloads.
 const FILTERS = [

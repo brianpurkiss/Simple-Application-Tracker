@@ -4,18 +4,19 @@ import { Button } from "@/components/ui/button";
 import { AddJobDialog } from "@/components/AddJobDialog";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useEvents, useJobs, useProfile, type ActivityEvent, type Job } from "@/lib/api";
-import { weekStart } from "@/lib/activity";
-import { daysSince, formatDate, formatTime, isActive, needsFollowUp, relativeDay, today } from "@/lib/format";
+import { addDays, weekStart } from "@/lib/activity";
+import { daysSince, formatDate, formatTime, relativeDay, today } from "@/lib/format";
+import { isActive, needsFollowUp } from "@/lib/jobs";
 import { momentum } from "@/lib/insights";
 import { INTERVIEWING_STATUSES, TIMED_EVENT_TYPES } from "@/lib/options";
 import { EVENT_COLORS } from "@/lib/colors";
+import { plural } from "@/lib/text";
 import { cn } from "@/lib/utils";
 import { rowLink } from "@/lib/rowLink";
 
 const WEEKS = 8;
 const LIST_SIZE = 5;
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 // The recruiting agency, when one is recorded.
 const via = (j: Pick<Job, "agency_name"> | undefined) => j?.agency_name || "";
 const quietDays = (j: Job) => daysSince(j.last_activity ?? j.applied_date) ?? 0;
@@ -131,11 +132,11 @@ export default function Home() {
       .sort((a, b) => quietDays(a) - quietDays(b));
     const thisMonday = weekStart(todayIso);
     const weeks = Array.from({ length: WEEKS }, (_, i) =>
-      new Date(Date.parse(thisMonday) - (WEEKS - 1 - i) * 7 * 86_400_000).toISOString().slice(0, 10));
+      addDays(thisMonday, -(WEEKS - 1 - i) * 7));
     const weekly = weeks.map((week) => ({ week, n: jobs.filter((j) => j.applied_date && weekStart(j.applied_date) === week).length }));
     const recent = [...events].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, LIST_SIZE);
     const followUpsIn = (week: string) => events.filter((e) => e.type === "Follow-Up" && weekStart(e.date) === week).length;
-    const followUps = { thisWeek: followUpsIn(thisMonday), lastWeek: followUpsIn(new Date(Date.parse(thisMonday) - 7 * 86_400_000).toISOString().slice(0, 10)) };
+    const followUps = { thisWeek: followUpsIn(thisMonday), lastWeek: followUpsIn(addDays(thisMonday, -7)) };
     const upcoming = events
       .filter((e) => TIMED_EVENT_TYPES.has(e.type) && (e.date > todayIso || (e.date === todayIso && (!e.time || e.time > nowTime))))
       .sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "99").localeCompare(b.time ?? "99") || a.id - b.id);

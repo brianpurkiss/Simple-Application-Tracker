@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { Job } from "@/lib/api";
-import { statusLabel } from "@/lib/format";
+import { statusLabel } from "@/lib/jobs";
 import { STATUS_COLORS } from "@/lib/colors";
 import { GHOSTED_DAYS } from "@/lib/options";
 

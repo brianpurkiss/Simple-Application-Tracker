@@ -1,8 +1,8 @@
 import type { Momentum as MomentumStats } from "@/lib/insights";
 import { Kpi } from "@/components/stats/KpiRow";
+import { plural } from "@/lib/text";
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export default function Momentum({ m }: { m: MomentumStats }) {
   const { thisWeek, average, streak } = m;

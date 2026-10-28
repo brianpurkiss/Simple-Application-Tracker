@@ -1,10 +1,10 @@
 import type { ActivityEvent, Job } from "./api";
-import { categoryOf, weekStart } from "./activity";
-import { DAY, daysBetween, formatDate, isActive, reachedInterview } from "./format";
+import { addDays, categoryOf, weekStart } from "./activity";
+import { daysBetween, formatDate } from "./format";
+import { isActive, reachedInterview } from "./jobs";
 import { INTERVIEWING_STATUSES } from "./options";
+import { plural } from "./text";
 import { MIN_AGE_DAYS, MIN_SAMPLE, heardBack, median, pct } from "./stats";
-
-const addDays = (iso: string, n: number) => new Date(Date.parse(iso) + n * DAY).toISOString().slice(0, 10);
 
 const count = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
 
@@ -122,10 +122,9 @@ export function cumulative(jobs: Job[], todayIso: string): CumulativePoint[] {
 }
 
 export const EXTRA_GROUPS = ["Responses", "Interviews", "Activity", "Salary"] as const;
-export type ExtraGroup = (typeof EXTRA_GROUPS)[number];
+type ExtraGroup = (typeof EXTRA_GROUPS)[number];
 export type Extra = { group: ExtraGroup; label: string; value: string; detail?: string; jobId?: number };
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const money = (n: number) => `$${Math.round(n / 1000)}k`;
 const label = (j: Job) => `${j.title} at ${j.company}`;
 

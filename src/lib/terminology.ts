@@ -13,7 +13,7 @@ export type Term = {
   avoid?: string[];
 };
 
-export type TermCategory = { title: string; description?: string; terms: Term[] };
+type TermCategory = { title: string; description?: string; terms: Term[] };
 
 export const TERM_CATEGORIES: TermCategory[] = [
   {

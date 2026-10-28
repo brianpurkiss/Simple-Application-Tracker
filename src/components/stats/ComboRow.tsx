@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import type { Job } from "@/lib/api";
 import { type Combo, fmtPct, interviewed, type Metric, type Tier } from "@/lib/stats";
 import { k } from "@/lib/salary";
-import { formatDate, statusLabel } from "@/lib/format";
-import type { Phase } from "@/lib/useSettled";
+import { formatDate } from "@/lib/format";
+import { statusLabel } from "@/lib/jobs";
+import type { Phase } from "@/hooks/useSettled";
 import { cn } from "@/lib/utils";
 
 const tierStyle = (metric: Metric): Record<Tier, { label: string; className: string } | null> => ({
@@ -19,7 +20,7 @@ const tierStyle = (metric: Metric): Record<Tier, { label: string; className: str
 
 // Bars use a fixed 0–50% axis: real rates rarely pass 50%, so a 0–100% axis leaves every bar cramped at the left.
 // Rejection rates run much higher, so that view uses the full 0–100% axis.
-export const barMax = (metric: Metric) => (metric === "interview" ? 50 : 100);
+const barMax = (metric: Metric) => (metric === "interview" ? 50 : 100);
 const TICKS: Record<Metric, number[]> = { interview: [10, 20, 30, 40], rejected: [20, 40, 60, 80] };
 
 export const fmtLift = (lift: number | null) => (lift === null ? "–" : `${lift.toFixed(1)}×`);

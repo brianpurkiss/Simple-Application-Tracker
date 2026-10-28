@@ -1,8 +1,9 @@
 import type { ActivityEvent, Job } from "./api";
-import { categoryOf, weekStart } from "./activity";
+import { addDays, categoryOf, weekStart } from "./activity";
 import { REJECTED_POST, REJECTED_PRE, STATUS_COLORS } from "./colors";
 import { GHOSTED_DAYS } from "./options";
-import { DAY, daysBetween, daysSince, isOnHold, reachedInterview } from "./format";
+import { daysBetween, daysSince, isOnHold } from "./format";
+import { reachedInterview } from "./jobs";
 
 // Applications newer than this haven't had a fair chance to hear back, so they're left out of rates.
 export const MIN_AGE_DAYS = 6;
@@ -39,7 +40,7 @@ export type Kpis = {
 
 export function kpis(jobs: Job[], events: ActivityEvent[], todayIso: string): Kpis {
   // Rolling windows (today and the 6 days before, then the 7 before that) so early-week numbers aren't penalised.
-  const daysAgo = (n: number) => new Date(Date.parse(todayIso) - n * DAY).toISOString().slice(0, 10);
+  const daysAgo = (n: number) => addDays(todayIso, -n);
   const inRange = (from: string, to: string) => jobs.filter((j) => j.applied_date && j.applied_date >= from && j.applied_date <= to).length;
   const interviewDates = events.filter((e) => categoryOf(e) === "interview").map((e) => e.date);
   const countDates = (dates: string[], from: string, to: string) => dates.filter((d) => d >= from && d <= to).length;
@@ -108,7 +109,7 @@ export const resumeFamily = (label: string) => label.trim().replace(/\.\d+$/, ".
 
 // Closed out without ever reaching a screen or interview: rejected outright, or silent for `ghostDays`.
 // The server's auto-ghost uses GHOSTED_DAYS, so jobs it ghosted sooner than a longer `ghostDays` count as still pending.
-export const noResponse = (j: Job, ghostDays = GHOSTED_DAYS) => {
+const noResponse = (j: Job, ghostDays = GHOSTED_DAYS) => {
   if (interviewed(j)) return false;
   if (j.status === "Rejected") return true;
   if (isOnHold(j)) return false;

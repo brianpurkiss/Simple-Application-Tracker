@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import type { Job } from "@/lib/api";
-import { reachedInterview } from "@/lib/format";
+import { reachedInterview } from "@/lib/jobs";
 import { k } from "@/lib/salary";
 
-export type SalarySeries = { key: string; label: string; jobs: Job[] };
+type SalarySeries = { key: string; label: string; jobs: Job[] };
 
 const low = (j: Job) => j.salary_min ?? j.salary_max!;
 const high = (j: Job) => j.salary_max ?? j.salary_min!;
