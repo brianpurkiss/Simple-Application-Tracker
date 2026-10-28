@@ -1,16 +1,17 @@
 import type { ActivityEvent } from "./api";
+import { CHART } from "./colors";
 import { DAY } from "./format";
 
 export type Category = "applied" | "interview" | "offer" | "rejection" | "resume" | "other";
 
-// Colors follow StatusBadge: amber applied, blue interviewing, emerald offers, red rejections.
+// Colors follow the shared palette in colors.ts: amber applied, blue interviewing, teal offers, slate rejections.
 export const CATEGORIES: { key: Category; label: string; color: string }[] = [
-  { key: "applied", label: "Applications", color: "#f59e0b" },
-  { key: "interview", label: "Interviews", color: "#3b82f6" },
-  { key: "offer", label: "Offers", color: "#10b981" },
-  { key: "rejection", label: "Rejections", color: "#ef4444" },
-  { key: "resume", label: "New Resumes", color: "#8b5cf6" },
-  { key: "other", label: "Other", color: "#a3a3a3" },
+  { key: "applied", label: "Applications", color: CHART.applied },
+  { key: "interview", label: "Interviews", color: CHART.interview },
+  { key: "offer", label: "Offers", color: CHART.offer },
+  { key: "rejection", label: "Rejections", color: CHART.rejected },
+  { key: "resume", label: "New Resumes", color: CHART.reply },
+  { key: "other", label: "Other", color: CHART.neutral },
 ];
 
 export const colorOf = (c: Category) => CATEGORIES.find((x) => x.key === c)!.color;

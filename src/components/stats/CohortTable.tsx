@@ -1,3 +1,4 @@
+import { RGB } from "@/lib/colors";
 import { formatDate } from "@/lib/format";
 import { type Cohort, fmtPct } from "@/lib/stats";
 import { cn } from "@/lib/utils";
@@ -8,11 +9,11 @@ const shade = (value: number | null, rgb: string) =>
 
 export default function CohortTable({ cohorts }: { cohorts: Cohort[] }) {
   const cols: { key: "response" | "interview" | "multiInterview" | "rejected" | "ghosted"; label: string; rgb: string }[] = [
-    { key: "response", label: "Replied", rgb: "245, 158, 11" },
-    { key: "interview", label: "Screen / 1st Interview", rgb: "59, 130, 246" },
-    { key: "multiInterview", label: "2nd+ Interviews", rgb: "99, 102, 241" },
-    { key: "rejected", label: "Rejected", rgb: "239, 68, 68" },
-    { key: "ghosted", label: "Ghosted", rgb: "163, 163, 163" },
+    { key: "response", label: "Replied", rgb: RGB.amber },
+    { key: "interview", label: "Screen / 1st Interview", rgb: RGB.blue },
+    { key: "multiInterview", label: "2nd+ Interviews", rgb: RGB.deepBlue },
+    { key: "rejected", label: "Rejected", rgb: RGB.slate },
+    { key: "ghosted", label: "Ghosted", rgb: RGB.stone },
   ];
   return (
     <div className="space-y-4 rounded-lg border bg-card p-5">

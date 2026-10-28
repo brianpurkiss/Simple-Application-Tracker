@@ -10,7 +10,7 @@ export type HotkeyAction = { hotkey?: "add" | "search" };
 
 // URL params that count as an active search/filter on each page (sort and view settings are not).
 const FILTER_PARAMS: Record<string, string[]> = {
-  "/jobs": ["q", "status", "type", "fit", "resume"],
+  "/jobs": ["q", "status", "type", "fit", "company_type", "resume"],
   "/performance": ["metric", "versions", "conf", "recency", "min", "with"],
   "/activity": ["job_type", "company_type", "resume", "versions"],
 };
@@ -63,6 +63,7 @@ export function GlobalHotkeys() {
   useGoToHotkey("j", "/jobs");
   useGoToHotkey("r", "/resumes");
   useGoToHotkey("f", FOLLOW_UP);
+  useGoToHotkey("u", "/user");
   useGoToHotkey("p", "/performance");
   useGoToHotkey("a", "/activity");
   useGoToHotkey("t", "/terminology");

@@ -2,10 +2,10 @@ import { type Combo, fmtPct, type Metric } from "@/lib/stats";
 import { fmtLift } from "./ComboRow";
 
 const Card = ({ combo, metric, tone, fade }: { combo: Combo; metric: Metric; tone: "good" | "bad"; fade?: string }) => (
-  <div className={`rounded-lg border p-4 ${tone === "good" ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+  <div className={`rounded-lg border p-4 ${tone === "good" ? "border-emerald-500/30 bg-emerald-500/5" : "border-slate-500/30 bg-slate-500/5"}`}>
     <div className={fade}>
-      <div className={`text-xs uppercase tracking-wide ${tone === "good" ? "text-emerald-400" : "text-red-400"}`}>
-        {tone === "good" ? "Standout" : "Below Average"}
+      <div className={`text-xs uppercase tracking-wide ${tone === "good" ? "text-emerald-400" : "text-slate-400"}`}>
+        {tone === "good" ? "Standout" : "Room to Grow"}
       </div>
       <div className="mt-1 font-medium">{combo.parts.join(" + ")}</div>
       <div className="mt-1 text-sm tabular-nums">

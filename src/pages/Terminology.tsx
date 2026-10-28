@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { EVENT_COLORS, STATUS_COLORS } from "@/lib/colors";
 import { TERM_CATEGORIES, type Term } from "@/lib/terminology";
+import { cn } from "@/lib/utils";
+
+// Status and event terms are titled in the color they use around the app.
+const termColor = (category: string, term: string) =>
+  category === "Statuses" ? STATUS_COLORS[term]?.text : category === "Events" ? EVENT_COLORS[term]?.text : undefined;
 
 const matches = (t: Term, q: string) =>
   [t.term, t.definition, t.calculation, ...(t.aliases ?? []), ...(t.avoid ?? [])].some((s) => s?.toLowerCase().includes(q));
@@ -41,7 +47,7 @@ export default function Terminology() {
             <dl className="divide-y">
               {c.terms.map((t) => (
                 <div key={t.term} className="space-y-1 px-4 py-3 text-sm">
-                  <dt className="font-medium">{t.term}</dt>
+                  <dt className={cn("font-medium", termColor(c.title, t.term))}>{t.term}</dt>
                   <dd>{t.definition}</dd>
                   {t.calculation && <dd className="text-xs text-muted-foreground">Calculation: {t.calculation}</dd>}
                   {t.aliases && <dd className="text-xs text-muted-foreground">Also appears as: {t.aliases.join(", ")}</dd>}

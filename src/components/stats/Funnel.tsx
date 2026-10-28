@@ -1,6 +1,7 @@
+import { CHART } from "@/lib/colors";
 import { fmtPct, type FunnelStep } from "@/lib/stats";
 
-const COLORS = ["#f59e0b", "#f59e0b", "#3b82f6", "#6366f1", "#10b981"];
+const COLORS = [CHART.applied, CHART.applied, CHART.interview, CHART.deepInterview, CHART.offer];
 const H = 100;
 const MIN = 4;
 

@@ -14,7 +14,8 @@ Once the tracker was built, I realized that history was the start of something m
 - **Job detail and history**: a page per job with its details (job type, company type, fit, work mode, how I applied, resume version) and a timeline of events: Applied, Contact, Follow-Up, Screen, Interview, Offer, Accepted, Rejection, Withdrew, Ghosted, Scam and Note.
 - **Activity**: how the search is going over time. Weekly KPIs, a funnel from applied to offer, outcomes, response timing, weekly cohorts, and a chart or calendar view of events.
 - **Performance**: resume analysis. Compares interview and reply rates across resume versions, optionally combined with another dimension (job type, company type and so on) in a heatmap. Small samples are dimmed, and a confidence setting controls what counts as a standout. Versions can be grouped (for example 2.x) and the page estimates how many applications you'd need.
-- **Resumes**: a vault for each resume version: its PDF (up to 10 MB, stored in `jobs.db`), internal notes and a plain text copy. A job's resume version is linked to the vault by matching the version name.
+- **User**: your name (shown in the Home greeting), salary target, a generic cover letter, and a summary of your active resumes. Opened from the icon at the right of the navbar.
+- **Resumes**: (no nav link; reached from the User page or `R`) a vault for each resume version: its PDF (up to 10 MB, stored in `jobs.db`), internal notes and a plain text copy. A job's resume version is linked to the vault by matching the version name.
 - **Trash**: deleted jobs can be restored or deleted for good.
 
 Built with React, Vite, Tailwind, TanStack Query and Table, Recharts, Express, SQLite and TypeScript.
@@ -48,6 +49,7 @@ On Windows and Linux, use Ctrl wherever Cmd is shown. Single-key shortcuts are i
 | `H` / `J` | Go to the Jobs list |
 | `R` | Go to Resumes |
 | `F` | Go to Follow Up |
+| `U` | Go to User (name, salary target, cover letter, resumes) |
 | `P` | Go to Performance |
 | `A` | Go to Activity |
 | `T` | Go to Terminology |

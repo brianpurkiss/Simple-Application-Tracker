@@ -86,6 +86,10 @@ if (!jobColumns.has("contact_linkedin")) {
   db.exec("ALTER TABLE jobs ADD COLUMN contact_linkedin TEXT NOT NULL DEFAULT ''");
 }
 
+if (!jobColumns.has("cover_letter")) {
+  db.exec("ALTER TABLE jobs ADD COLUMN cover_letter TEXT NOT NULL DEFAULT ''");
+}
+
 if (!jobColumns.has("fit")) {
   db.exec("ALTER TABLE jobs ADD COLUMN fit TEXT NOT NULL DEFAULT ''");
 }
@@ -112,6 +116,19 @@ if (!jobColumns.has("salary_min")) {
     }
   })();
   console.log(`Salary migrated to numeric range. Unparsed: ${unparsed.length ? unparsed.join(", ") : "none"}`);
+}
+
+// Profile fields and the resume active flag were added after the first version.
+const profileColumns = new Set((db.pragma("table_info(profile)") as { name: string }[]).map((c) => c.name));
+if (!profileColumns.has("your_name")) {
+  db.exec("ALTER TABLE profile ADD COLUMN your_name TEXT NOT NULL DEFAULT ''");
+}
+if (!profileColumns.has("cover_letter")) {
+  db.exec("ALTER TABLE profile ADD COLUMN cover_letter TEXT NOT NULL DEFAULT ''");
+}
+const resumeColumns = new Set((db.pragma("table_info(resumes)") as { name: string }[]).map((c) => c.name));
+if (!resumeColumns.has("active")) {
+  db.exec("ALTER TABLE resumes ADD COLUMN active INTEGER NOT NULL DEFAULT 1");
 }
 
 // Status used to be picked by hand; now it comes from the history. This converts the old

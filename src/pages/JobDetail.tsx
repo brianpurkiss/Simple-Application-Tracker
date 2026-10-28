@@ -20,7 +20,7 @@ const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}<
 const EDITABLE = [
   "title", "company", "company_type", "fit", "salary_min", "salary_max", "job_type", "resume_version", "work_mode", "applied_date",
   "follow_up_on", "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "contact_linkedin", "offer_info", "notes",
-  "job_description",
+  "job_description", "cover_letter",
 ] as const satisfies readonly (keyof JobInput)[];
 
 type Draft = Record<(typeof EDITABLE)[number], string>;
@@ -249,6 +249,18 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
               value={draft.job_description}
               onChange={set("job_description")}
               rows={18}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-5">
+          <CardHeader><CardTitle>Cover Letter</CardTitle></CardHeader>
+          <CardContent>
+            <TextAreaField
+              label="The cover letter you sent for this role."
+              value={draft.cover_letter}
+              onChange={set("cover_letter")}
+              rows={14}
             />
           </CardContent>
         </Card>

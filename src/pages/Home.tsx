@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AddJobDialog } from "@/components/AddJobDialog";
 import { StatusBadge } from "@/components/StatusBadge";
-import { useEvents, useJobs, type Job } from "@/lib/api";
+import { useEvents, useJobs, useProfile, type Job } from "@/lib/api";
 import { weekStart } from "@/lib/activity";
 import { daysSince, formatDate, isActive, needsFollowUp, today } from "@/lib/format";
 import { momentum } from "@/lib/insights";
@@ -91,6 +91,7 @@ export default function Home() {
   const { search } = useLocation();
   const { data: jobs = [], isLoading } = useJobs();
   const { data: events = [] } = useEvents();
+  const name = useProfile().data?.your_name;
   const todayIso = today();
 
   const jobsById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
@@ -130,7 +131,7 @@ export default function Home() {
     <div className="space-y-4">
       <title>Home | Application Tracker</title>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Home</h1>
+        <h1 className="text-xl font-semibold">{name ? `Welcome back, ${name}` : "Home"}</h1>
         <AddJobDialog />
       </div>
 

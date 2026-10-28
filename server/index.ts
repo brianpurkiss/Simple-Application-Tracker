@@ -36,6 +36,7 @@ const jobSchema = z.object({
   offer_info: text,
   notes: text,
   job_description: z.string(),
+  cover_letter: z.string(),
 });
 
 const eventSchema = z.object({
@@ -76,10 +77,10 @@ function withAutoGhost<T extends { status: string; last_heard: string | null; ap
   return { ...job, status: ghosted ? "Ghosted" : job.status, auto_ghosted: ghosted };
 }
 
-// Descriptions can be long; the list views don't need them.
+// Descriptions and cover letters can be long; the list views don't need them.
 const listJobs = (where: string, order: string) =>
   (db.prepare(`${jobListSql} WHERE ${where} ORDER BY ${order}`).all(...UPDATE_EVENT_TYPES) as any[])
-    .map(({ job_description, ...job }) => withAutoGhost(job));
+    .map(({ job_description, cover_letter, ...job }) => withAutoGhost(job));
 
 const getEvent = (id: number | string) => db.prepare("SELECT * FROM events WHERE id = ?").get(id);
 
@@ -88,18 +89,22 @@ const getJob = (id: number) => {
   return job && withAutoGhost(job);
 };
 
+const getProfile = () => db.prepare("SELECT salary_target, your_name, cover_letter FROM profile WHERE id = 1").get();
+
 app.get("/api/profile", (_req, res) => {
-  res.json(db.prepare("SELECT salary_target FROM profile WHERE id = 1").get());
+  res.json(getProfile());
 });
 
-const profileSchema = z.object({ salary_target: salary }).partial();
+const profileSchema = z.object({ salary_target: salary, your_name: text, cover_letter: z.string() }).partial();
 app.patch("/api/profile", (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid profile" });
-  if ("salary_target" in parsed.data) {
-    db.prepare("UPDATE profile SET salary_target = ?, updated_at = datetime('now') WHERE id = 1").run(parsed.data.salary_target);
+  const cols = Object.keys(parsed.data);
+  if (cols.length) {
+    db.prepare(`UPDATE profile SET ${cols.map((c) => `${c} = @${c}`).join(", ")}, updated_at = datetime('now') WHERE id = 1`)
+      .run(parsed.data);
   }
-  res.json(db.prepare("SELECT salary_target FROM profile WHERE id = 1").get());
+  res.json(getProfile());
 });
 
 app.get("/api/jobs", (_req, res) => {
@@ -209,11 +214,12 @@ const resumeSchema = z.object({
   version: text.min(1),
   notes: z.string(),
   plain_text: z.string(),
+  active: z.boolean().transform(Number),
 });
 
 // Everything but the PDF itself, which is only sent from its own route.
 const resumeSql = `
-  SELECT r.id, r.version, r.notes, r.plain_text, r.pdf_name, r.pdf_size, r.pdf IS NOT NULL AS has_pdf,
+  SELECT r.id, r.version, r.notes, r.plain_text, r.pdf_name, r.pdf_size, r.pdf IS NOT NULL AS has_pdf, r.active,
     r.created_at, r.updated_at,
     (SELECT count(*) FROM jobs j WHERE j.resume_version = r.version AND j.deleted_at IS NULL) AS job_count,
     (SELECT count(*) FROM jobs j
@@ -226,12 +232,12 @@ const resumeSql = `
 
 const getResume = (id: number) => {
   const r = db.prepare(`${resumeSql} WHERE r.id = ? AND r.deleted_at IS NULL`).get(id) as any;
-  return r && { ...r, has_pdf: !!r.has_pdf };
+  return r && { ...r, has_pdf: !!r.has_pdf, active: !!r.active };
 };
 
 app.get("/api/resumes", (_req, res) => {
   const rows = db.prepare(`${resumeSql} WHERE r.deleted_at IS NULL ORDER BY r.created_at DESC, r.id DESC`).all() as any[];
-  res.json(rows.map((r) => ({ ...r, has_pdf: !!r.has_pdf })));
+  res.json(rows.map((r) => ({ ...r, has_pdf: !!r.has_pdf, active: !!r.active })));
 });
 
 app.get("/api/resumes/:id", (req, res) => {

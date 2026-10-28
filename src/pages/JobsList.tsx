@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { Fragment, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { rowLink } from "@/lib/rowLink";
 import {
@@ -15,11 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
+import { STATUS_COLORS } from "@/lib/colors";
 import { AddJobDialog } from "@/components/AddJobDialog";
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/components/GlobalHotkeys";
 import { type Job, useJobs } from "@/lib/api";
-import { formatDate, isActive, isOnHold, needsFollowUp, reachedInterview } from "@/lib/format";
-import { FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
+import { daysSince, formatDate, isActive, isOnHold, needsFollowUp, reachedInterview } from "@/lib/format";
+import { COMPANY_TYPES, FITS, INTERVIEWING_STATUSES, JOB_TYPES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/lib/useParamUpdater";
 import { cn } from "@/lib/utils";
@@ -67,11 +68,19 @@ const columns: ColumnDef<Job>[] = [
       );
     },
   },
-  { accessorKey: "job_type", header: "Job Type" },
-  { accessorKey: "fit", header: "Fit" },
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge job={row.original} /> },
+  { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge job={row.original} plain /> },
   { ...dateCell("applied_date"), header: "Applied" },
-  { ...dateCell("latest_update"), header: "Latest Update" },
+  { ...dateCell("latest_update"), header: "Update" },
+  {
+    id: "days_since",
+    header: "Days Since",
+    accessorFn: (j) => daysSince(j.last_activity ?? j.applied_date) ?? undefined,
+    sortUndefined: "last",
+    cell: ({ getValue }) => <span className="whitespace-nowrap">{(() => {
+      const days = getValue() as number | undefined;
+      return days === undefined ? "—" : `${days} ${days === 1 ? "day" : "days"}`;
+    })()}</span>,
+  },
 ];
 
 export default function JobsList() {
@@ -92,6 +101,7 @@ export default function JobsList() {
   const statusFilter = params.get("status") ?? "active";
   const typeFilter = params.get("type") ?? "all";
   const fitFilter = params.get("fit") ?? "all";
+  const companyTypeFilter = params.get("company_type") ?? "all";
   const resumeFilter = params.get("resume") ?? "";
   const sortParam = params.get("sort") ?? "applied_date:desc";
   // Memoized: a new array every render makes TanStack Table recompute and re-render in a loop.
@@ -105,11 +115,12 @@ export default function JobsList() {
   const filtered = useMemo(
     () =>
       jobs.filter((j) => {
-        const statusOk = GROUP_FILTERS[statusFilter]?.(j) ?? (statusFilter === "all" || j.status === statusFilter);
+        const statusOk = GROUP_FILTERS[statusFilter]?.(j) || (statusFilter === "followup" && isOnHold(j)) || (!GROUP_FILTERS[statusFilter] && (statusFilter === "all" || j.status === statusFilter));
         return statusOk && (typeFilter === "all" || j.job_type === typeFilter) && (fitFilter === "all" || j.fit === fitFilter)
+          && (companyTypeFilter === "all" || j.company_type === companyTypeFilter)
           && (!resumeFilter || j.resume_version === resumeFilter);
       }),
-    [jobs, statusFilter, typeFilter, fitFilter, resumeFilter],
+    [jobs, statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter],
   );
 
   const table = useReactTable({
@@ -132,47 +143,28 @@ export default function JobsList() {
   });
 
   const counts = {
-    all: jobs.length,
     active: jobs.filter(GROUP_FILTERS.active).length,
     interviewing: jobs.filter(GROUP_FILTERS.interviewing).length,
     followup: jobs.filter(GROUP_FILTERS.followup).length,
-    closed: jobs.filter(GROUP_FILTERS.closed).length,
   };
   const chips: [keyof typeof counts, string][] = [
-    ["all", "All"],
     ["active", "Active"],
     ["interviewing", "Interviewing"],
     ["followup", "Follow Up"],
-    ["closed", "Closed"],
   ];
 
-  const rows = table.getRowModel().rows;
+  const allRows = table.getRowModel().rows;
+  // In the Follow Up view, jobs with a future follow-up date sit in their own group at the end.
+  const splitScheduled = statusFilter === "followup";
+  const rows = splitScheduled ? [...allRows.filter((r) => !isOnHold(r.original)), ...allRows.filter((r) => isOnHold(r.original))] : allRows;
+  const firstScheduled = splitScheduled ? rows.findIndex((r) => isOnHold(r.original)) : -1;
   // Rows remount (replaying the enter animation) when filters or sort change; search changes keep
   // existing rows in place so only newly matching rows animate in.
-  const viewKey = [statusFilter, typeFilter, fitFilter, resumeFilter, sortParam].join("|");
+  const viewKey = [statusFilter, typeFilter, fitFilter, companyTypeFilter, resumeFilter, sortParam].join("|");
 
   return (
     <div className="space-y-4">
       <title>{`${statusFilter === "followup" ? "Follow Up" : "Jobs"} | Application Tracker`}</title>
-      <div className="flex flex-wrap items-center gap-2">
-        {chips.map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setParam("status", key)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-sm transition-colors",
-              statusFilter === key ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
-              key === "followup" && counts.followup > 0 && statusFilter !== key && "border-amber-500/40 text-amber-300",
-            )}
-          >
-            {label} <span className="ml-1 opacity-70">{counts[key]}</span>
-          </button>
-        ))}
-        <div className="ml-auto">
-          <AddJobDialog />
-        </div>
-      </div>
-
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-sm">
           <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
@@ -194,12 +186,38 @@ export default function JobsList() {
             className="bg-card pl-8"
           />
         </div>
+        {chips.map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setParam("status", key)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-sm transition-colors",
+              statusFilter === key ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
+              key === "followup" && counts.followup > 0 && statusFilter !== key && "border-amber-500/40 text-amber-300",
+            )}
+          >
+            {label} <span className="ml-1 opacity-70">{counts[key]}</span>
+          </button>
+        ))}
+        <div className="ml-auto">
+          <AddJobDialog />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={statusFilter} onValueChange={(v) => setParam("status", v)}>
-          <SelectTrigger className="w-52 bg-card"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-52 bg-card [&_.status-dot]:hidden"><SelectValue /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All</SelectItem>
             {chips.map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}
+            <SelectItem value="closed">Closed</SelectItem>
             <SelectSeparator />
-            {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            {STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                <span className={cn("status-dot mr-2 inline-block size-2.5 rounded-full align-middle", STATUS_COLORS[s]?.dot)} />
+                {s}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={(v) => setParam("type", v)}>
@@ -214,6 +232,13 @@ export default function JobsList() {
           <SelectContent>
             <SelectItem value="all">All fits</SelectItem>
             {FITS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={companyTypeFilter} onValueChange={(v) => setParam("company_type", v)}>
+          <SelectTrigger className="w-48 bg-card"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All company types</SelectItem>
+            {COMPANY_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
         {resumeFilter && (
@@ -254,8 +279,15 @@ export default function JobsList() {
           </TableHeader>
           <TableBody>
             {rows.map((row, i) => (
+              <Fragment key={`${viewKey}:${row.id}`}>
+                {i === firstScheduled && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={columns.length} className="bg-muted/50 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Scheduled Follow Up
+                    </TableCell>
+                  </TableRow>
+                )}
               <TableRow
-                key={`${viewKey}:${row.id}`}
                 style={{ animationDelay: `${Math.min(i * 25, 400)}ms` }}
                 {...rowLink(navigate, `/jobs/${row.original.id}`, { fromList: true })}
                 className={cn("row-in cursor-pointer", needsFollowUp(row.original) && "bg-amber-500/10 hover:bg-amber-500/15")}
@@ -265,6 +297,7 @@ export default function JobsList() {
                   <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                 ))}
               </TableRow>
+              </Fragment>
             ))}
             {!rows.length && (
               <TableRow>

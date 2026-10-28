@@ -1,5 +1,6 @@
 import type { ActivityEvent, Job } from "./api";
 import { categoryOf, weekStart } from "./activity";
+import { REJECTED_POST, REJECTED_PRE, STATUS_COLORS } from "./colors";
 import { GHOSTED_DAYS } from "./options";
 import { DAY, daysBetween, daysSince, isOnHold, reachedInterview } from "./format";
 
@@ -77,13 +78,13 @@ export type Outcome = { key: string; label: string; color: string; count: number
 export function outcomes(jobs: Job[]): Outcome[] {
   const rejected = jobs.filter((j) => j.status === "Rejected");
   const rows: Outcome[] = [
-    { key: "waiting", label: "Waiting for Response", color: "#f59e0b", count: jobs.filter((j) => j.status === "Applied").length },
-    { key: "interviewed", label: "Interviewed", color: "#3b82f6", count: jobs.filter((j) => j.status === "Interviewed").length },
-    { key: "rejected-post", label: "Rejected, Post Interview", color: "#dc2626", count: rejected.filter(reachedInterview).length },
-    { key: "rejected-pre", label: "Rejected, No Interview", color: "#f87171", count: rejected.filter((j) => !reachedInterview(j)).length },
-    { key: "withdrew", label: "Withdrew", color: "#525252", count: jobs.filter((j) => j.status === "Withdrew").length },
-    { key: "ghosted", label: "Ghosted", color: "#a3a3a3", count: jobs.filter((j) => j.status === "Ghosted").length },
-    { key: "scam", label: "Scam", color: "#f97316", count: jobs.filter((j) => j.status === "Scam").length },
+    { key: "waiting", label: "Waiting for Response", color: STATUS_COLORS.Applied.hex, count: jobs.filter((j) => j.status === "Applied").length },
+    { key: "interviewed", label: "Interviewed", color: STATUS_COLORS.Interviewed.hex, count: jobs.filter((j) => j.status === "Interviewed").length },
+    { key: "rejected-post", label: "Rejected, Post Interview", color: REJECTED_POST.hex, count: rejected.filter(reachedInterview).length },
+    { key: "rejected-pre", label: "Rejected, No Interview", color: REJECTED_PRE.hex, count: rejected.filter((j) => !reachedInterview(j)).length },
+    { key: "withdrew", label: "Withdrew", color: STATUS_COLORS.Withdrew.hex, count: jobs.filter((j) => j.status === "Withdrew").length },
+    { key: "ghosted", label: "Ghosted", color: STATUS_COLORS.Ghosted.hex, count: jobs.filter((j) => j.status === "Ghosted").length },
+    { key: "scam", label: "Scam", color: STATUS_COLORS.Scam.hex, count: jobs.filter((j) => j.status === "Scam").length },
   ];
   return rows;
 }

@@ -19,7 +19,7 @@ function Delta({ now, before }: { now: number; before: number }) {
   const Icon = diff > 0 ? ArrowUpRight : diff < 0 ? ArrowDownRight : ArrowRight;
   return (
     <span className="inline-flex items-center gap-1">
-      <Icon className={cn("size-4", diff > 0 && "text-emerald-500", diff < 0 && "text-red-400")} />
+      <Icon className={cn("size-4", diff > 0 && "text-emerald-500", diff < 0 && "text-muted-foreground")} />
       {label}
     </span>
   );

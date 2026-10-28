@@ -7,24 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { type EventInput, type JobEvent, useAddEvent, useDeleteEvent, useUpdateEvent } from "@/lib/api";
 import { burstFrom, celebrate } from "@/lib/confetti";
 import { formatDate, today } from "@/lib/format";
+import { EVENT_COLORS } from "@/lib/colors";
 import { EVENT_TYPES } from "@/lib/options";
 import { cn } from "@/lib/utils";
 
 // One color per event type, shared by the dropdown, the timeline dots and the History Terms box.
-export const EVENT_COLORS: Record<string, { dot: string; text: string }> = {
-  Applied: { dot: "bg-amber-400", text: "text-amber-400" },
-  Contact: { dot: "bg-blue-500", text: "text-blue-500" },
-  "Follow-Up": { dot: "bg-violet-500", text: "text-violet-500" },
-  Screen: { dot: "bg-sky-300", text: "text-sky-300" },
-  Interview: { dot: "bg-sky-500", text: "text-sky-500" },
-  Offer: { dot: "bg-emerald-500", text: "text-emerald-500" },
-  Accepted: { dot: "bg-emerald-300", text: "text-emerald-300" },
-  Rejection: { dot: "bg-red-500", text: "text-red-500" },
-  Withdrew: { dot: "bg-neutral-500", text: "text-neutral-500" },
-  Ghosted: { dot: "bg-stone-500", text: "text-stone-500" },
-  Scam: { dot: "bg-orange-500", text: "text-orange-500" },
-  Note: { dot: "bg-neutral-400", text: "text-neutral-400" },
-};
+export { EVENT_COLORS };
 
 function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void }) {
   return (

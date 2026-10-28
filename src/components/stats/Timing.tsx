@@ -1,11 +1,12 @@
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
+import { CHART, REJECTED_POST, REJECTED_PRE } from "@/lib/colors";
 import { GHOSTED_DAYS } from "@/lib/options";
 import type { SpanStats, TimingPoint } from "@/lib/stats";
 
 const SERIES = [
   { key: "interview", label: "First Interview", dot: "bg-blue-500" },
-  { key: "rejectedNoInterview", label: "Rejected, No Interview", dot: "bg-red-400" },
-  { key: "rejected", label: "Rejected, Post Interview", dot: "bg-red-600" },
+  { key: "rejectedNoInterview", label: "Rejected, No Interview", dot: REJECTED_PRE.dot },
+  { key: "rejected", label: "Rejected, Post Interview", dot: REJECTED_POST.dot },
 ] as const;
 
 export default function Timing({ data, afterInterview }: { data: TimingPoint[]; afterInterview: SpanStats }) {
@@ -35,9 +36,9 @@ export default function Timing({ data, afterInterview }: { data: TimingPoint[]; 
           contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }}
           itemStyle={{ color: "var(--foreground)" }}
         />
-        <Bar dataKey="interview" name="First Interview" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-        <Bar dataKey="rejectedNoInterview" name="Rejected, No Interview" fill="#f87171" radius={[3, 3, 0, 0]} />
-        <Bar dataKey="rejected" name="Rejected, Post Interview" fill="#dc2626" radius={[3, 3, 0, 0]} />
+        <Bar dataKey="interview" name="First Interview" fill={CHART.interview} radius={[3, 3, 0, 0]} />
+        <Bar dataKey="rejectedNoInterview" name="Rejected, No Interview" fill={REJECTED_PRE.hex} radius={[3, 3, 0, 0]} />
+        <Bar dataKey="rejected" name="Rejected, Post Interview" fill={REJECTED_POST.hex} radius={[3, 3, 0, 0]} />
       </BarChart>
       <div className="border-t pt-4">
         <h3 className="text-sm font-medium">First Interview to Rejection</h3>

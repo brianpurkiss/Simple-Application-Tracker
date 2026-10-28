@@ -39,6 +39,17 @@ export function latestResumeVersions(labels: string[]): string[] {
   return [...latest.values()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
+// A resume is active when it isn't flagged inactive and is the highest version of its family
+// among the flagged-active ones; everything else (flagged inactive or superseded) is inactive.
+export function splitResumes<T extends { version: string; active: boolean }>(resumes: T[]): { active: T[]; inactive: T[] } {
+  const flagged = resumes.filter((r) => r.active);
+  const latest = new Set(latestResumeVersions(flagged.map((r) => r.version)));
+  return {
+    active: resumes.filter((r) => r.active && latest.has(r.version)),
+    inactive: resumes.filter((r) => !(r.active && latest.has(r.version))),
+  };
+}
+
 export const COMPANY_TYPES =["eCommerce", "SaaS", "B2B", "Other"];
 
 // How well a role matches what I'm after.

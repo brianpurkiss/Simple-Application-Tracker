@@ -1,10 +1,11 @@
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
+import { CHART } from "@/lib/colors";
 import type { CumulativePoint } from "@/lib/insights";
 
 const SERIES = [
-  { key: "applications", label: "Applications", color: "#f59e0b" },
-  { key: "replies", label: "Replies", color: "#8b5cf6" },
-  { key: "interviews", label: "Interviews", color: "#3b82f6" },
+  { key: "applications", label: "Applications", color: CHART.applied },
+  { key: "replies", label: "Replies", color: CHART.reply },
+  { key: "interviews", label: "Interviews", color: CHART.interview },
 ] as const;
 
 const shortDate = (iso: string) => {

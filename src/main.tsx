@@ -1,12 +1,14 @@
 import { type ReactNode, StrictMode, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { CircleUser } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalHotkeys, FOLLOW_UP } from "@/components/GlobalHotkeys";
 import { Toaster } from "@/components/ui/sonner";
 import Home from "@/pages/Home";
 import JobsList from "@/pages/JobsList";
 import JobDetail from "@/pages/JobDetail";
+import User from "@/pages/User";
 import Resumes from "@/pages/Resumes";
 import ResumeDetail from "@/pages/ResumeDetail";
 import ResumePerformance from "@/pages/ResumePerformance";
@@ -41,10 +43,25 @@ function Nav() {
 
   return (
     <nav className="flex h-full text-sm">
-      {[["/jobs", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/resumes", "Resumes"], ["/performance", "Performance"], ["/activity", "Activity"]].map(([to, label]) => (
+      {[["/jobs", "Jobs"], [FOLLOW_UP, "Follow Up"], ["/performance", "Performance"], ["/activity", "Activity"]].map(([to, label]) => (
         <Link key={to} to={to} className={`flex h-full items-center px-3 hover:bg-muted/50 ${linkClass(to)}`}>{label}</Link>
       ))}
     </nav>
+  );
+}
+
+// Right-aligned link to the User page, which also holds the resumes summary.
+function UserLink() {
+  const active = useLocation().pathname === "/user";
+  return (
+    <Link
+      to="/user"
+      title="User (U)"
+      aria-label="User"
+      className={`ml-auto rounded-md p-2 hover:bg-muted/50 ${active ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+    >
+      <CircleUser className="size-5" />
+    </Link>
   );
 }
 
@@ -59,6 +76,7 @@ createRoot(document.getElementById("root")!).render(
           <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-5 px-3">
             <Link to="/" className="px-3 text-lg font-semibold">Application Tracker</Link>
             <Nav />
+            <UserLink />
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1600px] flex-1 px-6 py-6">
@@ -67,6 +85,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/" element={<Home />} />
             <Route path="/jobs" element={<JobsList />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/user" element={<User />} />
             <Route path="/resumes" element={<Resumes />} />
             <Route path="/resumes/:id" element={<ResumeDetail />} />
             <Route path="/performance" element={<ResumePerformance />} />

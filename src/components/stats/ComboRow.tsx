@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils";
 
 const tierStyle = (metric: Metric): Record<Tier, { label: string; className: string } | null> => ({
   standout: { label: "Standout", className: "bg-emerald-500/15 text-emerald-400" },
-  watch: { label: "Promising", className: metric === "interview" ? "bg-blue-500/15 text-blue-400" : "bg-orange-500/15 text-orange-400" },
-  under: { label: "Below Average", className: "bg-red-500/15 text-red-400" },
+  watch: { label: "Promising", className: metric === "interview" ? "bg-blue-500/15 text-blue-400" : "bg-slate-500/15 text-slate-300" },
+  under: { label: "Room to Grow", className: "bg-slate-500/15 text-slate-300" },
   low: { label: "Low Volume", className: "bg-muted text-muted-foreground" },
   even: null,
 });
@@ -87,7 +87,7 @@ export default function ComboRow({ combo, metric, baseline, index = 0, phase = "
           {TICKS[metric].map((t) => (
             <div key={t} className="absolute inset-y-0 w-px bg-background/70" style={{ left: `${(t / max) * 100}%` }} />
           ))}
-          <div className={cn("absolute inset-y-0 left-0 rounded-full", isInterview ? "bg-blue-500" : "bg-orange-500", barMotion)} style={{ ...barDelay, width: filled ? barPct(isInterview ? combo.interviewRate : combo.rejectedRate) : 0 }} />
+          <div className={cn("absolute inset-y-0 left-0 rounded-full", isInterview ? "bg-blue-500" : "bg-slate-500", barMotion)} style={{ ...barDelay, width: filled ? barPct(isInterview ? combo.interviewRate : combo.rejectedRate) : 0 }} />
           <div
             className={cn("absolute -inset-y-0.5 w-0.5 bg-foreground/60 transition-opacity duration-200 motion-reduce:transition-none", fadeOut)}
             style={{ left: barPct(baseline * 100) }}

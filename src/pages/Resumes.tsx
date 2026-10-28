@@ -2,28 +2,15 @@ import { useNavigate } from "react-router-dom";
 import { rowLink } from "@/lib/rowLink";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddResumeDialog } from "@/components/AddResumeDialog";
-import { useResumes } from "@/lib/api";
+import { type Resume, useResumes } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { splitResumes } from "@/lib/options";
 
-export default function Resumes() {
-  const { data: resumes = [], isLoading } = useResumes();
+function ResumeTable({ title, resumes, empty, muted }: { title: string; resumes: Resume[]; empty: string; muted?: boolean }) {
   const navigate = useNavigate();
-
-  if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
-
   return (
-    <div className="space-y-4">
-      <title>Resumes | Application Tracker</title>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Resumes</h1>
-          <p className="text-sm text-muted-foreground">
-            Each version's PDF, notes and plain text. Jobs are linked by matching the version name.
-          </p>
-        </div>
-        <AddResumeDialog />
-      </div>
-
+    <section className="space-y-2">
+      <h2 className="text-sm font-medium">{title}</h2>
       <div className="overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader className="bg-muted/50">
@@ -38,7 +25,7 @@ export default function Resumes() {
           </TableHeader>
           <TableBody>
             {resumes.map((r) => (
-              <TableRow key={r.id} className="cursor-pointer" {...rowLink(navigate, `/resumes/${r.id}`)}>
+              <TableRow key={r.id} className={`cursor-pointer ${muted ? "text-muted-foreground" : ""}`} {...rowLink(navigate, `/resumes/${r.id}`)}>
                 <TableCell className="font-medium">{r.version}</TableCell>
                 <TableCell className="max-w-[20rem] truncate" title={r.pdf_name ?? ""}>{r.has_pdf ? r.pdf_name : "—"}</TableCell>
                 <TableCell>{r.job_count}</TableCell>
@@ -49,12 +36,33 @@ export default function Resumes() {
             ))}
             {!resumes.length && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">No resumes yet.</TableCell>
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">{empty}</TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+    </section>
+  );
+}
+
+export default function Resumes() {
+  const { data: resumes = [], isLoading } = useResumes();
+
+  if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
+
+  const { active, inactive } = splitResumes(resumes);
+
+  return (
+    <div className="space-y-6">
+      <title>Resumes | Application Tracker</title>
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="text-xl font-semibold">Resumes</h1>
+        <AddResumeDialog />
+      </div>
+
+      <ResumeTable title="Active" resumes={active} empty="No active resumes." />
+      <ResumeTable title="Inactive" resumes={inactive} empty="No inactive resumes." muted />
     </div>
   );
 }

@@ -10,6 +10,7 @@ const GROUPS: { title: string; items: { keys: string[]; label: string }[] }[] = 
       { keys: ["J"], label: "Jobs" },
       { keys: ["F"], label: "Follow Up" },
       { keys: ["R"], label: "Resumes" },
+      { keys: ["U"], label: "User" },
       { keys: ["P"], label: "Performance" },
       { keys: ["A"], label: "Activity" },
       { keys: ["T"], label: "Terminology" },

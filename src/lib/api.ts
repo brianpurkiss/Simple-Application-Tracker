@@ -24,6 +24,7 @@ export type Job = {
   offer_info: string;
   notes: string;
   job_description?: string; // only included when fetching a single job
+  cover_letter?: string; // only included when fetching a single job
   created_at: string;
   updated_at: string;
   latest_update: string | null;
@@ -110,6 +111,7 @@ export type Resume = {
   pdf_name: string | null;
   pdf_size: number | null;
   has_pdf: boolean;
+  active: boolean;
   job_count: number;
   interview_job_count: number;
   interview_company_count: number;
@@ -117,7 +119,7 @@ export type Resume = {
   updated_at: string;
 };
 
-export type ResumeInput = Partial<Pick<Resume, "version" | "notes" | "plain_text">>;
+export type ResumeInput = Partial<Pick<Resume, "version" | "notes" | "plain_text" | "active">>;
 
 export const useResumes = () =>
   useQuery({ queryKey: ["resumes"], queryFn: () => request<Resume[]>("GET", "/api/resumes") });
@@ -159,7 +161,7 @@ export const useUpdateEvent = () =>
 export const useDeleteEvent = () =>
   useInvalidatingMutation((id: number) => request<void>("DELETE", `/api/events/${id}`));
 
-export type Profile = { salary_target: number | null };
+export type Profile = { salary_target: number | null; your_name: string; cover_letter: string };
 
 export const useProfile = () =>
   useQuery({ queryKey: ["profile"], queryFn: () => request<Profile>("GET", "/api/profile") });

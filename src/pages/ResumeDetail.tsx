@@ -109,6 +109,15 @@ function ResumeEditor({ resume }: { resume: Resume }) {
             <CardHeader><CardTitle>Details</CardTitle></CardHeader>
             <CardContent className="grid gap-4">
               <TextField label="Version" value={draft.version} onChange={set("version")} />
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={resume.active}
+                  disabled={update.isPending}
+                  onChange={(e) => update.mutate({ active: e.target.checked }, { onError: (err) => toast.error(err.message) })}
+                />
+                Active
+              </label>
               <TextAreaField label="Internal Notes" value={draft.notes} onChange={set("notes")} rows={8} />
             </CardContent>
           </Card>

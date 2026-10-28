@@ -5,7 +5,6 @@ import ComboRow from "@/components/stats/ComboRow";
 import { FilterAccordion, FilterBox, FilterPanel, FilterToggle } from "@/components/stats/FilterMenu";
 import Highlights from "@/components/stats/Highlights";
 import SalaryCurve from "@/components/stats/SalaryCurve";
-import SalaryTarget from "@/components/stats/SalaryTarget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -191,10 +190,6 @@ export default function ResumePerformance() {
     </div>
       <FilterPanel open={filtersOpen}>
             <FilterBox>
-              <SalaryTarget />
-            </FilterBox>
-
-            <FilterBox>
             <div className="space-y-4">
               <div className="space-y-1">
                 <Label>Metric</Label>
@@ -255,7 +250,7 @@ export default function ResumePerformance() {
               <div className="space-y-1">
                 <div className="font-medium text-foreground">Bars</div>
                 <p>
-                  <span className="text-blue-400">Blue</span> = interview rate (higher is better), <span className="text-orange-400">orange</span> = rate of rejected or ghosted with no interview (lower is better), the vertical line = the overall average of {Math.round(baseline * 100)}%. The multiple (e.g. 1.6×) is the combo's rate divided by that average.
+                  <span className="text-blue-400">Blue</span> = interview rate (higher is better), <span className="text-slate-400">slate</span> = rate of rejected or ghosted with no interview (lower is better), the vertical line = the overall average of {Math.round(baseline * 100)}%. The multiple (e.g. 1.6×) is the combo's rate divided by that average.
                 </p>
                 <p>{metric === "interview" ? "Bars run from 0% to 50%, so 25% fills half the bar and anything at 50% or more fills it. The faint ticks mark every 10%." : "Bars run the full 0% to 100%. The faint ticks mark every 20%."}</p>
               </div>
@@ -263,7 +258,7 @@ export default function ResumePerformance() {
                 <div className="font-medium text-foreground">Badges</div>
                 <p><span className="text-emerald-400">Standout</span>: at least {minSample} applications and {metric === "interview" ? "above" : "below"} average even at the pessimistic end of its range (at the confidence set above), so it's unlikely to be luck.</p>
                 <p><span className="text-blue-400">Promising</span>: at least {minSample} applications and better than average, but the sample is still too small to rule out luck.</p>
-                <p><span className="text-red-400">Below Average</span>: at least {minSample} applications and {metric === "interview" ? "below" : "above"} average even at the optimistic end of its range.</p>
+                <p><span className="text-slate-400">Room to Grow</span>: at least {minSample} applications and {metric === "interview" ? "below" : "above"} average even at the optimistic end of its range.</p>
                 <p>Low Volume: under {minSample} applications.</p>
               </div>
               <div className="space-y-1">

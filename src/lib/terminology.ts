@@ -91,7 +91,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
       { term: "Open-ended range", definition: "A role with only a minimum or only a maximum. Counted at its single known value and reported as \"without range\"." },
       { term: "Midpoint", definition: "The middle of a role's range: (min + max) / 2, using whichever side exists if only one is set. Basis for \"mean\" salary figures on the Performance page." },
       { term: "Top of Range", definition: "A role's maximum, or its minimum if there is no maximum. Basis for Highest, Lowest, Average and Median Salary in Extras." },
-      { term: "Salary Target", definition: "Your target yearly salary (Profile.salary_target), drawn as a reference line on salary charts.", avoid: ["Salary target (sentence case)"] },
+      { term: "Salary Target", definition: "Your target yearly salary (profile.salary_target), set on the User page and drawn as a reference line on salary charts.", avoid: ["Salary target (sentence case)"] },
       {
         term: "Salary Distribution",
         definition: "Activity chart of how many roles' ranges cover each pay level.",
@@ -104,10 +104,19 @@ export const TERM_CATEGORIES: TermCategory[] = [
     ],
   },
   {
+    title: "User",
+    description: "Personal details kept on the User page (the profile table).",
+    terms: [
+      { term: "Your Name", definition: "Your name (your_name), used to personalise the Home greeting." },
+      { term: "Cover Letter", definition: "One generic cover letter (cover_letter) to start from when applying." },
+    ],
+  },
+  {
     title: "Resumes",
     terms: [
       { term: "Resume Version", definition: "A named resume, for example \"eCom 2.3\". Stored in the Resumes vault with a PDF, internal notes and a plain text copy." },
       { term: "Family / Grouped (2.x)", definition: "Versions grouped by major number: \"eCom 2.3\" and \"eCom 2.1\" both become \"eCom 2.x\". The alternative mode is \"Separate\"." },
+      { term: "Active / Inactive (resume)", definition: "A resume is active if its active flag is on and it is the highest version of its family among flagged-active ones. Flagged-off or older versions are inactive. The Resumes page lists the two groups separately and only active ones appear on the User page; inactive ones stay in the vault and in stats." },
       { term: "Jobs (resume)", definition: "Number of jobs using the version (job_count)." },
       { term: "Interviews (resume)", definition: "Distinct companies that reached a screen or interview with the version (interview_company_count). Not the same as the Activity \"Interviews\" KPI.", calculation: "count(distinct company) with a Screen or Interview event." },
       { term: "Success Rate (resume)", definition: "Share of a version's jobs that reached a screen or interview.", calculation: "interview_job_count / job_count. Counts jobs, has no age exclusion, and ignores Offer/Accepted jobs that lack a Screen or Interview event." },
@@ -172,7 +181,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
       { term: "Standout Confidence", definition: "How strict the Wilson interval is when judging tiers: Strict 95%, Balanced 90% (default), Loose 80%." },
       { term: "Standout", definition: "Tier: the rate is confidently above the baseline." },
       { term: "Promising", definition: "Tier: above the baseline but not yet confident (internally \"watch\")." },
-      { term: "Below Average", definition: "Tier: confidently below the baseline (internally \"under\").", avoid: ["Below average"] },
+      { term: "Room to Grow", definition: "Tier: confidently below the baseline (internally \"under\").", avoid: ["Below Average", "Below average"] },
       { term: "Low Volume", definition: "Tier: fewer applications than the minimum sample (default 10), so no judgement is made.", avoid: ["Low volume"] },
       { term: "Minimum Applications", definition: "The minimum sample size for a combo to be judged." },
       { term: "Skip Applications from the Last [n] days", definition: "The minimum age for eligible jobs." },
