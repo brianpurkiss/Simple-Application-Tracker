@@ -3,11 +3,13 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AddJobDialog } from "@/components/AddJobDialog";
 import { StatusBadge } from "@/components/StatusBadge";
-import { useEvents, useJobs, useProfile, type Job } from "@/lib/api";
+import { useEvents, useJobs, useProfile, type ActivityEvent, type Job } from "@/lib/api";
 import { weekStart } from "@/lib/activity";
-import { daysSince, formatDate, isActive, needsFollowUp, today } from "@/lib/format";
+import { daysSince, formatDate, formatTime, isActive, needsFollowUp, relativeDay, today } from "@/lib/format";
 import { momentum } from "@/lib/insights";
-import { INTERVIEWING_STATUSES } from "@/lib/options";
+import { INTERVIEWING_STATUSES, TIMED_EVENT_TYPES } from "@/lib/options";
+import { EVENT_COLORS } from "@/lib/colors";
+import { cn } from "@/lib/utils";
 import { rowLink } from "@/lib/rowLink";
 
 const WEEKS = 8;
@@ -39,6 +41,30 @@ function HomeKpi({ label, value, children }: { label: string; value: string; chi
         <div className="truncate text-sm text-muted-foreground">{children}</div>
       </div>
     </div>
+  );
+}
+
+function UpcomingInterviews({ events }: { events: ActivityEvent[] }) {
+  const navigate = useNavigate();
+  if (!events.length) return null;
+  return (
+    <section aria-label="Upcoming interviews" className="flex gap-3 overflow-x-auto pb-1">
+      {events.map((e) => (
+        <div
+          key={e.id}
+          {...rowLink(navigate, `/jobs/${e.job_id}`)}
+          className={cn("min-w-56 shrink-0 cursor-pointer rounded-lg border bg-card px-4 py-3 hover:bg-muted/50", e.date === today() && "border-primary")}
+        >
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <span className={cn("size-2.5 rounded-full", EVENT_COLORS[e.type]?.dot)} />
+            {relativeDay(e.date)}{e.time && ` · ${formatTime(e.time)}`}
+            <span className="ml-auto font-normal text-muted-foreground">{e.type}</span>
+          </div>
+          <div className="mt-1 truncate font-medium">{e.title}</div>
+          <div className="truncate text-sm text-muted-foreground">{e.company || "Unknown"}</div>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -93,6 +119,7 @@ export default function Home() {
   const { data: events = [] } = useEvents();
   const name = useProfile().data?.your_name;
   const todayIso = today();
+  const nowTime = new Date().toTimeString().slice(0, 5);
 
   const jobsById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
 
@@ -109,7 +136,10 @@ export default function Home() {
     const recent = [...events].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, LIST_SIZE);
     const followUpsIn = (week: string) => events.filter((e) => e.type === "Follow-Up" && weekStart(e.date) === week).length;
     const followUps = { thisWeek: followUpsIn(thisMonday), lastWeek: followUpsIn(new Date(Date.parse(thisMonday) - 7 * 86_400_000).toISOString().slice(0, 10)) };
-    return { followUp, interviewing, weekly, recent, followUps, m: momentum(jobs, events, todayIso) };
+    const upcoming = events
+      .filter((e) => TIMED_EVENT_TYPES.has(e.type) && (e.date > todayIso || (e.date === todayIso && (!e.time || e.time > nowTime))))
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "99").localeCompare(b.time ?? "99") || a.id - b.id);
+    return { upcoming, followUp, interviewing, weekly, recent, followUps, m: momentum(jobs, events, todayIso) };
   }, [jobs, events, todayIso]);
 
   // Old bookmarks like /?status=followup now live on /jobs.
@@ -126,7 +156,7 @@ export default function Home() {
     );
   }
 
-  const { m, followUps, followUp, interviewing, weekly, recent } = data;
+  const { m, upcoming, followUps, followUp, interviewing, weekly, recent } = data;
   return (
     <div className="space-y-4">
       <title>Home | Application Tracker</title>
@@ -134,6 +164,8 @@ export default function Home() {
         <h1 className="text-xl font-semibold">{name ? `Welcome back, ${name}` : "Home"}</h1>
         <AddJobDialog />
       </div>
+
+      <UpcomingInterviews events={upcoming} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <HomeKpi label="Applied This Week" value={String(m.thisWeek.applications)}>

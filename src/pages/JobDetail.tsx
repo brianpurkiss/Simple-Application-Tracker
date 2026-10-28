@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarClock, ExternalLink, Mail, Phone, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ComboField, SalaryRangeField, SelectField, TextAreaField, TextField } from "@/components/fields";
+import { ComboField, InlineFields, SalaryRangeField, SelectField, TextAreaField, TextField } from "@/components/fields";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { EVENT_COLORS, HistoryPanel } from "@/components/HistoryPanel";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -39,6 +40,8 @@ export default function JobDetail() {
 function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]> }) {
   const [draft, setDraft] = useState(() => toDraft(job));
   const [saved, setSaved] = useState(() => toDraft(job));
+  // Bumped on save and discard so edited fields go back to plain text.
+  const [epoch, setEpoch] = useState(0);
   const update = useUpdateJob(job.id);
   const deleteJob = useDeleteJob();
   const restoreJob = useRestoreJob();
@@ -62,6 +65,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     update.mutate(patch, {
       onSuccess: () => {
         setSaved(draft);
+        setEpoch((n) => n + 1);
         toast.success("Saved");
       },
       onError: (err) => toast.error(err.message),
@@ -101,6 +105,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const quiet = daysSince(job.last_activity ?? job.applied_date);
 
   return (
+    <InlineFields epoch={epoch}>
     <div className="space-y-5 pb-20">
       <title>{`${saved.title} | Application Tracker`}</title>
       {job.deleted_at && (
@@ -141,7 +146,6 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
               <TextField label="Company" value={draft.company} onChange={set("company")} />
               <ComboField label="Job Type" value={draft.job_type} onChange={set("job_type")} options={jobTypes} />
               <SelectField label="Company Type" value={draft.company_type} onChange={set("company_type")} options={COMPANY_TYPES} />
-              <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />
               <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
               <SelectField label="Work Mode" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />
               <TextField label="Job Description Link" value={draft.jd_link} onChange={set("jd_link")} />
@@ -190,23 +194,48 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Offer & Notes</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Compensation</CardTitle></CardHeader>
             <CardContent className="grid gap-4">
+              <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />
               <TextAreaField label="Offer Info (base, bonus, equity, benefits, deadline…)" value={draft.offer_info} onChange={set("offer_info")} rows={3} />
-              <TextAreaField label="Notes" value={draft.notes} onChange={set("notes")} rows={5} />
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-5 lg:col-span-2">
           <Card className="h-fit">
-            <CardHeader className="flex-row items-baseline justify-between space-y-0">
-              <CardTitle>History</CardTitle>
-              {quiet !== null && (
-                <span className="text-xs text-muted-foreground">
-                  {quiet === 0 ? "Active today" : `${quiet} ${quiet === 1 ? "day" : "days"} since last activity`}
-                </span>
-              )}
+            <CardHeader className="flex items-start justify-between">
+              <div className="space-y-1.5">
+                <CardTitle>History</CardTitle>
+                {quiet !== null && (
+                  <p className="text-xs text-muted-foreground">
+                    {quiet === 0 ? "Active today" : `${quiet} ${quiet === 1 ? "day" : "days"} since last activity`}
+                  </p>
+                )}
+              </div>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">
+                    <CalendarClock />
+                    {draft.follow_up_on ? `Follow up ${formatDate(draft.follow_up_on)}` : "Schedule follow up"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-sm">
+                  <DialogHeader><DialogTitle>Scheduled Follow Up</DialogTitle></DialogHeader>
+                  <div className="space-y-2">
+                    <TextField label="Follow Up On" type="date" value={draft.follow_up_on} onChange={set("follow_up_on")} />
+                    <p className="text-xs text-muted-foreground">
+                      {draft.follow_up_on > today()
+                        ? `Held out of Follow Up and Ghosted until ${formatDate(draft.follow_up_on)}.`
+                        : "Pick a date to keep this job out of Follow Up and Ghosted until then."}
+                    </p>
+                  </div>
+                  <DialogFooter>
+                    {draft.follow_up_on && <Button variant="outline" onClick={() => set("follow_up_on")("")}>Clear</Button>}
+                    <DialogClose asChild><Button>Done</Button></DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               <HistoryPanel jobId={job.id} events={job.events} />
@@ -214,14 +243,9 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Scheduled Follow Up</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <TextField label="Follow Up On" type="date" value={draft.follow_up_on} onChange={set("follow_up_on")} />
-              <p className="text-xs text-muted-foreground">
-                {draft.follow_up_on > today()
-                  ? `Held out of Follow Up and Ghosted until ${formatDate(draft.follow_up_on)}.`
-                  : "Pick a date to keep this job out of Follow Up and Ghosted until then."}
-              </p>
+            <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+            <CardContent>
+              <TextAreaField label="Notes" value={draft.notes} onChange={set("notes")} rows={8} />
             </CardContent>
           </Card>
 
@@ -229,8 +253,8 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
             <p>{term("Applied")}: you sent the application. Sets the status to Applied.</p>
             <p>{term("Contact")}: they reached out to you. Doesn't change the status.</p>
             <p>{term("Follow-Up")}: a check-in you sent. Doesn't change the status.</p>
-            <p>{term("Screen")}: a recruiter or HR screen. Sets the status to Interviewed.</p>
-            <p>{term("Interview")}: an interview with the company. Sets the status to Interviewed.</p>
+            <p>{term("Screen")}: a recruiter or HR screen. Sets the status to Interviewed, or Scheduled while it is still ahead.</p>
+            <p>{term("Interview")}: an interview with the company. Sets the status to Interviewed, or Scheduled while it is still ahead.</p>
             <p>{term("Offer")}: they made you an offer.</p>
             <p>{term("Accepted")}: you accepted it.</p>
             <p>{term("Rejection")}: they turned you down.</p>
@@ -270,11 +294,12 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
         <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 backdrop-blur">
           <div className="mx-auto flex max-w-[1600px] items-center justify-end gap-3 px-6 py-3">
             <span className="text-sm text-muted-foreground">Unsaved changes</span>
-            <Button variant="outline" onClick={() => setDraft(saved)}>Discard</Button>
+            <Button variant="outline" onClick={() => { setDraft(saved); setEpoch((n) => n + 1); }}>Discard</Button>
             <Button onClick={save} disabled={update.isPending || !draft.title.trim() || badRange}>Save</Button>
           </div>
         </div>
       )}
     </div>
+    </InlineFields>
   );
 }

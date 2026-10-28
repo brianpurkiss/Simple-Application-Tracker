@@ -17,6 +17,21 @@ const FILTER_PARAMS: Record<string, string[]> = {
 
 const overlayOpen = () => !!document.querySelector("[role=dialog], [role=listbox]");
 
+// Focuses the job search, first navigating to the jobs list when elsewhere.
+export function useFocusSearch() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  return () => {
+    const input = document.getElementById(SEARCH_INPUT_ID) as HTMLInputElement | null;
+    if (pathname === "/jobs" && input) {
+      input.focus();
+      input.select();
+    } else {
+      navigate("/jobs", { state: { hotkey: "search" } satisfies HotkeyAction });
+    }
+  };
+}
+
 function useGoToHotkey(key: string, to: string) {
   const navigate = useNavigate();
   useHotkey(key, (e) => {
@@ -77,6 +92,14 @@ export function GlobalHotkeys() {
     e.preventDefault();
     input.focus();
     input.select();
+  }, { mod: true });
+
+  // Cmd+K works from anywhere, including inside other fields.
+  const focusSearch = useFocusSearch();
+  useHotkey("k", (e) => {
+    if (overlayOpen()) return;
+    e.preventDefault();
+    focusSearch();
   }, { mod: true });
 
   return null;

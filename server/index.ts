@@ -2,7 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { db } from "./db.ts";
 import { daysSince, isOnHold } from "../src/lib/format.ts";
-import { GHOSTED_DAYS, STATUS_FOR_EVENT, UPDATE_EVENT_TYPES } from "../src/lib/options.ts";
+import { GHOSTED_DAYS, STATUS_FOR_EVENT, TIMED_EVENT_TYPES, UPDATE_EVENT_TYPES } from "../src/lib/options.ts";
 
 const app = express();
 app.use(express.json());
@@ -43,6 +43,7 @@ const eventSchema = z.object({
   date,
   type: text.min(1),
   description: text.default(""),
+  time: z.string().regex(/^\d{2}:\d{2}$/).nullable().default(null),
 });
 
 const updateTypes = UPDATE_EVENT_TYPES.map(() => "?").join(",");
@@ -51,7 +52,12 @@ const statusEventTypes = Object.keys(STATUS_FOR_EVENT).map((t) => `'${t}'`).join
 const statusCase = Object.entries(STATUS_FOR_EVENT).map(([t, s]) => `WHEN '${t}' THEN '${s}'`).join(" ");
 const jobListSql = `
   SELECT j.*,
-    coalesce((SELECT CASE type ${statusCase} END FROM events e
+    coalesce((SELECT CASE
+        -- A screen or interview that hasn't happened yet: a time makes it exact, otherwise it counts until the day arrives.
+        WHEN e.type IN ('Screen', 'Interview') AND (e.date > date('now', 'localtime')
+          OR (e.time IS NOT NULL AND e.date = date('now', 'localtime') AND e.time > strftime('%H:%M', 'now', 'localtime')))
+        THEN 'Scheduled'
+        ELSE CASE e.type ${statusCase} END END FROM events e
       WHERE e.job_id = j.id AND e.type IN (${statusEventTypes}) ORDER BY date DESC, id DESC LIMIT 1), 'Applied') AS status,
     (SELECT max(date) FROM events e WHERE e.job_id = j.id AND e.type IN (${updateTypes})) AS latest_update,
     (SELECT max(date) FROM events e WHERE e.job_id = j.id AND e.type = 'Follow-Up') AS last_follow_up,
@@ -116,7 +122,7 @@ app.get("/api/events", (_req, res) => {
   res.json(
     db
       .prepare(
-        `SELECT e.id, e.job_id, e.date, e.type, j.title, j.company
+        `SELECT e.id, e.job_id, e.date, e.time, e.type, j.title, j.company
          FROM events e JOIN jobs j ON j.id = e.job_id
          WHERE j.deleted_at IS NULL ORDER BY e.date, e.id`,
       )
@@ -189,14 +195,15 @@ app.delete("/api/trash/:id", (req, res) => {
 app.post("/api/jobs/:id/events", (req, res) => {
   const body = eventSchema.parse(req.body);
   const { lastInsertRowid } = db
-    .prepare("INSERT INTO events (job_id, date, type, description) VALUES (?, @date, @type, @description)")
-    .run(req.params.id, body);
+    .prepare("INSERT INTO events (job_id, date, type, description, time) VALUES (?, @date, @type, @description, @time)")
+    .run(req.params.id, { ...body, time: TIMED_EVENT_TYPES.has(body.type) ? body.time : null });
   db.prepare("UPDATE jobs SET updated_at = datetime('now') WHERE id = ?").run(req.params.id);
   res.status(201).json(getEvent(lastInsertRowid as number));
 });
 
 app.patch("/api/events/:id", (req, res) => {
   const body = eventSchema.partial().parse(req.body);
+  if (body.type && !TIMED_EVENT_TYPES.has(body.type)) body.time = null;
   const cols = Object.keys(body);
   if (cols.length) {
     db.prepare(`UPDATE events SET ${cols.map((c) => `${c} = @${c}`).join(", ")} WHERE id = @id`)

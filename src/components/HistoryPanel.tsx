@@ -6,19 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type EventInput, type JobEvent, useAddEvent, useDeleteEvent, useUpdateEvent } from "@/lib/api";
 import { burstFrom, celebrate } from "@/lib/confetti";
-import { formatDate, today } from "@/lib/format";
+import { formatDate, formatTime, today } from "@/lib/format";
 import { EVENT_COLORS } from "@/lib/colors";
-import { EVENT_TYPES } from "@/lib/options";
+import { EVENT_TYPES, TIMED_EVENT_TYPES } from "@/lib/options";
 import { cn } from "@/lib/utils";
 
 // One color per event type, shared by the dropdown, the timeline dots and the History Terms box.
 export { EVENT_COLORS };
 
+const HISTORY_SIZE = 5;
+
 function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void }) {
   return (
     <>
       <Input type="date" value={value.date} onChange={(e) => onChange({ ...value, date: e.target.value })} className="w-40" />
-      <Select value={value.type} onValueChange={(type) => onChange({ ...value, type })}>
+      <Select value={value.type} onValueChange={(type) => onChange({ ...value, type, time: TIMED_EVENT_TYPES.has(type) ? value.time : null })}>
         <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
         <SelectContent>
           {EVENT_TYPES.map((t) => (
@@ -29,6 +31,9 @@ function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChang
           ))}
         </SelectContent>
       </Select>
+      {TIMED_EVENT_TYPES.has(value.type) && (
+        <Input type="time" value={value.time ?? ""} onChange={(e) => onChange({ ...value, time: e.target.value || null })} className="w-32" />
+      )}
       <Input
         value={value.description}
         onChange={(e) => onChange({ ...value, description: e.target.value })}
@@ -71,7 +76,7 @@ function EventRow({ event }: { event: JobEvent }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2 text-sm">
           <span className="font-medium">{event.type}</span>
-          <span className="text-muted-foreground">{formatDate(event.date)}</span>
+          <span className="text-muted-foreground">{formatDate(event.date)}{event.time && ` · ${formatTime(event.time)}`}</span>
         </div>
         {event.description && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{event.description}</p>}
       </div>
@@ -91,10 +96,12 @@ function EventRow({ event }: { event: JobEvent }) {
 }
 
 export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEvent[] }) {
-  const blank = (): EventInput => ({ date: today(), type: "Follow-Up", description: "" });
+  const blank = (): EventInput => ({ date: today(), type: "Follow-Up", description: "", time: null });
   const [draft, setDraft] = useState(blank);
   const add = useAddEvent(jobId);
   const addButton = useRef<HTMLButtonElement>(null);
+  const [showAll, setShowAll] = useState(false);
+  const hidden = events.length - HISTORY_SIZE;
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -117,9 +124,18 @@ export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEven
         <Button ref={addButton} type="submit" disabled={add.isPending}>Add</Button>
       </form>
       {events.length ? (
-        <ul className="divide-y">
-          {events.map((e) => <EventRow key={e.id} event={e} />)}
-        </ul>
+        <>
+          <ul className="divide-y">
+            {(showAll ? events : events.slice(0, HISTORY_SIZE)).map((e) => <EventRow key={e.id} event={e} />)}
+          </ul>
+          {hidden > 0 && (
+            <div className="flex justify-center border-t pt-2.5">
+              <Button variant="ghost" size="sm" className="h-auto py-0 text-muted-foreground" aria-expanded={showAll} onClick={() => setShowAll((s) => !s)}>
+                {showAll ? "Show Less" : `View More (${hidden})`}
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <p className="py-4 text-sm text-muted-foreground">No history yet.</p>
       )}

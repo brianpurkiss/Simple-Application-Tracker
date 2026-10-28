@@ -1,9 +1,9 @@
 import { type ReactNode, StrictMode, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { CircleUser } from "lucide-react";
+import { CircleUser, Search } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { GlobalHotkeys, FOLLOW_UP } from "@/components/GlobalHotkeys";
+import { GlobalHotkeys, FOLLOW_UP, useFocusSearch } from "@/components/GlobalHotkeys";
 import { Toaster } from "@/components/ui/sonner";
 import Home from "@/pages/Home";
 import JobsList from "@/pages/JobsList";
@@ -50,18 +50,30 @@ function Nav() {
   );
 }
 
-// Right-aligned link to the User page, which also holds the resumes summary.
+// Right-aligned search button and link to the User page, which also holds the resumes summary.
 function UserLink() {
   const active = useLocation().pathname === "/user";
+  const focusSearch = useFocusSearch();
   return (
-    <Link
-      to="/user"
-      title="User (U)"
-      aria-label="User"
-      className={`ml-auto rounded-md p-2 hover:bg-muted/50 ${active ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-    >
-      <CircleUser className="size-5" />
-    </Link>
+    <div className="ml-auto flex items-center">
+      <button
+        type="button"
+        onClick={focusSearch}
+        title="Search jobs (⌘K)"
+        aria-label="Search jobs"
+        className="rounded-md p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+      >
+        <Search className="size-5" />
+      </button>
+      <Link
+        to="/user"
+        title="User (U)"
+        aria-label="User"
+        className={`rounded-md p-2 hover:bg-muted/50 ${active ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        <CircleUser className="size-5" />
+      </Link>
+    </div>
   );
 }
 

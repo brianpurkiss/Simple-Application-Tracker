@@ -1,11 +1,11 @@
 // Dropdown options. Edit these lists to change what the app offers.
 
 // Status is computed from the history: the latest event that sets a status wins.
-export const STATUSES = ["Applied", "Interviewed", "Offer", "Accepted", "Rejected", "Withdrew", "Ghosted", "Scam"] as const;
+export const STATUSES = ["Applied", "Scheduled", "Interviewed", "Offer", "Accepted", "Rejected", "Withdrew", "Ghosted", "Scam"] as const;
 
 export const CLOSED_STATUSES = new Set<string>(["Accepted", "Rejected", "Withdrew", "Ghosted", "Scam"]);
 
-export const INTERVIEWING_STATUSES = new Set<string>(["Interviewed", "Offer"]);
+export const INTERVIEWING_STATUSES = new Set<string>(["Scheduled", "Interviewed", "Offer"]);
 
 export const JOB_TYPES = [
   "eCom Lead",
@@ -98,6 +98,9 @@ export const STATUS_FOR_EVENT: Record<string, (typeof STATUSES)[number]> = {
 
 // Event types that count toward the "Latest Update" column.
 export const UPDATE_EVENT_TYPES = ["Contact", "Screen", "Interview", "Offer", "Accepted", "Rejection"];
+
+// Events that can carry a start time, and become the Scheduled status while it is still ahead.
+export const TIMED_EVENT_TYPES = new Set<string>(["Screen", "Interview"]);
 
 // Active jobs with no activity for this many days get highlighted.
 export const STALE_DAYS = 7;

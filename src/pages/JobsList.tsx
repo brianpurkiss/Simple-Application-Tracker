@@ -98,6 +98,16 @@ const buildColumns = (expanded: boolean): ColumnDef<Job>[] => [
   },
   ...(expanded ? [textCell("resume_version", "Resume"), textCell("job_type", "Job Type"), textCell("company_type", "Company Type")] : []),
   { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge job={row.original} plain /> },
+  ...(expanded
+    ? [{
+        accessorKey: "interview_count",
+        header: "Interviews",
+        cell: ({ getValue }) => {
+          const n = getValue() as number;
+          return n > 0 ? <span className="whitespace-nowrap">{n}</span> : <span className="text-muted-foreground">—</span>;
+        },
+      } satisfies ColumnDef<Job>]
+    : []),
   { ...dateCell("applied_date"), header: "Applied" },
   { ...dateCell("latest_update"), header: "Update" },
   {

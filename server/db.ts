@@ -99,6 +99,11 @@ if (!jobColumns.has("follow_up_on")) {
   db.exec("ALTER TABLE jobs ADD COLUMN follow_up_on TEXT");
 }
 
+// Optional start time (HH:MM) for scheduled interviews.
+if (!db.prepare("PRAGMA table_info(events)").all().some((c: any) => c.name === "time")) {
+  db.exec("ALTER TABLE events ADD COLUMN time TEXT");
+}
+
 // Salary used to be free text. It's now a numeric range; the old text column is kept as a backup.
 if (!jobColumns.has("salary_min")) {
   const backups = path.join(dataDir, "backups");

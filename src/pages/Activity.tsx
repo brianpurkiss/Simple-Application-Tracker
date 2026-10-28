@@ -288,7 +288,7 @@ export default function Activity() {
     const picked = selected[FILTERS.findIndex((f) => f.field === "resume_version")];
     const resumeEvents = resumes
       .filter((r) => !picked.length || picked.includes(grouped ? resumeFamily(r.version) : r.version))
-      .map((r): ActivityEvent => ({ id: -r.id, job_id: 0, resume_id: r.id, date: r.created_at.slice(0, 10), type: "New Resume", title: r.version, company: "" }));
+      .map((r): ActivityEvent => ({ id: -r.id, job_id: 0, resume_id: r.id, date: r.created_at.slice(0, 10), time: null, type: "New Resume", title: r.version, company: "" }));
     return [...jobEvents, ...resumeEvents].sort((a, b) => a.date.localeCompare(b.date));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, filteredJobs, resumes, grouped, params.toString()]);

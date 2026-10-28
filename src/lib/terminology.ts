@@ -22,6 +22,11 @@ export const TERM_CATEGORIES: TermCategory[] = [
     terms: [
       { term: "Applied", definition: "The job has been applied to and nothing has happened since. Shown as \"Waiting for Response\" in the outcomes chart." },
       {
+        term: "Scheduled",
+        definition: "The latest screen or interview is still ahead. Not an event; it shows until the date (or the time, when one is set) passes, then the job becomes Interviewed.",
+        calculation: "Latest status event is a Screen or Interview dated after today, or dated today with a start time that hasn't arrived. Counts as interviewing.",
+      },
+      {
         term: "Interviewed",
         definition: "The job has reached a screen or interview. Displayed as \"Screen\" when only a screen has happened, otherwise \"1st Interview\", \"2nd Interview\" and so on.",
         calculation: "The round number counts Interview events only. Screen events do not add a round.",
@@ -67,6 +72,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
         term: "Last Heard",
         definition: "The date of the latest Applied, Contact, Screen, Interview or Offer event. Drives automatic ghosting.",
       },
+      { term: "Upcoming Interviews", definition: "Home strip of Screen and Interview events dated today or later, soonest first. Screen and Interview events can have a start time. Hidden when there are none." },
       { term: "Last Activity", definition: "The date of the latest event of any type. Drives the Follow Up flag." },
       { term: "Latest Update", definition: "The Jobs list column showing the most recent Contact, Screen, Interview, Offer, Accepted or Rejection event (UPDATE_EVENT_TYPES)." },
       { term: "First Contact", definition: "The earliest Contact, Screen, Interview or Offer event. A rejection is not a contact.", aliases: ["first_contact"] },

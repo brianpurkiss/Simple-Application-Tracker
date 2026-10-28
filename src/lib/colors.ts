@@ -9,6 +9,7 @@ const CLAY = "#c4775a";
 
 export const STATUS_COLORS: Record<string, Swatch> = {
   Applied: { hex: "#f59e0b", dot: "bg-amber-500", text: "text-amber-400", badge: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  Scheduled: { hex: "#38bdf8", dot: "bg-sky-400", text: "text-sky-300", badge: "bg-sky-400/15 text-sky-300 border-sky-400/30" },
   Interviewed: { hex: "#3b82f6", dot: "bg-blue-500", text: "text-blue-400", badge: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
   Offer: { hex: "#14b8a6", dot: "bg-teal-500", text: "text-teal-400", badge: "bg-teal-500/15 text-teal-300 border-teal-500/30" },
   // Filled rather than tinted, so landing the job looks like a celebration.
@@ -51,7 +52,7 @@ export const CHART = {
 };
 
 // The Events status filter and badges use status names; map them to the event whose color they share.
-export const eventForStatus = (s: string) => (s === "Interviewed" ? "Interview" : s === "Rejected" ? "Rejection" : s);
+export const eventForStatus = (s: string) => (s === "Interviewed" || s === "Scheduled" ? "Interview" : s === "Rejected" ? "Rejection" : s);
 
 // slate-500 and stone-400, for rgba() cell shading.
 export const RGB = { amber: "245, 158, 11", blue: "59, 130, 246", deepBlue: "37, 99, 235", slate: "100, 116, 139", stone: "168, 162, 158" };

@@ -20,6 +20,7 @@ const GROUPS: { title: string; items: { keys: string[]; label: string }[] }[] = 
     title: "Jobs",
     items: [
       { keys: ["Q"], label: "Add a job" },
+      { keys: [MOD, "K"], label: "Search jobs (from any page)" },
       { keys: [MOD, "F"], label: "Search jobs (on the jobs list)" },
       { keys: ["Esc"], label: "Clear search and filters" },
     ],

@@ -46,10 +46,11 @@ export type JobEvent = {
   date: string;
   type: string;
   description: string;
+  time: string | null;
 };
 
 export type JobInput = Partial<Omit<Job, "id" | "created_at" | "updated_at" | "latest_update" | "last_follow_up" | "last_activity" | "status" | "interview_count" | "screen_count" | "last_heard" | "first_contact" | "first_interview" | "rejected_date" | "auto_ghosted" | "deleted_at">>;
-export type EventInput = Pick<JobEvent, "date" | "type" | "description">;
+export type EventInput = Pick<JobEvent, "date" | "type" | "description" | "time">;
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -73,7 +74,7 @@ export function useSuggestions(field: "title" | "job_type" | "resume_version" | 
   return [...new Set([...preset, ...vault, ...used])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
-export type ActivityEvent = Pick<JobEvent, "id" | "job_id" | "date" | "type"> & { title: string; company: string; resume_id?: number };
+export type ActivityEvent = Pick<JobEvent, "id" | "job_id" | "date" | "time" | "type"> & { title: string; company: string; resume_id?: number };
 
 // Shares the "jobs" key prefix so event and job mutations refresh it.
 export const useEvents = () =>

@@ -32,6 +32,7 @@ export function AddJobDialog() {
   const [salaryMin, setSalaryMin] = useState("");
   const [salaryMax, setSalaryMax] = useState("");
   const badRange = salaryRangeInvalid(salaryMin, salaryMax);
+  const keyFieldsFilled = [job.title, job.company, job.jd_link, job.resume_version].every((v) => v?.trim());
   const create = useCreateJob();
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,31 +85,29 @@ export function AddJobDialog() {
           <DialogHeader>
             <DialogTitle>Add Job</DialogTitle>
           </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <ComboField label="Job Title" value={job.title!} onChange={set("title")} options={titles} autoFocus />
+            <TextField label="Company" value={job.company!} onChange={set("company")} />
+            <TextField label="Job Description Link" value={job.jd_link!} onChange={set("jd_link")} placeholder="https://" />
+            <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
+          </div>
           <section className="space-y-3">
-            <h3 className="text-sm font-medium">Job</h3>
+            <h3 className="text-sm font-medium">Additional Details</h3>
             <div className="grid grid-cols-2 gap-4">
-              <ComboField label="Job Title" value={job.title!} onChange={set("title")} options={titles} required autoFocus />
-              <TextField label="Company" value={job.company!} onChange={set("company")} />
               <ComboField label="Job Type" value={job.job_type!} onChange={set("job_type")} options={jobTypes} />
               <SelectField label="Company Type" value={job.company_type!} onChange={set("company_type")} options={COMPANY_TYPES} />
               <SalaryRangeField min={salaryMin} max={salaryMax} onMin={setSalaryMin} onMax={setSalaryMax} invalid={badRange} />
               <SelectField label="Fit" value={job.fit!} onChange={set("fit")} options={FITS} />
               <SelectField label="Work Mode" value={job.work_mode!} onChange={set("work_mode")} options={WORK_MODES} />
-              <TextField label="Job Description Link" value={job.jd_link!} onChange={set("jd_link")} placeholder="https://" />
-            </div>
-          </section>
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium">Application</h3>
-            <div className="grid grid-cols-2 gap-4">
               <TextField label="Applied" type="date" value={job.applied_date ?? ""} onChange={set("applied_date")} />
-              <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
               <SelectField label="Applied Via" value={job.applied_via!} onChange={set("applied_via")} options={APPLIED_VIA} />
               <ComboField label="Agency Name" value={job.agency_name!} onChange={set("agency_name")} options={agencyNames} />
             </div>
           </section>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={create.isPending}>Add Job</Button>
+            {/* Soft check: highlights the form once the key fields are filled, never blocks submit. */}
+            <Button type="submit" variant={keyFieldsFilled ? "default" : "outline"} disabled={create.isPending}>Add Job</Button>
           </DialogFooter>
         </form>
       </DialogContent>
