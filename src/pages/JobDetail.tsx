@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarClock, ExternalLink, Mail, Phone, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarClock, ExternalLink, Mail, Maximize2, Phone, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComboField, CompanyTypeField, InlineFields, JobTypesField, SalaryRangeField, SelectField, TextAreaField, TextField } from "@/components/fields";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import { AllNotesDialog } from "@/components/AllNotesDialog";
 import { EVENT_COLORS } from "@/lib/colors";
 import { StatusBadge } from "@/components/StatusBadge";
 import { type Job, type JobInput, useDeleteJob, useJob, useJobs, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
@@ -48,6 +49,8 @@ export default function JobDetail() {
 function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]> }) {
   // Bumped on save and discard so edited fields go back to plain text.
   const [epoch, setEpoch] = useState(0);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const interviewNotes = job.events.filter((e) => e.notes.trim()).length;
   const update = useUpdateJob(job.id);
   const deleteJob = useDeleteJob();
   const restoreJob = useRestoreJob();
@@ -284,10 +287,25 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Notes</CardTitle>
+              <CardAction>
+                <Button variant="outline" size="sm" onClick={() => setNotesOpen(true)}>
+                  <Maximize2 />
+                  All Notes{interviewNotes > 0 && ` (${interviewNotes} interview)`}
+                </Button>
+              </CardAction>
+            </CardHeader>
             <CardContent>
               <TextAreaField label="Notes" value={draft.notes} onChange={set("notes")} rows={8} />
             </CardContent>
+            <AllNotesDialog
+              open={notesOpen}
+              onOpenChange={setNotesOpen}
+              notes={draft.notes}
+              onNotesChange={set("notes")}
+              events={job.events}
+            />
           </Card>
 
           <FilterAccordion title="History Terms" className="space-y-3 text-xs text-muted-foreground">

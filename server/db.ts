@@ -107,6 +107,13 @@ if (!db.prepare("PRAGMA table_info(events)").all().some((c) => (c as { name: str
   db.exec("ALTER TABLE events ADD COLUMN time TEXT");
 }
 
+// Full-length notes taken during an interview or screen (the one-line description stays for the summary).
+if (!db.prepare("PRAGMA table_info(events)").all().some((c) => (c as { name: string }).name === "notes")) {
+  fs.mkdirSync(path.join(dataDir, "backups"), { recursive: true });
+  fs.copyFileSync(path.join(dataDir, "jobs.db"), path.join(dataDir, "backups", `jobs-pre-event-notes-${Date.now()}.db`));
+  db.exec("ALTER TABLE events ADD COLUMN notes TEXT NOT NULL DEFAULT ''");
+}
+
 // Salary used to be free text. It's now a numeric range; the old text column is kept as a backup.
 if (!jobColumns.has("salary_min")) {
   const backups = path.join(dataDir, "backups");

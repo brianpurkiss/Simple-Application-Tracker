@@ -13,7 +13,7 @@ export function celebrateEvent(type: string, anchor: HTMLElement | null) {
   else if ((type === "Screen" || type === "Interview") && anchor) burstFrom(anchor, 135);
 }
 
-export const blankEvent = (): EventInput => ({ date: today(), type: "Follow-Up", description: "", time: null });
+export const blankEvent = (): EventInput => ({ date: today(), type: "Follow-Up", description: "", notes: "", time: null });
 
 export function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void }) {
   return (

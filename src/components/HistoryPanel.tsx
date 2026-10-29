@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Check, NotebookPen, Pencil, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
 import { type EventInput, type JobEvent, useAddEvent, useDeleteEvent, useUpdateEvent } from "@/lib/api";
+import { EventNotes } from "@/components/EventNotes";
 import { formatDate, formatTime } from "@/lib/format";
+import { TIMED_EVENT_TYPES } from "@/lib/options";
 import { EVENT_COLORS } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,8 @@ const HISTORY_SIZE = 5;
 function EventRow({ event }: { event: JobEvent }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<EventInput>(event);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const notable = TIMED_EVENT_TYPES.has(event.type);
   const update = useUpdateEvent();
   const remove = useDeleteEvent();
 
@@ -45,9 +49,24 @@ function EventRow({ event }: { event: JobEvent }) {
           </Link>
         </div>
         {event.description && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{event.description}</p>}
+        {notable && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2 h-auto px-2 py-0.5 text-xs text-muted-foreground"
+              aria-expanded={notesOpen}
+              onClick={() => setNotesOpen((o) => !o)}
+            >
+              <NotebookPen />
+              {notesOpen ? "Hide Notes" : event.notes ? "Notes" : "Add Notes"}
+            </Button>
+            {notesOpen && <div className="mt-1"><EventNotes event={event} autoFocus={!event.notes} /></div>}
+          </>
+        )}
       </div>
       <div className="flex opacity-0 transition-opacity group-hover:opacity-100">
-        <Button size="icon" variant="ghost" className="size-7" onClick={() => setEditing(true)}><Pencil /></Button>
+        <Button size="icon" variant="ghost" className="size-7" onClick={() => { setDraft(event); setEditing(true); }}><Pencil /></Button>
         <Button
           size="icon"
           variant="ghost"

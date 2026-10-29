@@ -53,6 +53,7 @@ const eventSchema = z.object({
   date,
   type: text.min(1),
   description: text.default(""),
+  notes: text.default(""),
   time: z.string().regex(/^\d{2}:\d{2}$/).nullable().default(null),
 });
 
@@ -211,7 +212,7 @@ app.delete("/api/trash/:id", (req, res) => {
 app.post("/api/jobs/:id/events", (req, res) => {
   const body = eventSchema.parse(req.body);
   const { lastInsertRowid } = db
-    .prepare("INSERT INTO events (job_id, date, type, description, time) VALUES (?, @date, @type, @description, @time)")
+    .prepare("INSERT INTO events (job_id, date, type, description, notes, time) VALUES (?, @date, @type, @description, @notes, @time)")
     .run(req.params.id, { ...body, time: TIMED_EVENT_TYPES.has(body.type) ? body.time : null });
   db.prepare("UPDATE jobs SET updated_at = datetime('now') WHERE id = ?").run(req.params.id);
   res.status(201).json(getEvent(lastInsertRowid as number));

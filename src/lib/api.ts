@@ -52,11 +52,12 @@ export type JobEvent = {
   date: string;
   type: string;
   description: string;
+  notes: string;
   time: string | null;
 };
 
 export type JobInput = Partial<Omit<Job, "id" | "created_at" | "updated_at" | "latest_update" | "last_follow_up" | "last_activity" | "status" | "interview_count" | "screen_count" | "last_heard" | "first_contact" | "first_interview" | "rejected_date" | "auto_ghosted" | "deleted_at">>;
-export type EventInput = Pick<JobEvent, "date" | "type" | "description" | "time">;
+export type EventInput = Pick<JobEvent, "date" | "type" | "description" | "notes" | "time">;
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
