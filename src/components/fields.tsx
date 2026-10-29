@@ -61,9 +61,9 @@ export function SalaryRangeField({ min, max, onMin, onMax, invalid, className }:
   return (
     <Field label="Salary Range (USD per year)" id={id} className={className}>
       <div className="flex items-center gap-2">
-        <Input id={id} {...input} className={lo.plain} value={show(min)} onChange={(e) => { lo.touch(); onMin(digits(e.target.value)); }} placeholder="Min  150,000" />
+        <Input id={id} {...input} className={lo.plain} value={show(min)} onChange={(e) => { lo.touch(); onMin(digits(e.target.value)); }} placeholder="Min" />
         <span className="text-muted-foreground">–</span>
-        <Input {...input} className={hi.plain} aria-label="Salary maximum" value={show(max)} onChange={(e) => { hi.touch(); onMax(digits(e.target.value)); }} placeholder="Max  180,000" />
+        <Input {...input} className={hi.plain} aria-label="Salary maximum" value={show(max)} onChange={(e) => { hi.touch(); onMax(digits(e.target.value)); }} placeholder="Max" />
       </div>
       {invalid && <p className="text-xs text-destructive">Minimum can't be above the maximum.</p>}
     </Field>

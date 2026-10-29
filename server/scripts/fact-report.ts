@@ -72,8 +72,8 @@ function cases() {
   }
   // Same company carries over; a blank or "Confidential" company doesn't.
   {
-    const a = job("Director of Growth", { company: "Seed Health", company_type: "eCommerce/DTC" });
-    const b = job("Head of Retention", { company: "Seed Health" });
+    const a = job("Director of Growth", { company: "Northwind Labs", company_type: "eCommerce/DTC" });
+    const b = job("Head of Retention", { company: "Northwind Labs" });
     const c = job("Director of Growth", { company: "Confidential", company_type: "SaaS" });
     const d = job("Head of Retention", { company: "Confidential" });
     const ctx = context([a, b, c, d]);

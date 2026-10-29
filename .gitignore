@@ -1,8 +1,11 @@
 node_modules
 dist
+dist-demo
+demo/.snapshot
 coverage
 .vite
 data/*.db*
+data/*.json
 data/backups/
 .env
 .env.*

@@ -1,8 +1,9 @@
 import type { Job } from "./api";
+import { now, today } from "./clock.ts";
+
+export { today };
 
 export const DAY = 86_400_000;
-
-export const today = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
 
 export function formatDate(iso: string | null | undefined) {
   if (!iso) return "";
@@ -11,7 +12,7 @@ export function formatDate(iso: string | null | undefined) {
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    year: y === new Date().getFullYear() ? undefined : "numeric",
+    year: y === now().getFullYear() ? undefined : "numeric",
   });
 }
 

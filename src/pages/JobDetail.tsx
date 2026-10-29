@@ -22,6 +22,7 @@ import { jobActions, usePalette, usePaletteActions } from "@/components/CommandP
 import { MOD } from "@/lib/shortcuts";
 import { FilterAccordion } from "@/components/stats/FilterMenu";
 import { APPLIED_VIA, FITS, GHOSTED_DAYS, RESUME_VERSIONS, WORK_MODES, sortResumeVersions } from "@/lib/options";
+import { toastError } from "@/lib/demo";
 
 // An event type name in its History color.
 const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}</span>;
@@ -121,7 +122,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
         setDraft((d) => ({ ...d, follow_up_on: value }));
         toast.success(date ? `Follow-up scheduled for ${formatDate(date)}` : "Follow-up date cleared");
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toastError(err),
     });
 
   usePaletteActions([
@@ -179,7 +180,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                 label="Normalized Title (for title analysis only)"
                 value={draft.normalized_title}
                 onChange={set("normalized_title")}
-                placeholder="Optional. e.g. Director of eCommerce"
+                placeholder="Optional. e.g. Senior Software Engineer"
                 className="sm:col-span-2"
               />
               <JobTypesField
@@ -200,7 +201,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
             <CardHeader><CardTitle>Application</CardTitle></CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <TextField label="Applied" type="date" value={draft.applied_date} onChange={set("applied_date")} />
-              <ComboField label="Resume Version" value={draft.resume_version} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
+              <ComboField label="Resume Version" value={draft.resume_version} onChange={set("resume_version")} options={resumeVersions} placeholder="General 1.0" />
               <SelectField label="Applied Via" value={draft.applied_via} onChange={set("applied_via")} options={APPLIED_VIA} />
               <ComboField label="Agency Name" value={draft.agency_name} onChange={set("agency_name")} options={agencyNames} />
             </CardContent>

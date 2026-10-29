@@ -164,7 +164,7 @@ export type PerfDim = (typeof PERF_DIMS)[number]["key"];
 // The values a job takes for a non-resume dimension (a job can sit in several starred titles). Empty = not in any starred group, once a kind has stars.
 export type DimValues = (job: Job, dim: Exclude<PerfDim, "resume">) => string[];
 
-// "eCom 2.3" -> "eCom 2.x". Labels without a ".N" suffix are left alone.
+// "XXX 2.3" -> "XXX 2.x". Labels without a ".N" suffix are left alone.
 export const VERSION_MODES = [
   { key: "separate", label: "Separate" },
   { key: "grouped", label: "Grouped (2.x)" },

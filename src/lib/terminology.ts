@@ -82,8 +82,8 @@ export const TERM_CATEGORIES: TermCategory[] = [
     title: "Job fields",
     terms: [
       { term: "Applied date", definition: "The date you applied (applied_date). Basis for waiting times, weekly cohorts and eligibility.", aliases: ["Applied (form label and list column)"], avoid: ["Date"] },
-      { term: "Job Type", definition: "The discipline of the role (Product, Marketing, eCommerce…), separate from its level (Seniority) and the industry (Company Type). A job can have more than one; the first is the main one. Worked out automatically when not set by hand: from jobs in the same title family, then words in the title. Unknown when nothing says.", avoid: ["Type"] },
-      { term: "Company Type", definition: "The kind of company: eCommerce/DTC, SaaS, B2B Services… Worked out automatically when not set by hand: from your other jobs at the same company, then words in the title that name it. Unknown otherwise, sometimes with a Likely hint from the job description to accept." },
+      { term: "Job Type", definition: "The discipline of the role (Engineering, Nursing, Sales…), separate from its level (Seniority) and the industry (Company Type). A job can have more than one; the first is the main one. Worked out automatically when not set by hand: from jobs in the same title family, then words in the title. Unknown when nothing says.", avoid: ["Type"] },
+      { term: "Company Type", definition: "The kind of company: Healthcare, SaaS, Retail/eCommerce… Worked out automatically when not set by hand: from your other jobs at the same company, then words in the title that name it. Unknown otherwise, sometimes with a Likely hint from the job description to accept." },
       { term: "Likely", definition: "A Company Type guess from the job description or from titles that usually go with one type. Shown on the job page with Use it; never counted until accepted." },
       { term: "Fit", definition: "How well the role matches what you want: Good Fit, Stretch, Settle, Pivot." },
       { term: "Work Mode", definition: "Remote, Hybrid or In Office (work_mode).", avoid: ["Location"] },
@@ -95,7 +95,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
   {
     title: "Salary",
     terms: [
-      { term: "Salary Range", definition: "A role's minimum and maximum yearly pay in USD (salary_min, salary_max). Either may be missing. Shown as \"$150k–$180k\", \"$160k+\", \"Up to $180k\" or \"$150k\" when equal." },
+      { term: "Salary Range", definition: "A role's minimum and maximum yearly pay in USD (salary_min, salary_max). Either may be missing. Shown as \"$50k–$60k\", \"$55k+\", \"Up to $60k\" or \"$50k\" when equal." },
       { term: "Open-ended range", definition: "A role with only a minimum or only a maximum. Counted at its single known value and reported as \"without range\"." },
       { term: "Midpoint", definition: "The middle of a role's range: (min + max) / 2, using whichever side exists if only one is set. Basis for \"mean\" salary figures on the Performance page." },
       { term: "Top of Range", definition: "A role's maximum, or its minimum if there is no maximum. Basis for Highest, Lowest, Average and Median Salary in Extras." },
@@ -122,8 +122,8 @@ export const TERM_CATEGORIES: TermCategory[] = [
   {
     title: "Resumes",
     terms: [
-      { term: "Resume Version", definition: "A named resume, for example \"eCom 2.3\". Stored in the Resumes vault with a PDF, internal notes and a plain text copy." },
-      { term: "Family / Grouped (2.x)", definition: "Versions grouped by major number: \"eCom 2.3\" and \"eCom 2.1\" both become \"eCom 2.x\". The alternative mode is \"Separate\"." },
+      { term: "Resume Version", definition: "A named resume, for example \"General 2.3\". Stored in the Resumes vault with a PDF, internal notes and a plain text copy." },
+      { term: "Family / Grouped (2.x)", definition: "Versions grouped by major number: \"General 2.3\" and \"General 2.1\" both become \"General 2.x\". The alternative mode is \"Separate\"." },
       { term: "Active / Inactive (resume)", definition: "A resume is active if its active flag is on and it is the highest version of its family among flagged-active ones. Flagged-off or older versions are inactive. The Resumes page lists the two groups separately and only active ones appear on the User page; inactive ones stay in the vault and in stats." },
       { term: "Jobs (resume)", definition: "Number of jobs using the version (job_count)." },
       { term: "Interviews (resume)", definition: "Distinct companies that reached a screen or interview with the version (interview_company_count). Not the same as the Activity \"Interviews\" KPI.", calculation: "count(distinct company) with a Screen or Interview event." },
@@ -202,10 +202,10 @@ export const TERM_CATEGORIES: TermCategory[] = [
     terms: [
       {
         term: "Title Family",
-        definition: "Jobs with the same rung word and the same work, however the title is worded. \"Director of eCommerce\", \"eCommerce Director\" and \"Director, E-Commerce\" are one family. Labelled with the most common title in it.",
+        definition: "Jobs with the same rung word and the same work, however the title is worded. \"Director of Engineering\", \"Engineering Director\" and \"Director, Engineering\" are one family. Labelled with the most common title in it.",
         calculation: "Rung word (Director, Head, Manager, VP, Chief, or IC) + function. Functions match when they have the same number of words and a fuzzball token_sort_ratio of 95 or more (MATCH_THRESHOLD).",
       },
-      { term: "Function", definition: "What the work is: the title with the rung word, seniority modifiers, company name and parenthetical text removed. For example \"eCommerce\" or \"Product Manager\"." },
+      { term: "Function", definition: "What the work is: the title with the rung word, seniority modifiers, company name and parenthetical text removed. For example \"Nursing\" or \"Software Engineer\"." },
       {
         term: "Seniority",
         definition: "A 1–9 rank on one ladder shared by IC, Management and Executive titles. IC: Entry 1, Mid 2, Senior 3, Staff / Lead 4, Principal 5, Distinguished 6. Management: Supervisor 2, Manager 3, Senior Manager 4, Director 5, Head 5, Senior Director 6. Executive: VP 7, SVP / President 8, C-level 9.",
@@ -218,17 +218,17 @@ export const TERM_CATEGORIES: TermCategory[] = [
       },
       {
         term: "Roll-up",
-        definition: "A title counting toward a broader family as well as its own. \"Director of Growth & eCommerce Revenue\" also counts under Director of eCommerce and Director of Growth.",
+        definition: "A title counting toward a broader family as well as its own. \"Director of Sales & Marketing\" also counts under Director of Sales and Director of Marketing.",
         calculation: "Same rung word, and the broader family's function words are a strict subset of this one's.",
       },
       {
         term: "Auto group",
-        definition: "A title group created automatically when no job has that exact title. \"Director, Digital Experience Experimentation\" and \"Sr. Director, Digital Experience and Channels\" both roll up to an Auto group \"Director of Digital Experience\". Tagged Auto on the Segments page.",
-        calculation: "The words two families on the same rung share. The words must sit next to each other in at least one title. A single shared word only counts when it is a whole function somewhere else (e.g. Head of CRO). IC groups must keep their role word (e.g. Product Manager).",
+        definition: "A title group created automatically when no job has that exact title. \"Director, Patient Care Operations\" and \"Sr. Director, Patient Care Quality\" both roll up to an Auto group \"Director of Patient Care\". Tagged Auto on the Segments page.",
+        calculation: "The words two families on the same rung share. The words must sit next to each other in at least one title. A single shared word only counts when it is a whole function somewhere else (e.g. Head of HR). IC groups must keep their role word (e.g. Software Engineer).",
       },
       {
         term: "Synonyms",
-        definition: "Sets of terms you enter on the Segments page that mean the same thing in a title, such as eCommerce, eCom, e-Commerce, eComm. Every term is treated as the first one, which is also how it is displayed. Titles themselves are never changed.",
+        definition: "Sets of terms you enter on the Segments page that mean the same thing in a title, such as Registered Nurse, RN. Every term is treated as the first one, which is also how it is displayed. Titles themselves are never changed.",
       },
       {
         term: "Normalized Title",

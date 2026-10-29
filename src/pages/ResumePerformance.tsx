@@ -53,7 +53,7 @@ export default function ResumePerformance() {
   const { data: profile } = useProfile();
   const [params] = useSearchParams();
   const updateParams = useParamUpdater();
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAllTooFew, setShowAllTooFew] = useState(false);
 
   const metric: Metric = params.get("metric") === "rejected" ? "rejected" : "interview";
@@ -151,6 +151,7 @@ export default function ResumePerformance() {
 
       <Highlights combos={combos} metric={view.metric} baseline={baseline} fade={fade} />
 
+      <div className="grid items-start gap-6 xl:grid-cols-2">
       <section className="space-y-4 rounded-lg border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -184,6 +185,7 @@ export default function ResumePerformance() {
       <div className={fade}>
         <SalaryCurve series={salarySeries} target={profile?.salary_target ?? null} />
       </div>
+      </div>
 
       <div className="mx-auto h-px w-16 bg-border" aria-hidden />
 
@@ -210,9 +212,6 @@ export default function ResumePerformance() {
               <div className="space-y-1">
                 <Label>Metric</Label>
                 <div><Segmented options={METRICS} value={metric} onChange={(m) => setParam("metric", m)} /></div>
-                <p className="text-xs text-muted-foreground">
-                  Interviews = at least one screen or interview, or an offer. Rejected, No Interview = rejected or ghosted without ever reaching a screen or interview; for this metric a lower rate is better.
-                </p>
               </div>
               <div className="space-y-1">
                 <Label>Resume Versions</Label>
@@ -223,7 +222,6 @@ export default function ResumePerformance() {
                     onChange={(v) => setParam("versions", v === "grouped" ? "grouped" : null)}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">Grouped merges minor revisions (eCom 2.0, 2.1, 2.2 become eCom 2.x). Expanding a combo still shows each job's exact version.</p>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="recency">Skip Applications from the Last</Label>
@@ -231,7 +229,6 @@ export default function ResumePerformance() {
                   <Input id="recency" type="number" min={0} value={minAge} onChange={(e) => setParam("recency", e.target.value)} className="w-20 bg-card" />
                   <span className="text-sm text-muted-foreground">days</span>
                 </div>
-                <p className="text-xs text-muted-foreground">Very recent applications haven't had time to hear back, so they'd drag rates down unfairly.</p>
               </div>
               {metric === "rejected" && (
                 <div className="space-y-1">
@@ -244,6 +241,10 @@ export default function ResumePerformance() {
                 </div>
               )}
               <div className="space-y-1">
+                <Label htmlFor="min">Minimum Applications</Label>
+                <Input id="min" type="number" min={1} value={minSample} onChange={(e) => setParam("min", e.target.value)} className="w-20 bg-card" />
+              </div>
+              <div className="space-y-1">
                 <Label>Standout Confidence</Label>
                 <div>
                   <Segmented
@@ -252,12 +253,6 @@ export default function ResumePerformance() {
                     onChange={(c) => setParam("conf", c === "balanced" ? null : c)}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">How sure the numbers must be before a combo is called a standout. Looser needs less data but is more likely to flag a fluke.</p>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="min">Minimum Applications</Label>
-                <Input id="min" type="number" min={1} value={minSample} onChange={(e) => setParam("min", e.target.value)} className="w-20 bg-card" />
-                <p className="text-xs text-muted-foreground">Combos with fewer applications are listed separately, faded, and can't be called a standout.</p>
               </div>
             </div>
             </FilterBox>

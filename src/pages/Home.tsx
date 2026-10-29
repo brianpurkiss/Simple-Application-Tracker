@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useEvents, useJobs, useProfile, type ActivityEvent, type Job } from "@/lib/api";
 import { addDays, weekStart } from "@/lib/activity";
 import { daysSince, formatDate, formatTime, relativeDay, today } from "@/lib/format";
+import { nowTime } from "@/lib/clock";
 import { isActive, needsFollowUp } from "@/lib/jobs";
 import { momentum } from "@/lib/insights";
 import { INTERVIEWING_STATUSES, TIMED_EVENT_TYPES } from "@/lib/options";
@@ -211,7 +212,7 @@ export default function Home() {
   const { data: events = [] } = useEvents();
   const name = useProfile().data?.your_name;
   const todayIso = today();
-  const nowTime = new Date().toTimeString().slice(0, 5);
+  const time = nowTime();
 
   const jobsById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
 
@@ -227,10 +228,10 @@ export default function Home() {
     const weekly = weeks.map((week) => ({ week, n: jobs.filter((j) => j.applied_date && weekStart(j.applied_date) === week).length }));
     const recent = [...events].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, LIST_SIZE);
     const upcoming = events
-      .filter((e) => TIMED_EVENT_TYPES.has(e.type) && (e.date > todayIso || (e.date === todayIso && (!e.time || e.time > nowTime))))
+      .filter((e) => TIMED_EVENT_TYPES.has(e.type) && (e.date > todayIso || (e.date === todayIso && !!e.time && e.time > time)))
       .sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "99").localeCompare(b.time ?? "99") || a.id - b.id);
     return { upcoming, followUp, interviewing, weekly, recent, m: momentum(jobs, events, todayIso) };
-  }, [jobs, events, todayIso]);
+  }, [jobs, events, todayIso, time]);
 
   // Old bookmarks like /?status=followup now live on /jobs.
   if (search) return <Navigate to={`/jobs${search}`} replace />;

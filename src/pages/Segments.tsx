@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ChartNoAxesCombined, ChevronRight, Star } from "lucide-react";
-import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { FactTypes, LabelPicker } from "@/components/FactTypes";
 import { TitleSynonyms } from "@/components/TitleSynonyms";
@@ -19,6 +18,7 @@ import { fmtPct, interviewed, MIN_SAMPLE, pct } from "@/lib/stats";
 import { titleGroups, type TitleGroup, type TitleVariant } from "@/lib/titles/groups";
 import { isStarred, starSet } from "@/lib/titles/starred";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/demo";
 
 type SortKey = "label" | "jobs" | "applications" | "rejections" | "totalInterviews" | "uniqueInterviews" | "rate";
 
@@ -178,7 +178,7 @@ export default function Segments() {
       open={open}
       onToggle={toggle}
       isStar={isStar}
-      onStar={starKind ? (key, label, on) => toggleStar.mutate({ kind: starKind, key, label, starred: on }, { onError: (e) => toast.error(e.message) }) : undefined}
+      onStar={starKind ? (key, label, on) => toggleStar.mutate({ kind: starKind, key, label, starred: on }, { onError: (e) => toastError(e) }) : undefined}
       sourceOf={sourceOf}
       factKind={factKind}
       factCtx={factCtx}

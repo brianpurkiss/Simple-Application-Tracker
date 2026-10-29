@@ -1,14 +1,14 @@
 import { useRef, useState } from "react";
-import { toast } from "sonner";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { type TitleSynonym, useCreateTitleSynonym, useDeleteTitleSynonym, useTitleSynonyms, useUpdateTitleSynonym } from "@/lib/api";
+import { toastError } from "@/lib/demo";
 
 const parse = (text: string) => text.split(",").map((t) => t.trim()).filter(Boolean);
 const format = (terms: string[]) => terms.join(", ");
-const onError = (e: Error) => toast.error(e.message);
+const onError = (e: Error) => toastError(e);
 
 // One set, edited as comma-separated text and saved when the field loses focus.
 function SynonymRow({ synonym }: { synonym: TitleSynonym }) {
@@ -48,7 +48,7 @@ export function TitleSynonyms() {
           <DialogTitle>Synonyms</DialogTitle>
           <DialogDescription>
             Terms that mean the same thing in a title, separated by commas. The first term is the one shown. For example:
-            eCommerce, eCom, e-Commerce, eComm.
+            Software Engineer, SWE.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

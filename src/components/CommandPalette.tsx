@@ -6,7 +6,8 @@ import { Keys } from "@/components/Keys";
 import { QuickAddEvent } from "@/components/QuickAddEvent";
 import { type Job, useJobs, useResumes } from "@/lib/api";
 import { useAddJob, useFocusSearch } from "@/hooks/appActions";
-import { DAY, formatDate } from "@/lib/format";
+import { formatDate, today } from "@/lib/format";
+import { addDays } from "@/lib/activity";
 import { EVENT_TYPES } from "@/lib/options";
 import { GO_TO } from "@/lib/shortcuts";
 
@@ -62,7 +63,7 @@ function logActions(job: Job, logHistory: Palette["logHistory"], group: string, 
 const copy = (text: string, what: string) =>
   navigator.clipboard.writeText(text).then(() => toast.success(`${what} copied`), () => toast.error("Couldn't copy"));
 
-const inDays = (n: number) => new Date(Date.now() + n * DAY).toLocaleDateString("en-CA");
+const inDays = (n: number) => addDays(today(), n);
 
 // Everything the palette can do to one job: log history, open or copy its links, reach the contact,
 // and schedule a follow-up.

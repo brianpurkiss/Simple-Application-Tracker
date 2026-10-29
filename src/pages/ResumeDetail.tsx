@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TextAreaField, TextField } from "@/components/fields";
 import {
-  type Resume, useDeleteResume, useRemoveResumePdf, useResume, useUpdateResume, useUploadResumePdf,
+  type Resume, resumePdfUrl, useDeleteResume, useRemoveResumePdf, useResume, useUpdateResume, useUploadResumePdf,
 } from "@/lib/api";
 import { useDraftForm } from "@/hooks/useDraftForm";
 import { usePaletteActions } from "@/components/CommandPalette";
 import { MOD } from "@/lib/shortcuts";
+import { toastError } from "@/lib/demo";
 
 const EDITABLE = ["version", "notes", "plain_text"] as const;
 type Draft = Record<(typeof EDITABLE)[number], string>;
@@ -45,7 +46,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
     if (!file) return;
     upload.mutate(file, {
       onSuccess: () => toast.success("PDF saved"),
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toastError(err),
     });
     if (fileInput.current) fileInput.current.value = "";
   };
@@ -66,7 +67,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
   ]);
 
   // The version in the URL changes when the PDF is replaced, so the preview reloads.
-  const pdfUrl = `/api/resumes/${resume.id}/pdf?v=${encodeURIComponent(resume.updated_at)}`;
+  const pdfUrl = resumePdfUrl(resume);
 
   return (
     <div className="space-y-5 pb-20">
@@ -99,7 +100,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
                   type="checkbox"
                   checked={resume.active}
                   disabled={update.isPending}
-                  onChange={(e) => update.mutate({ active: e.target.checked }, { onError: (err) => toast.error(err.message) })}
+                  onChange={(e) => update.mutate({ active: e.target.checked }, { onError: (err) => toastError(err) })}
                 />
                 Active
               </label>

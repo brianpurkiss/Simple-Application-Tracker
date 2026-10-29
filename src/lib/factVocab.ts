@@ -1,6 +1,7 @@
 // Built-in words for the starter Job Types and Company Types, keyed by `starter_key` (see fact_types in
 // server/db.ts). They give a brand-new list something to go on before any job is labeled. Kept generic on
-// purpose: anything field-specific is learned from the jobs you label instead.
+// purpose: anything field-specific is learned from the jobs you label instead. Keys with no matching starter
+// type (growth, ecommerce on newer installs) are simply unused.
 //
 // Phrases are lowercase words. Hyphens inside a word are dropped when matching, so "e-commerce" is
 // "ecommerce"; stopwords are dropped too, so "chief of staff" is written "chief staff".
@@ -12,13 +13,17 @@ export const JOB_TYPE_WORDS: Record<string, string[]> = {
   design: ["design", "designer", "ux", "ui", "creative"],
   data: ["data", "analytics", "analyst", "insights", "business intelligence", "scientist"],
   marketing: ["marketing", "marketer", "brand", "seo", "sem", "content", "communications", "lifecycle", "crm", "demand generation", "cmo"],
-  growth: ["growth", "acquisition", "retention", "cro", "conversion", "experimentation", "optimization"],
+  growth: ["growth", "acquisition", "retention", "cro", "conversion", "experimentation"],
   ecommerce: ["ecommerce", "e commerce", "ecom", "dtc", "d2c", "direct consumer", "digital commerce", "online store"],
   sales: ["sales", "account executive", "business development", "partnerships", "bdr", "sdr"],
   customer: ["customer success", "customer support", "customer service", "client services", "support"],
   operations: ["operations", "ops", "supply chain", "logistics", "fulfillment", "procurement"],
   finance: ["finance", "financial", "accounting", "accountant", "controller", "treasury", "fp", "cfo"],
   people: ["hr", "human resources", "people", "recruiter", "recruiting", "talent"],
+  healthcare: ["nurse", "nursing", "rn", "physician", "clinical", "clinician", "therapist", "pharmacist", "medical", "patient care"],
+  education: ["teacher", "teaching", "instructor", "professor", "tutor", "curriculum", "principal school", "education"],
+  legal: ["attorney", "lawyer", "paralegal", "counsel", "legal", "compliance"],
+  trades: ["electrician", "plumber", "mechanic", "technician", "carpenter", "welder", "hvac", "machinist"],
   general: ["general manager", "gm", "ceo", "coo", "president", "founder", "chief staff", "managing director", "executive director"],
 };
 

@@ -3,7 +3,7 @@ import { Area, AreaChart, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } 
 import { PillToggle } from "@/components/ui/pill-toggle";
 import type { Job } from "@/lib/api";
 import { reachedInterview } from "@/lib/jobs";
-import { k, salaryCurve } from "@/lib/salary";
+import { k, salaryCurve, salaryTickStep } from "@/lib/salary";
 
 const STEP = 5000;
 const SMOOTHING = 10_000; // Gaussian sigma in dollars
@@ -24,7 +24,7 @@ export default function SalaryDistribution({ jobs }: { jobs: Job[] }) {
   const ticks = useMemo(() => {
     const lo = curve.points[0]?.salary ?? 0;
     const hi = curve.points.at(-1)?.salary ?? 0;
-    const every = hi - lo > 200_000 ? 50_000 : hi - lo > 100_000 ? 25_000 : 10_000;
+    const every = salaryTickStep(hi - lo);
     const out: number[] = [];
     for (let t = Math.ceil(lo / every) * every; t <= hi; t += every) out.push(t);
     return out;

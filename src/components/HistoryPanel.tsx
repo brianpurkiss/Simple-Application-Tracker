@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { Check, NotebookPen, Pencil, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
 import { type EventInput, type JobEvent, useAddEvent, useDeleteEvent, useUpdateEvent } from "@/lib/api";
@@ -10,6 +9,7 @@ import { formatDate, formatTime } from "@/lib/format";
 import { TIMED_EVENT_TYPES } from "@/lib/options";
 import { EVENT_COLORS } from "@/lib/colors";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/demo";
 
 const HISTORY_SIZE = 5;
 
@@ -23,7 +23,7 @@ function EventRow({ event }: { event: JobEvent }) {
 
   const save = () => {
     (document.activeElement as HTMLElement | null)?.blur();
-    update.mutate({ id: event.id, ...draft }, { onSuccess: () => setEditing(false), onError: (e) => toast.error(e.message) });
+    update.mutate({ id: event.id, ...draft }, { onSuccess: () => setEditing(false), onError: (e) => toastError(e) });
   };
 
   if (editing) {
@@ -96,7 +96,7 @@ export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEven
         setDraft(blankEvent());
         celebrateEvent(type, addButton.current);
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toastError(err),
     });
   };
 
