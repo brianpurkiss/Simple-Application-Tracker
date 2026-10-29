@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { toast } from "sonner";
 import { isEditable, useHotkey } from "@/hooks/hotkeys";
 import { confirmDialog, DISCARD } from "@/components/ConfirmDialog";
-import { toastError } from "@/lib/demo";
+import { toastError, toastSaved } from "@/lib/demo";
 
 type Mutation = {
   mutate(patch: never, options: { onSuccess: () => void; onError: (err: Error) => void }): void;
@@ -36,7 +35,7 @@ export function useDraftForm<K extends string>(
       onSuccess: () => {
         setSaved(draft);
         onSaved?.();
-        toast.success("Saved");
+        toastSaved("Saved");
       },
       onError: (err) => toastError(err),
     });

@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { confirmDialog } from "@/components/ConfirmDialog";
-import { toast } from "sonner";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +16,7 @@ import {
   useUpdateJob,
 } from "@/lib/api";
 import { type FactContext, type FactKind, isAutomatic, resolveCompanyType, resolveJobTypes } from "@/lib/jobFacts";
-import { toastError } from "@/lib/demo";
+import { toastError, toastSaved } from "@/lib/demo";
 
 const onError = (e: Error) => toastError(e);
 const NOUN: Record<FactKind, string> = { job: "Job Type", company: "Company Type" };
@@ -73,7 +72,7 @@ export function FactTypes({ kind, jobs, factCtx }: { kind: FactKind; jobs: Job[]
   const add = () => create.mutate({ kind, name: draft.trim() }, { onSuccess: () => setDraft(""), onError });
   const startOver = async () => {
     if (!(await confirmDialog({ message: "Clear every hand-set Job Type and Company Type on all jobs? A backup is saved first, and the type lists stay as they are.", confirmLabel: "Clear labels", destructive: true }))) return;
-    reset.mutate(undefined, { onSuccess: (r) => toast.success("Labels cleared", { description: `Backup saved as ${r.backup}` }), onError });
+    reset.mutate(undefined, { onSuccess: (r) => toastSaved("Labels cleared", { description: `Backup saved as ${r.backup}` }), onError });
   };
 
   return (

@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TextAreaField, TextField } from "@/components/fields";
 import SalaryTarget from "@/components/stats/SalaryTarget";
 import { useProfile, useResumes, useUpdateProfile } from "@/lib/api";
 import { isEditable, useHotkey } from "@/hooks/hotkeys";
 import { splitResumes } from "@/lib/options";
-import { toastError } from "@/lib/demo";
+import { toastError, toastSaved } from "@/lib/demo";
 
 function Section({ title, children, action, className = "space-y-3" }: { title: string; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
   return (
@@ -32,7 +31,7 @@ export default function User() {
   useEffect(() => setCoverLetter(profile?.cover_letter ?? ""), [profile?.cover_letter]);
 
   const save = (patch: { your_name?: string; cover_letter?: string; hide_financials?: boolean }) =>
-    update.mutate(patch, { onSuccess: () => toast.success("Saved"), onError: (err) => toastError(err) });
+    update.mutate(patch, { onSuccess: () => toastSaved("Saved"), onError: (err) => toastError(err) });
   const saveName = () => name.trim() !== (profile?.your_name ?? "") && save({ your_name: name });
   const saveCoverLetter = () => coverLetter !== (profile?.cover_letter ?? "") && save({ cover_letter: coverLetter });
 

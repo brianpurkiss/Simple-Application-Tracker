@@ -1,22 +1,18 @@
 import { toast } from "sonner";
 
-// The public demo is a static build (npm run build:demo): reads come from a snapshot of the API, writes are refused.
+// The public demo is a static build (npm run build:demo): reads come from a snapshot of the API, writes pretend to
+// succeed but change nothing.
 export const DEMO = import.meta.env.VITE_DEMO === "1";
 
-export class DemoReadOnlyError extends Error {
-  constructor() {
-    super("This demo is read-only");
-  }
-}
-
-// One shared toast, so a refused write never shows twice (the page's own handler and the global one both call this).
 export function toastError(err: unknown) {
-  if (err instanceof DemoReadOnlyError) {
-    toast.info("This demo is read-only", { id: "demo-read-only", description: "Install the app to track your own search." });
-    return;
-  }
   toast.error(err instanceof Error ? err.message : String(err));
 }
+
+// Every write in the demo ends here. One shared id, so a write that also has a success toast never shows two.
+const toastNotSaved = () => toast.info("This is a demo, your changes were not saved.", { id: "demo-not-saved" });
+
+// Success toasts for writes. The demo shows its notice instead, which also covers profile edits that stay in the tab.
+export const toastSaved: typeof toast.success = (...args) => (DEMO ? toastNotSaved() : toast.success(...args));
 
 type Snapshot = Record<string, unknown>;
 let snapshot: Promise<Snapshot> | null = null;
@@ -27,4 +23,12 @@ export async function demoGet<T>(url: string): Promise<T> {
   const data = await snapshot;
   if (!(url in data)) throw new Error("Not found");
   return structuredClone(data[url]) as T;
+}
+
+// A write in the demo: a short pause so the form feels like it saved, then the request echoed back. Callers only
+// close dialogs and reset forms with the result, and the refetch that follows brings back the snapshot's data.
+export async function demoWrite<T>(body?: unknown): Promise<T> {
+  await new Promise((r) => setTimeout(r, 350));
+  toastNotSaved();
+  return structuredClone(body ?? {}) as T;
 }

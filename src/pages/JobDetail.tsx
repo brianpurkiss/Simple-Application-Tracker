@@ -2,7 +2,6 @@ import { useState } from "react";
 import { confirmDialog, DISCARD } from "@/components/ConfirmDialog";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BellRing, CalendarClock, ExternalLink, Mail, Maximize2, Phone, RotateCcw, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +23,7 @@ import { MOD } from "@/lib/shortcuts";
 import { FilterAccordion } from "@/components/stats/FilterMenu";
 import { APPLIED_VIA, FITS, GHOSTED_DAYS, RESUME_VERSIONS, WORK_MODES, sortResumeVersions } from "@/lib/options";
 import { needsFollowUp } from "@/lib/jobs";
-import { toastError } from "@/lib/demo";
+import { toastError, toastSaved } from "@/lib/demo";
 
 // An event type name in its History color.
 const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}</span>;
@@ -86,7 +85,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     deleteJob.mutate(job.id, {
       onSuccess: () => {
         navigate("/jobs");
-        toast.success("Moved to trash", {
+        toastSaved("Moved to trash", {
           description: job.title,
           action: { label: "Undo", onClick: () => restoreJob.mutate(job.id) },
           duration: 8000,
@@ -125,7 +124,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
         const value = date ?? "";
         setSaved((d) => ({ ...d, follow_up_on: value }));
         setDraft((d) => ({ ...d, follow_up_on: value }));
-        toast.success(date ? `Follow-up scheduled for ${formatDate(date)}` : "Follow-up date cleared");
+        toastSaved(date ? `Follow-up scheduled for ${formatDate(date)}` : "Follow-up date cleared");
       },
       onError: (err) => toastError(err),
     });
@@ -137,7 +136,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     ...(changed.length > 0 ? [{ id: "save", label: "Save changes", group: "This job", keys: [MOD, "S"], run: () => { if (canSave) save(); } }] : []),
   ]);
 
-  const restore = () => restoreJob.mutate(job.id, { onSuccess: () => toast.success("Restored from trash") });
+  const restore = () => restoreJob.mutate(job.id, { onSuccess: () => toastSaved("Restored from trash") });
 
   const quiet = daysSince(job.last_activity ?? job.applied_date);
 

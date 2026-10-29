@@ -2,7 +2,6 @@ import { useRef } from "react";
 import { confirmDialog } from "@/components/ConfirmDialog";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChartNoAxesCombined, ExternalLink, FileUp, Briefcase, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TextAreaField, TextField } from "@/components/fields";
@@ -12,7 +11,7 @@ import {
 import { useDraftForm } from "@/hooks/useDraftForm";
 import { usePaletteActions } from "@/components/CommandPalette";
 import { MOD } from "@/lib/shortcuts";
-import { toastError } from "@/lib/demo";
+import { toastError, toastSaved } from "@/lib/demo";
 
 const EDITABLE = ["version", "notes", "plain_text"] as const;
 type Draft = Record<(typeof EDITABLE)[number], string>;
@@ -46,7 +45,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
   const onFile = (file: File | undefined) => {
     if (!file) return;
     upload.mutate(file, {
-      onSuccess: () => toast.success("PDF saved"),
+      onSuccess: () => toastSaved("PDF saved"),
       onError: (err) => toastError(err),
     });
     if (fileInput.current) fileInput.current.value = "";
@@ -57,7 +56,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
     deleteResume.mutate(resume.id, {
       onSuccess: () => {
         navigate("/resumes");
-        toast.success("Resume deleted", { description: saved.version });
+        toastSaved("Resume deleted", { description: saved.version });
       },
     });
   };

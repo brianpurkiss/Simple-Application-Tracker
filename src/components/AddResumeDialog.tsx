@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TextAreaField, TextField } from "@/components/fields";
 import { type ResumeInput, uploadResumePdf, useCreateResume } from "@/lib/api";
-import { toastError } from "@/lib/demo";
+import { DEMO, toastError, toastSaved } from "@/lib/demo";
 
 const blank = (): ResumeInput => ({ version: "", notes: "", plain_text: "" });
 
@@ -32,8 +31,9 @@ export function AddResumeDialog() {
       setOpen(false);
       setResume(blank());
       setFile(null);
-      toast.success(`Added ${created.version}`);
-      navigate(`/resumes/${created.id}`);
+      toastSaved(`Added ${created.version}`);
+      // The demo saves nothing, so there's no new resume page to open.
+      if (!DEMO) navigate(`/resumes/${created.id}`);
     } catch (err) {
       toastError(err);
     } finally {

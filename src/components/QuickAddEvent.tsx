@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
 import { type Job, useAddEvent } from "@/lib/api";
 import { celebrate } from "@/lib/confetti";
-import { toastError } from "@/lib/demo";
+import { toastError, toastSaved } from "@/lib/demo";
 import { needsFollowUp } from "@/lib/jobs";
 
 // Jobs list dialog: log a history event without opening the job. Open while `job` is set.
@@ -37,7 +36,7 @@ export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: 
         onClose();
         celebrateEvent(type, addButton.current);
         if (clearedFollowUp) celebrate(500);
-        toast.success(`${type} added to ${shown.title}`);
+        toastSaved(`${type} added to ${shown.title}`);
       },
       onError: (err) => toastError(err),
     });

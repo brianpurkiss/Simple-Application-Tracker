@@ -5,10 +5,10 @@ import {
   Activity as ActivityIcon, BellRing, BriefcaseBusiness, CalendarDays, ChartNoAxesCombined, ChartPie, CircleUser, Menu, Search, X,
   type LucideIcon,
 } from "lucide-react";
-import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useProfile } from "@/lib/api";
 import { setHideFinancials } from "@/lib/salary";
-import { DEMO, DemoReadOnlyError, toastError } from "@/lib/demo";
+import { DEMO } from "@/lib/demo";
 import { DEMO_NOW } from "../demo/config.ts";
 import { formatDate } from "@/lib/format";
 import { GlobalHotkeys } from "@/components/GlobalHotkeys";
@@ -33,11 +33,9 @@ import Shortcuts from "@/pages/Shortcuts";
 import Terminology from "@/pages/Terminology";
 import "./index.css";
 
-// The demo's data never changes, so it's fetched once. Refused writes there all say so, even where a page has no
-// error handler of its own (toastError shares one toast, so pages that do handle it don't double up).
+// The demo's data never changes, so it's fetched once.
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, ...(DEMO && { staleTime: Infinity }) } },
-  mutationCache: new MutationCache({ onError: (err) => { if (err instanceof DemoReadOnlyError) toastError(err); } }),
 });
 
 const REPO = "https://github.com/brianpurkiss/Simple-Application-Tracker";
@@ -47,7 +45,7 @@ function DemoBanner() {
   return (
     <div className="border-b bg-primary/10 text-center text-xs text-muted-foreground">
       <div className="mx-auto max-w-[1600px] px-4 py-1.5 sm:px-3">
-        Demo with made-up data, frozen on {formatDate(DEMO_NOW.slice(0, 10))}, {new Date(DEMO_NOW).getFullYear()} · read-only ·{" "}
+        Demo with made-up data, frozen on {formatDate(DEMO_NOW.slice(0, 10))}, {new Date(DEMO_NOW).getFullYear()} · changes aren't saved ·{" "}
         <a href={REPO} target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">Get the app on GitHub</a>
       </div>
     </div>

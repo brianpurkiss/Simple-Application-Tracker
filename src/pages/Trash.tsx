@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { confirmDialog } from "@/components/ConfirmDialog";
 import { rowLink } from "@/lib/rowLink";
 import { RotateCcw, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { toastSaved } from "@/lib/demo";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -16,7 +16,7 @@ export default function Trash() {
   const navigate = useNavigate();
 
   const onRestore = (job: Job) =>
-    restore.mutate(job.id, { onSuccess: () => toast.success("Restored", { description: job.title }) });
+    restore.mutate(job.id, { onSuccess: () => toastSaved("Restored", { description: job.title }) });
 
   const onDeleteForever = async (job: Job) => {
     if (!(await confirmDialog({ message: `Permanently delete "${job.title}" at ${job.company} and its history? This can't be undone.`, confirmLabel: "Delete forever", destructive: true }))) return;

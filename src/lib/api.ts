@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FactKind, FactType } from "./jobFacts.ts";
-import { DEMO, DemoReadOnlyError, demoGet } from "./demo.ts";
+import { DEMO, demoGet, demoWrite } from "./demo.ts";
 
 export type Job = {
   id: number;
@@ -61,10 +61,7 @@ export type JobInput = Partial<Omit<Job, "id" | "created_at" | "updated_at" | "l
 export type EventInput = Pick<JobEvent, "date" | "type" | "description" | "notes" | "time">;
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
-  if (DEMO) {
-    if (method !== "GET") throw new DemoReadOnlyError();
-    return demoGet<T>(url);
-  }
+  if (DEMO) return method === "GET" ? demoGet<T>(url) : demoWrite<T>(body);
   const res = await fetch(url, {
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -172,7 +169,7 @@ export const resumePdfUrl = (resume: Pick<Resume, "id" | "updated_at">) =>
 
 // The file is the raw body, so this skips the JSON request helper.
 export async function uploadResumePdf(id: number, file: File): Promise<Resume> {
-  if (DEMO) throw new DemoReadOnlyError();
+  if (DEMO) return demoWrite<Resume>();
   const res = await fetch(`/api/resumes/${id}/pdf?name=${encodeURIComponent(file.name)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/pdf" },
