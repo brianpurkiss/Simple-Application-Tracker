@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
 import { type Job, useAddEvent } from "@/lib/api";
+import { toastError } from "@/lib/demo";
 
 // Jobs list dialog: log a history event without opening the job. Open while `job` is set.
 export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: string; onClose: () => void }) {
@@ -31,7 +32,7 @@ export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: 
         celebrateEvent(type, addButton.current);
         toast.success(`${type} added to ${shown.title}`);
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toastError(err),
     });
   };
 

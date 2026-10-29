@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ComboField, CompanyTypeField, JobTypesField, SalaryRangeField, SelectField, TextField } from "@/components/fields";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { type JobInput, useCreateJob, useJobs, useSuggestions } from "@/lib/api";
@@ -12,6 +12,7 @@ import { factHints, typeNames } from "@/lib/jobFacts";
 import type { HotkeyAction } from "@/hooks/appActions";
 import { today } from "@/lib/format";
 import { APPLIED_VIA, FITS, RESUME_VERSIONS, WORK_MODES, latestResumeVersions, sortResumeVersions } from "@/lib/options";
+import { DEMO, toastError } from "@/lib/demo";
 
 const blank = (): JobInput => ({
   title: "",
@@ -68,7 +69,7 @@ export function AddJobDialog() {
           toast.success(`Added ${created.title}`);
           navigate(`/jobs/${created.id}`);
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toastError(err),
       },
     );
   };
@@ -82,12 +83,13 @@ export function AddJobDialog() {
         <form onSubmit={submit} className="space-y-5">
           <DialogHeader>
             <DialogTitle>Add Job</DialogTitle>
+            {DEMO && <DialogDescription>This demo is read-only, so a new job can't be saved. Have a look around the form.</DialogDescription>}
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <ComboField label="Job Title" value={job.title!} onChange={set("title")} options={titles} autoFocus />
             <TextField label="Company" value={job.company!} onChange={set("company")} />
             <TextField label="Job Description Link" value={job.jd_link!} onChange={set("jd_link")} placeholder="https://" />
-            <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="Product 1.2" />
+            <ComboField label="Resume Version" value={job.resume_version!} onChange={set("resume_version")} options={resumeVersions} placeholder="General 1.0" />
           </div>
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Additional Details</h3>
@@ -105,7 +107,7 @@ export function AddJobDialog() {
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             {/* Soft check: highlights the form once the key fields are filled, never blocks submit. */}
-            <Button type="submit" variant={keyFieldsFilled ? "default" : "outline"} disabled={create.isPending}>Add Job</Button>
+            <Button type="submit" variant={keyFieldsFilled ? "default" : "outline"} disabled={create.isPending || DEMO}>Add Job</Button>
           </DialogFooter>
         </form>
       </DialogContent>

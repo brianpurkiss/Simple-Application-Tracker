@@ -1,69 +1,99 @@
-# Job Tracker
+# Application Tracker
 
-A local job-search tracker that keeps a full history of every application.
+**A simple Job Application tracker that remembers the whole story of every application, then shows you what's working.**
 
-## Why I built it
+Track applications. Analyze application performance. Keep up with roles to follow up with.
 
-I wanted something better than a spreadsheet. A spreadsheet row holds a snapshot: a status and maybe a date. It can't tell you when you applied, when they replied, when you followed up, or how many rounds you went through. I wanted the whole story of each job, in order.
+Local-only. Private. No third-party accounts. Free and open source.
 
-Once the tracker was built, I realized that history was the start of something more useful. Every application records which resume version I sent, the kind of role and company, how I applied, and what happened next, with dates. That's enough data to analyze my resumes and my progress: which versions get replies and interviews, how long companies take to respond, and where applications stall.
+![Home dashboard with upcoming interviews, KPIs and recent activity](docs/screenshots/home-dashboard.png)
 
 ## What it does
 
-- **Jobs list**: a sortable, searchable list of every application. Status and Latest Update are calculated from each job's history. Jobs that have gone quiet show as Ghosted, and interviewing-stage jobs with no recent activity are highlighted amber with a "Needs follow-up" filter.
-- **Job detail and history**: a page per job with its details (job type, company type, fit, work mode, how I applied, resume version) and a timeline of events: Applied, Contact, Follow-Up, Screen, Interview, Offer, Accepted, Rejection, Withdrew, Ghosted, Scam and Note.
-- **Activity**: how the search is going over time. Weekly KPIs, a funnel from applied to offer, outcomes, response timing, weekly cohorts, and a chart or calendar view of events.
-- **Performance**: resume analysis. Compares interview and reply rates across resume versions, optionally combined with another dimension (job type, company type and so on) in a heatmap. Small samples are dimmed, and a confidence setting controls what counts as a standout. Versions can be grouped (for example 2.x) and the page estimates how many applications you'd need.
-- **User**: your name (shown in the Home greeting), salary target, a generic cover letter, and a summary of your active resumes. Opened from the icon at the right of the navbar.
-- **Resumes**: (no nav link; reached from the User page or `R`) a vault for each resume version: its PDF (up to 10 MB, stored in `jobs.db`), internal notes and a plain text copy. A job's resume version is linked to the vault by matching the version name.
-- **Trash**: deleted jobs can be restored or deleted for good.
+### 1. Streamlined application tracking and history
 
-Built with React, Vite, Tailwind, TanStack Query and Table, Recharts, Express, SQLite and TypeScript.
+Log every event, keep organized notes, and get automatically reminded about roles to follow up on to keep the momentum.
 
-## Run
+![Jobs list with status, fit, resume and follow-up highlighting](docs/screenshots/jobs-list.png)
+
+- **A full timeline for every job**: Applied, Contact, Follow-Up, Screen, Interview, Offer, Accepted, Rejection, Withdrew, and Ghosted
+- **Log each interview's notes** with each application to remember the good (and the bad) about each role.
+- **Automatic status organization** from the history, so you log what happened instead of editing a status field.
+- **A sortable, searchable jobs** list with filters with compact and expanded views to find and compare.
+
+![Individual job listing, with role info and history](docs/screenshots/job-listing-with-history.png)
+
+### 2. Analyze what's working, then iterate
+
+Is the new resume version opening doors? Can I flex into a VP role? Do I get interviews when applying into a certain job type? Now I can analyze performance and (hopefully) figure it out. 
+
+![Performance analysis comparing resumes and job types](docs/screenshots/application-performance-analysis.png)
+
+- **Compare interview rates** and salary ranges across resumes, job titles, seniority, job type and company type, alone or combined in a heatmap. 
+- **Graded application segments** against overall baseline with confidence tiers (Standout, Promising, Room to Grow, Low Volume). Small samples are dimmed to suppress the noise.
+- **Jobs get automatically organized** into five different segments to analyze the different combinations. 
+
+### 3. Keep the motivation going
+
+The job hunt process is hard, and the longer it drags on, the more depressing it can be. A lack of understanding of effort or progress makes things harder. This doesn’t fix all the woes of the job hunt, but it does add some things to at least try and create some momentum.
+
+- Application streaks, a weekly pace, and this week against trailing averages.
+- A dashboard with upcoming interviews, follow-ups, and your last eight weeks.
+
+### 4. Analytics, because data is fun
+
+No, that’s not sarcasm. Data can be fun and interesting. … to me at least. 
+
+![Activity charts: funnel, timing and weekly cohorts](docs/screenshots/activity-charts.png)
+
+- Activity shows the funnel from applied to offer, outcomes, response timing, weekly cohorts, weekday insights, and a salary distribution against your target.
+- Bonus stats show a variety of interesting and fun data points. The data is there, why not plot it on a chart! Data is fun.
+- Analytics have filters tied to the segments to identify any trends in what is available or what has momentum.
+- A Calendar of everything that has happened and everything that's coming up.
+
+## What you can do with it
+
+- **Enter jobs fast.** Press `C`, add the basics, and automatic category matching suggests the Job Type and Company Type. It learns from your own past labels to build momentum and streamline the logging of applications. 
+- **Keep roles from falling through the cracks.** Interviewing jobs with no activity for 7 days turn amber. Jobs that have gone quiet for 21 days show as Ghosted. Set a "Follow Up On" date to park a job until they said they'd be back. Scheduled interviews get a countdown on Home.
+- **Interview better.** Keep per-interview notes on each history entry, notes on the job, the job description, contact details, plus a resume vault and a generic cover letter ready to go.
+- **See the pattern.** Combine resume, job type and company type to see which combinations get interviews, and see how those roles land on salary against your target.
+
+## Keyboard Shortcuts & Quick Actions
+
+Keyboard-first, a command palette for everything else. Press `?` in the app for the full list of shortcuts and commands.
+
+![Command palette and global search](docs/screenshots/command-palette.png)
+
+## Why I built it
+
+I tracked my job hunt in spreadsheets. They were slow to use, and despite being huge, the data tracking had limits. A spreadsheet row holds a snapshot: a status and maybe a date. It doesn’t provide a full history, notes get limiting, and… the whole thing just gets messy. 
+
+I had been toying with the idea of building this most of my job hunt, telling myself it wasn’t worth it because I’d get a job any day now. And… time stretched on. 
+
+So I built this to make it easier for me to get a good new job. 
+
+It turned out to do more than I planned. I enjoy using it. I get real satisfaction out of logging progress, and I feel motivated to keep digging for more roles to apply to. I'm also less nervous about applying to stretch and pivot roles, because I can track and analyze those pivots. That lets me strategically flex into new areas instead of guessing. 
+
+And besides. Charts and graphs are fun. 
+
+## Get started
+
+You'll need [Node.js](https://nodejs.org/).
 
 ```bash
+git clone https://github.com/brianpurkiss/Simple-Application-Tracker.git
+cd Simple-Application-Tracker
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173. (The API runs on port 3001 behind it.)
+Open the app in a browser. No login needed, all data stays local. 
 
-## Data
+## Under the hood
 
-Everything is stored in `data/jobs.db` (SQLite). To back up, copy that file somewhere safe.
+Built on open source and thrown together with AI. It may be messy under the hood, but it works quite well as a one off, short-term-use app. 
 
-- **Latest Update** in the list is calculated from each job's history, so log events rather than editing dates.
-- Deleting a job moves it to the Trash (link at the bottom of the Jobs list), where it can be restored or deleted for good.
-- **Status** is calculated from the history: the latest Applied / Screen / Interview / Offer / Accepted / Rejection / Withdrew / Ghosted / Scam event sets it. Follow-ups, contacts and notes don't change it. Applied or interviewing jobs with no contact or interview from them in 21+ days show as Ghosted automatically (`GHOSTED_DAYS`); logging a new contact or interview brings them back. Set **Follow Up On** to a future date (e.g. when they said they'd get back to you) to keep a job out of Follow Up and Ghosted until that date. The list shows which interview round a job is on.
-- Rows highlighted amber are interviewing-stage jobs (including auto-ghosted ones that had a screen or interview) with no activity in 7+ days ("Needs follow-up"). Logging a Follow-Up clears it for 7 days; log a Ghosted event to close one out for good.
-- Dropdown options (job types, company types, fit (Good Fit / Stretch / Settle / Pivot), resume versions, event types) live in `src/lib/options.ts`. Job type and resume version also accept new values typed in.
-
-## Keyboard shortcuts
-
-On Windows and Linux, use Ctrl wherever Cmd is shown. Single-key shortcuts are ignored while typing in a field or when a dialog or menu is open.
-
-| Shortcut | Action |
-| --- | --- |
-| `Q` | Open the Add Job dialog (from any page) |
-| `H` / `J` | Go to the Jobs list |
-| `R` | Go to Resumes |
-| `F` | Go to Follow Up |
-| `U` | Go to User (name, salary target, cover letter, resumes) |
-| `P` | Go to Performance |
-| `A` | Go to Activity |
-| `T` | Go to Terminology |
-| `Cmd+F` | Jump to the job search |
-| `Esc` | Leave the focused field; otherwise clear the active search/filters on Jobs, Performance and Activity (on a job, back to the Jobs list; on a resume, back to Resumes) |
-| `Cmd+S` | Save changes (job detail page) |
-
-## Terminology
-
-`src/lib/terminology.ts` is the single source of truth for what every status, event, field and metric is called and how it is calculated. It is shown on the Terminology page (`T`). When building or changing a page, label or chart, read it first and use its exact terms and casing, and update it when you add or rename a term.
-
-## Importing
-
-There's no built-in importer. Everyone's personal job tracker is laid out differently, so a one-size-fits-all importer would be too generic to be useful. If you want to bring in data from an existing spreadsheet, ask Claude to build a quick importer for your file. Point it at your export and this app's database schema (`server/db.ts`) and it can write a throwaway script in a few minutes.
+React 19, Vite, Tailwind, TanStack Query and Table, Recharts, Express 5, SQLite (better-sqlite3) and TypeScript.
 
 ## License
 

@@ -28,7 +28,7 @@ const C_SUITE = new Set(["ceo", "cto", "cfo", "coo", "cmo", "cio", "cpo", "cdo",
 const MANAGEMENT_SHIFTS: Record<string, number> = { senior: 1, executive: 1, associate: -1, assistant: -1 };
 
 // "Manager" after one of these is an individual-contributor role, not a people manager.
-const IC_MANAGER_ROLES = new Set(["product", "program", "project", "account"]);
+const IC_MANAGER_ROLES = new Set(["product", "program", "project", "account", "case", "property"]);
 
 // Generic occupation nouns. Marks a title as IC when no management word is present.
 const IC_ROLES = new Set([
@@ -36,6 +36,7 @@ const IC_ROLES = new Set([
   "representative", "executive", "nurse", "teacher", "accountant", "architect", "writer", "marketer",
   "strategist", "administrator", "technician", "coordinator", "owner", "recruiter", "attorney",
   "advisor", "assistant", "researcher", "editor", "producer", "officer",
+  "physician", "therapist", "pharmacist", "electrician", "mechanic", "chef", "paralegal",
 ]);
 
 // Words that name the role itself in an IC title ("Product Manager", "Software Engineer").

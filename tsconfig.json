@@ -11,7 +11,8 @@
     "esModuleInterop": true,
     "allowImportingTsExtensions": true,
     "types": ["node", "vite/client"],
-    "paths": { "@/*": ["./src/*"] }
+    "resolveJsonModule": true,
+    "paths": { "@/*": ["./src/*"], "@demo-snapshot": ["./demo/empty-snapshot.json"] }
   },
-  "include": ["src", "server","vite.config.ts"]
+  "include": ["src", "server", "scripts", "demo", "vite.config.ts"]
 }

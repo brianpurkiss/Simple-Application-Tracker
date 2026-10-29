@@ -10,8 +10,8 @@ const ABBREVIATIONS: Record<string, string> = {
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// Removes the job's own company name ("Growth Lead, HeySunday", "Ecom lead for Brave Books").
-// "Bloom / Poppy & Peonies" is also tried part by part.
+// Removes the job's own company name ("Sales Lead, Acme", "Nurse Manager for Northwind Health").
+// "Contoso / Fabrikam" is also tried part by part.
 function stripCompany(title: string, company: string): string {
   const names = [company, ...company.split(/[/|,]/)].map((n) => n.trim()).filter((n) => n.length >= 3);
   let s = title;

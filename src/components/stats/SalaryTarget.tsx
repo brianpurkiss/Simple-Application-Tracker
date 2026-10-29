@@ -29,7 +29,7 @@ export default function SalaryTarget() {
           type="number"
           min={0}
           step={1000}
-          placeholder="e.g. 150000"
+          placeholder="Yearly amount"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onBlur={commit}

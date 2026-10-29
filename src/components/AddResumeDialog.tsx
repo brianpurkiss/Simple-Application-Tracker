@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TextAreaField, TextField } from "@/components/fields";
 import { type ResumeInput, uploadResumePdf, useCreateResume } from "@/lib/api";
+import { toastError } from "@/lib/demo";
 
 const blank = (): ResumeInput => ({ version: "", notes: "", plain_text: "" });
 
@@ -27,14 +28,14 @@ export function AddResumeDialog() {
     try {
       const created = await create.mutateAsync(resume);
       // The resume exists either way; a bad PDF shouldn't lose what was typed.
-      if (file) await uploadResumePdf(created.id, file).catch((err: Error) => toast.error(`PDF not saved: ${err.message}`));
+      if (file) await uploadResumePdf(created.id, file).catch((err: Error) => toastError(err));
       setOpen(false);
       setResume(blank());
       setFile(null);
       toast.success(`Added ${created.version}`);
       navigate(`/resumes/${created.id}`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toastError(err);
     } finally {
       setBusy(false);
     }
@@ -51,7 +52,7 @@ export function AddResumeDialog() {
             <DialogTitle>New Resume</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
-            <TextField label="Version" value={resume.version!} onChange={set("version")} required autoFocus placeholder="Product 1.2" />
+            <TextField label="Version" value={resume.version!} onChange={set("version")} required autoFocus placeholder="General 1.0" />
             <div className="space-y-1.5">
               <Label htmlFor="resume-pdf" className="text-xs text-muted-foreground">PDF (optional)</Label>
               <Input id="resume-pdf" type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />

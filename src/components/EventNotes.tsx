@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { type JobEvent, useUpdateEvent } from "@/lib/api";
+import { toastError } from "@/lib/demo";
 
 // Full notes for one history event. Saves when the field loses focus.
 export function EventNotes({ event, rows = 10, autoFocus }: { event: JobEvent; rows?: number; autoFocus?: boolean }) {
@@ -12,7 +12,7 @@ export function EventNotes({ event, rows = 10, autoFocus }: { event: JobEvent; r
   useEffect(() => setValue(event.notes), [event.notes]);
 
   const save = () => {
-    if (value !== event.notes) update.mutate({ id: event.id, notes: value }, { onError: (e) => toast.error(e.message) });
+    if (value !== event.notes) update.mutate({ id: event.id, notes: value }, { onError: (e) => toastError(e) });
   };
 
   return (

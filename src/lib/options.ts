@@ -7,13 +7,10 @@ export const CLOSED_STATUSES = new Set<string>(["Accepted", "Rejected", "Withdre
 
 export const INTERVIEWING_STATUSES = new Set<string>(["Scheduled", "Interviewed", "Offer"]);
 
-export const RESUME_VERSIONS = [
-  "eCom 1.0", "eCom 1.1", "eCom 1.2", "eCom 2.0", "eCom 2.1", "eCom 2.2", "eCom 2.3",
-  "Product 1.0", "Product 2.0", "Product 2.1",
-  "Growth 1.0",
-];
+// Preset resume versions offered before any are in the vault or on a job. Empty: suggestions come from your own.
+export const RESUME_VERSIONS: string[] = [];
 
-// Keeps only the highest version of each resume family ("eCom 1.0".."eCom 2.3" -> "eCom 2.3").
+// Keeps only the highest version of each resume family ("XXX 1.0".."XXX 2.3" -> "XXX 2.3").
 // Labels without a trailing version number are kept as-is.
 export function latestResumeVersions(labels: string[]): string[] {
   const latest = new Map<string, string>();
@@ -30,7 +27,7 @@ export function latestResumeVersions(labels: string[]): string[] {
 }
 
 // Latest version of each family pinned to the top, then everything else; each group is highest
-// version first, ties alphabetical (eCom 2.3, Product 2.1, Growth 1.0, eCom 2.2, eCom 2.1, ...).
+// version first, ties alphabetical (XXX 2.3, YYY 2.1, ZZZ 1.0, XXX 2.2, XXX 2.1, ...).
 export function sortResumeVersions(labels: string[]): string[] {
   const version = (l: string) => l.match(/(\d+(?:\.\d+)*)$/)?.[1] ?? "";
   const byVersion = (a: string, b: string) => version(b).localeCompare(version(a), undefined, { numeric: true }) || a.localeCompare(b);
@@ -51,7 +48,7 @@ export function splitResumes<T extends { version: string; active: boolean }>(res
 
 // Job Types and Company Types are the user's own lists now (fact_types; see src/lib/jobFacts.ts).
 
-// How well a role matches what I'm after.
+// How well a role matches what you're after.
 export const FITS = ["Good Fit", "Stretch", "Settle", "Pivot"];
 
 export const WORK_MODES = ["Remote", "Hybrid", "In Office"];

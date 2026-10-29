@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { Job } from "@/lib/api";
 import { reachedInterview } from "@/lib/jobs";
-import { k } from "@/lib/salary";
+import { k, salaryTickStep } from "@/lib/salary";
 
 type SalarySeries = { key: string; label: string; jobs: Job[] };
 
@@ -35,11 +35,13 @@ export default function SalaryCurve({ series, target }: { series: SalarySeries[]
 
   const axis = useMemo(() => {
     if (!rows.length) return null;
-    const every = 25_000;
     // The target is included so its dot always lands on the chart.
     const all = target == null ? [] : [target];
-    const min = Math.floor(Math.min(...rows.map((r) => r.lo), ...all) / every) * every;
-    const max = Math.ceil(Math.max(...rows.map((r) => r.hi), ...all) / every) * every;
+    const lo = Math.min(...rows.map((r) => r.lo), ...all);
+    const hi = Math.max(...rows.map((r) => r.hi), ...all);
+    const every = salaryTickStep(hi - lo);
+    const min = Math.floor(lo / every) * every;
+    const max = Math.ceil(hi / every) * every;
     const ticks: number[] = [];
     for (let t = min; t <= max; t += every) ticks.push(t);
     return { min, span: Math.max(max - min, 1), ticks };

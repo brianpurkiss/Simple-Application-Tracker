@@ -3,12 +3,23 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "setup": "npm install && tsx scripts/setup.ts",
     "dev": "concurrently -k -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch server/index.ts",
     "dev:web": "vite",
+    "start": "vite build && tsx server/index.ts --serve",
     "build": "tsc -p . && vite build",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "export": "tsx server/scripts/export-json.ts",
+    "import": "tsx server/scripts/import-json.ts",
+    "doctor": "tsx server/scripts/db-doctor.ts",
+    "demo:seed": "tsx server/scripts/anonymize.ts",
+    "build:demo": "tsx scripts/build-demo.ts",
+    "demo": "tsx scripts/build-demo.ts && vite preview --outDir dist-demo --base /Simple-Application-Tracker/"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.105.0",

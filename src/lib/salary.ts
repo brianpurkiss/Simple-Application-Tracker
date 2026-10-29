@@ -6,7 +6,11 @@ export const setHideFinancials = (hide: boolean) => { hideFinancials = hide; };
 
 export const k = (n: number) => (hideFinancials ? HIDDEN_MONEY : `$${Number.isInteger(n / 1000) ? n / 1000 : (n / 1000).toFixed(1)}k`);
 
-// "$150k–$180k", "$160k+", "$150k" or "" for display and search.
+// Axis tick spacing for a salary span: the smallest round step (all multiples of $5k) that keeps it to about 8 ticks.
+const TICK_STEPS = [5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
+export const salaryTickStep = (span: number, maxTicks = 8) => TICK_STEPS.find((s) => span / s <= maxTicks - 1) ?? TICK_STEPS.at(-1)!;
+
+// "$50k–$60k", "$55k+", "$50k" or "" for display and search.
 export function formatSalary(min: number | null, max: number | null): string {
   if (min == null && max == null) return "";
   if (hideFinancials) return HIDDEN_MONEY;

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FactKind, FactType } from "./jobFacts.ts";
+import { DEMO, DemoReadOnlyError, demoGet } from "./demo.ts";
 
 export type Job = {
   id: number;
@@ -60,6 +61,10 @@ export type JobInput = Partial<Omit<Job, "id" | "created_at" | "updated_at" | "l
 export type EventInput = Pick<JobEvent, "date" | "type" | "description" | "notes" | "time">;
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+  if (DEMO) {
+    if (method !== "GET") throw new DemoReadOnlyError();
+    return demoGet<T>(url);
+  }
   const res = await fetch(url, {
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -114,6 +119,8 @@ export const useDeleteForever = () =>
 export type Backup = { name: string; size: number; created_at: string };
 
 export const useBackups = () => useQuery({ queryKey: ["backups"], queryFn: () => request<Backup[]>("GET", "/api/backups") });
+export const useDatabaseSize = () =>
+  useQuery({ queryKey: ["database-size"], queryFn: () => request<{ size: number }>("GET", "/api/database/size") });
 export const useCreateBackup = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -159,8 +166,13 @@ export const useDeleteResume = () =>
 export const useRemoveResumePdf = (id: number) =>
   useResumeMutation(() => request<Resume>("DELETE", `/api/resumes/${id}/pdf`));
 
+// The demo serves each resume's PDF as a static file next to the app.
+export const resumePdfUrl = (resume: Pick<Resume, "id" | "updated_at">) =>
+  DEMO ? `${import.meta.env.BASE_URL}demo/resume-${resume.id}.pdf` : `/api/resumes/${resume.id}/pdf?v=${encodeURIComponent(resume.updated_at)}`;
+
 // The file is the raw body, so this skips the JSON request helper.
 export async function uploadResumePdf(id: number, file: File): Promise<Resume> {
+  if (DEMO) throw new DemoReadOnlyError();
   const res = await fetch(`/api/resumes/${id}/pdf?name=${encodeURIComponent(file.name)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/pdf" },
@@ -188,7 +200,9 @@ export const useProfile = () =>
 export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (p: Partial<Profile>) => request<Profile>("PATCH", "/api/profile", p),
+    // In the demo, profile changes (list view, hiding figures…) stay in this tab.
+    mutationFn: (p: Partial<Profile>) =>
+      DEMO ? Promise.resolve({ ...qc.getQueryData<Profile>(["profile"])!, ...p }) : request<Profile>("PATCH", "/api/profile", p),
     onSuccess: (data) => qc.setQueryData(["profile"], data),
   });
 }
@@ -201,7 +215,9 @@ export const useStarredGroups = () =>
 export function useToggleStar() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: StarredGroup & { starred: boolean }) => request<StarredGroup[]>("PUT", "/api/starred-groups", v),
+    // In the demo, stars stay in this tab: the optimistic list below is the result.
+    mutationFn: (v: StarredGroup & { starred: boolean }) =>
+      DEMO ? Promise.resolve(qc.getQueryData<StarredGroup[]>(["starred-groups"]) ?? []) : request<StarredGroup[]>("PUT", "/api/starred-groups", v),
     // Flip the star right away; the server's list replaces it on success or the old one returns on error.
     onMutate: async ({ kind, key, label, starred }) => {
       await qc.cancelQueries({ queryKey: ["starred-groups"] });

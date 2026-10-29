@@ -227,10 +227,11 @@ export default function Activity() {
   const clearFilters = () =>
     updateParams((p) => [...FILTERS.map((f) => f.param), ...STAR_FILTERS.map((f) => f.param), "versions"].forEach((k) => p.delete(k)));
 
-  const stats = useMemo(() => kpis(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
-  const momentumStats = useMemo(() => momentum(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
+  const todayIso = today();
+  const stats = useMemo(() => kpis(filteredJobs, filteredEvents, todayIso), [filteredJobs, filteredEvents, todayIso]);
+  const momentumStats = useMemo(() => momentum(filteredJobs, filteredEvents, todayIso), [filteredJobs, filteredEvents, todayIso]);
   const segmentValues = useMemo(() => perfDimValues(stars, factCtx), [stars, factCtx]);
-  const trivia = useMemo(() => extras(filteredJobs, filteredEvents, today(), segmentValues), [filteredJobs, filteredEvents, segmentValues]);
+  const trivia = useMemo(() => extras(filteredJobs, filteredEvents, todayIso, segmentValues), [filteredJobs, filteredEvents, todayIso, segmentValues]);
   if (loadingEvents || loadingJobs) return <p className="text-muted-foreground">Loading…</p>;
 
   return (
@@ -290,7 +291,7 @@ export default function Activity() {
                 {!options[i].length && <span className="text-muted-foreground">None yet</span>}
               </div>
               {f.field === "resume_version" && (
-                <p className="text-xs text-muted-foreground">Grouped merges minor revisions (eCom 2.0, 2.1, 2.2 become eCom 2.x).</p>
+                <p className="text-xs text-muted-foreground">Grouped merges minor revisions (Resume 2.0, 2.1, 2.2 become Resume 2.x).</p>
               )}
             </div>
           ))}

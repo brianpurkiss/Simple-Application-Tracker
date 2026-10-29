@@ -1,6 +1,6 @@
 export type SalaryRange = { min: number | null; max: number | null };
 
-// Turns the old free-text salary ("$150k-175k", "$160k+", "~$175k", "?") into a numeric range
+// Turns the old free-text salary ("$50k-60k", "$55k+", "~$60k", "?") into a numeric range
 // in whole dollars. Numbers without a "k" under 1000 are read as thousands.
 export function parseSalary(raw: string): SalaryRange {
   const s = raw.toLowerCase().replace(/[–—]/g, "-").replace(/[$~,\s]/g, "");

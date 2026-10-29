@@ -38,6 +38,7 @@ import { FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options
 import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/demo";
 
 const GROUP_FILTERS: Record<string, (job: Job) => boolean> = {
   active: isActive,
@@ -376,7 +377,7 @@ export default function JobsList() {
         withGeneric: true,
         setFollowUp: (date) => updateSelected.mutate({ follow_up_on: date }, {
           onSuccess: () => toast.success(date ? `Follow-up scheduled for ${formatDate(date)}` : "Follow-up date cleared"),
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toastError(err),
         }),
       }),
     ] : []),

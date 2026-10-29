@@ -3,6 +3,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { STATUS_FOR_EVENT } from "../src/lib/options.ts";
 import { parseSalary } from "./salary.ts";
+import { legacyCleanup } from "./legacyCleanup.ts";
 
 // DATA_DIR points the app at another copy of the data, e.g. for trying out a change.
 const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.resolve(import.meta.dirname, "../data");
@@ -15,24 +16,33 @@ db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
 db.exec(`
+  -- The current schema. Older databases get here through the column checks below.
   CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
+    normalized_title TEXT NOT NULL DEFAULT '',
     company TEXT NOT NULL DEFAULT '',
-    salary TEXT NOT NULL DEFAULT '',
-    job_type TEXT NOT NULL DEFAULT '',
+    company_type TEXT NOT NULL DEFAULT '',
+    job_types TEXT NOT NULL DEFAULT '[]',
+    fit TEXT NOT NULL DEFAULT '',
+    salary_min INTEGER,
+    salary_max INTEGER,
     resume_version TEXT NOT NULL DEFAULT '',
     work_mode TEXT NOT NULL DEFAULT '',
     applied_date TEXT,
+    follow_up_on TEXT,
     jd_link TEXT NOT NULL DEFAULT '',
     applied_via TEXT NOT NULL DEFAULT 'Direct',
     agency_name TEXT NOT NULL DEFAULT '',
     contact_name TEXT NOT NULL DEFAULT '',
     contact_email TEXT NOT NULL DEFAULT '',
     contact_phone TEXT NOT NULL DEFAULT '',
+    contact_linkedin TEXT NOT NULL DEFAULT '',
     offer_info TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
     job_description TEXT NOT NULL DEFAULT '',
+    cover_letter TEXT NOT NULL DEFAULT '',
+    deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -41,8 +51,10 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     date TEXT NOT NULL,
+    time TEXT,
     type TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS events_job_id ON events(job_id);
@@ -56,6 +68,7 @@ db.exec(`
     pdf BLOB,
     pdf_name TEXT,
     pdf_size INTEGER,
+    active INTEGER NOT NULL DEFAULT 1,
     deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -67,6 +80,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS profile (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     salary_target INTEGER,
+    your_name TEXT NOT NULL DEFAULT '',
+    cover_letter TEXT NOT NULL DEFAULT '',
+    job_list_view TEXT NOT NULL DEFAULT 'compact',
+    hide_financials INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   INSERT OR IGNORE INTO profile (id) VALUES (1);
@@ -138,7 +155,7 @@ if (!jobColumns.has("normalized_title")) {
   db.exec("ALTER TABLE jobs ADD COLUMN normalized_title TEXT NOT NULL DEFAULT ''");
 }
 
-// User-defined sets of terms that mean the same thing in a job title ("eCommerce, eCom, eComm").
+// User-defined sets of terms that mean the same thing in a job title ("Registered Nurse, RN").
 // `terms` is a JSON array; the first term is the one shown.
 db.exec(`
   CREATE TABLE IF NOT EXISTS title_synonyms (
@@ -202,15 +219,15 @@ db.exec(`
 if ((db.pragma("user_version", { simple: true }) as number) < 5) {
   const starters: Record<"job" | "company", [string, string | null][]> = {
     job: [
-      ["Product", "product"], ["Engineering", "engineering"], ["Design", "design"], ["Data & Analytics", "data"],
-      ["Marketing", "marketing"], ["Growth", "growth"], ["eCommerce", "ecommerce"], ["Sales", "sales"],
-      ["Customer Success", "customer"], ["Operations", "operations"], ["Finance", "finance"], ["People", "people"],
-      ["General Management", "general"], ["Other", null],
+      ["Customer Success", "customer"], ["Data & Analytics", "data"], ["Design", "design"], ["Education", "education"],
+      ["Engineering", "engineering"], ["Finance", "finance"], ["General Management", "general"], ["Healthcare", "healthcare"],
+      ["Legal", "legal"], ["Marketing", "marketing"], ["Operations", "operations"], ["People", "people"],
+      ["Product", "product"], ["Sales", "sales"], ["Skilled Trades", "trades"], ["Other", null],
     ],
     company: [
-      ["eCommerce/DTC", "ecommerce"], ["Retail", "retail"], ["SaaS", "saas"], ["B2B Services", "b2b"],
-      ["Agency/Consulting", "agency"], ["Marketplace", "marketplace"], ["Fintech", "fintech"], ["Healthcare", "healthcare"],
-      ["Nonprofit/Gov", "nonprofit"], ["Other", null],
+      ["Agency/Consulting", "agency"], ["B2B Services", "b2b"], ["Fintech", "fintech"], ["Healthcare", "healthcare"],
+      ["Marketplace", "marketplace"], ["Nonprofit/Gov", "nonprofit"], ["Retail/eCommerce", "ecommerce"], ["SaaS", "saas"],
+      ["Other", null],
     ],
   };
   const insert = db.prepare("INSERT OR IGNORE INTO fact_types (kind, name, sort, starter_key) VALUES (?, ?, ?, ?)");
@@ -220,8 +237,8 @@ if ((db.pragma("user_version", { simple: true }) as number) < 5) {
   })();
 }
 
-// Job Types became a list (a job can be Product and Growth). The old single `job_type` column is no longer
-// read; it stays in the database untouched until labels are reset.
+// Job Types became a list (a job can be Sales and Marketing). The old single `job_type` column is dropped by
+// legacyCleanup.
 if (!jobColumns.has("job_types")) {
   db.exec("ALTER TABLE jobs ADD COLUMN job_types TEXT NOT NULL DEFAULT '[]'");
 }
@@ -309,3 +326,5 @@ if (renamedEvents) {
   })();
   console.log(`Event rename: ${renamedEvents} events updated`);
 }
+
+legacyCleanup(db, backupsDir);

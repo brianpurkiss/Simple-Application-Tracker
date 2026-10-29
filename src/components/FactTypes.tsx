@@ -16,8 +16,9 @@ import {
   useUpdateJob,
 } from "@/lib/api";
 import { type FactContext, type FactKind, isAutomatic, resolveCompanyType, resolveJobTypes } from "@/lib/jobFacts";
+import { toastError } from "@/lib/demo";
 
-const onError = (e: Error) => toast.error(e.message);
+const onError = (e: Error) => toastError(e);
 const NOUN: Record<FactKind, string> = { job: "Job Type", company: "Company Type" };
 
 // The hand-set labels a job carries for one kind.

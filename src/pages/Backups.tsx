@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useBackups, useCreateBackup } from "@/lib/api";
+import { useBackups, useCreateBackup, useDatabaseSize } from "@/lib/api";
 
 const formatSize = (bytes: number) =>
   bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -18,6 +18,7 @@ const formatWhen = (iso: string) =>
 
 export default function Backups() {
   const { data: backups = [], isLoading } = useBackups();
+  const { data: dbSize } = useDatabaseSize();
   const create = useCreateBackup();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -45,10 +46,10 @@ export default function Backups() {
       <title>Backups | Application Tracker</title>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold">Backups</h1>
-          <p className="text-sm text-muted-foreground">
-            Copies of your database, stored in <code>data/backups</code>. Download one to keep it somewhere safe.
-          </p>
+          <h1 className="text-xl font-semibold">
+            Backups
+            {dbSize && <span className="ml-2 text-sm font-normal text-muted-foreground">Database: {formatSize(dbSize.size)}</span>}
+          </h1>
         </div>
         <Button onClick={openDialog}><Database /> Back up now</Button>
       </div>

@@ -4,6 +4,7 @@ import express from "express";
 import { z } from "zod";
 import { backupsDir, db } from "./db.ts";
 import { daysSince, isOnHold } from "../src/lib/format.ts";
+import { nowTime, today } from "../src/lib/clock.ts";
 import { GHOSTED_DAYS, STATUS_FOR_EVENT, TIMED_EVENT_TYPES, UPDATE_EVENT_TYPES } from "../src/lib/options.ts";
 
 // Builds INSERT / UPDATE statements from the keys of a validated body, using named parameters.
@@ -59,8 +60,10 @@ const eventSchema = z.object({
 
 const updateTypes = UPDATE_EVENT_TYPES.map(() => "?").join(",");
 // A screen or interview that hasn't happened yet (aliased `e`): a time makes it exact, otherwise it counts until the day arrives.
-const upcomingEventSql = `e.type IN ('Screen', 'Interview') AND (e.date > date('now', 'localtime')
-  OR (e.time IS NOT NULL AND e.date = date('now', 'localtime') AND e.time > strftime('%H:%M', 'now', 'localtime')))`;
+// "Now" comes from the app clock (src/lib/clock.ts) as @today / @now_time, so a frozen clock reaches SQL too.
+const upcomingEventSql = `e.type IN ('Screen', 'Interview') AND (e.date > @today
+  OR (e.time IS NOT NULL AND e.date = @today AND e.time > @now_time))`;
+const clockParams = () => ({ today: today(), now_time: nowTime() });
 // Event types and statuses come from options.ts, so inlining them as literals is safe.
 const statusEventTypes = Object.keys(STATUS_FOR_EVENT).map((t) => `'${t}'`).join(",");
 const statusCase = Object.entries(STATUS_FOR_EVENT).map(([t, s]) => `WHEN '${t}' THEN '${s}'`).join(" ");
@@ -95,19 +98,19 @@ function withAutoGhost<T extends { status: string; last_heard: string | null; ap
   return { ...job, status: ghosted ? "Ghosted" : job.status, auto_ghosted: ghosted };
 }
 
-// Job types are stored as JSON text. The old single `job_type` column isn't part of the app anymore.
-const withJobTypes = ({ job_type: _legacy, ...job }: any) => ({ ...job, job_types: JSON.parse(job.job_types || "[]") as string[] });
+// Job types are stored as JSON text.
+const withJobTypes = (job: any) => ({ ...job, job_types: JSON.parse(job.job_types || "[]") as string[] });
 
 // Descriptions and cover letters can be long; the list views only need to know whether they're filled in.
 const listJobs = (where: string, order: string) =>
-  (db.prepare(`${jobListSql} WHERE ${where} ORDER BY ${order}`).all(...UPDATE_EVENT_TYPES) as any[])
+  (db.prepare(`${jobListSql} WHERE ${where} ORDER BY ${order}`).all(...UPDATE_EVENT_TYPES, clockParams()) as any[])
     .map(({ job_description, cover_letter, ...job }) =>
       withAutoGhost(withJobTypes({ ...job, has_job_description: !!job_description.trim(), has_cover_letter: !!cover_letter.trim() })));
 
 const getEvent = (id: number | string) => db.prepare("SELECT * FROM events WHERE id = ?").get(id);
 
 const getJob = (id: number) => {
-  const job = db.prepare(`${jobListSql} WHERE j.id = ?`).get(...UPDATE_EVENT_TYPES, id) as any;
+  const job = db.prepare(`${jobListSql} WHERE j.id = ?`).get(...UPDATE_EVENT_TYPES, id, clockParams()) as any;
   return job && withAutoGhost(withJobTypes(job));
 };
 
@@ -332,15 +335,13 @@ app.delete("/api/fact-types/:id", (req, res) => {
   res.json(getFactTypes());
 });
 
-// Starts Job Type and Company Type over: backs up the database, then clears every job's labels and drops the
-// old rule tables. The type lists themselves are kept.
+// Starts Job Type and Company Type over: backs up the database, then clears every job's labels. The type lists
+// themselves are kept.
 app.post("/api/facts/reset", async (_req, res) => {
   const file = `jobs-pre-label-reset-${new Date().toISOString().replace(/[:.]/g, "-")}.db`;
   await db.backup(path.join(backupsDir, file));
   db.transaction(() => {
-    db.exec("UPDATE jobs SET job_types = '[]', job_type = '', company_type = ''");
-    db.exec("DROP TABLE IF EXISTS job_type_matches");
-    db.exec("DROP TABLE IF EXISTS company_type_rules");
+    db.exec("UPDATE jobs SET job_types = '[]', company_type = ''");
   })();
   res.json({ backup: file });
 });
@@ -467,6 +468,8 @@ const backupFiles = () =>
 
 app.get("/api/backups", (_req, res) => res.json(backupFiles()));
 
+app.get("/api/database/size", (_req, res) => res.json({ size: fs.statSync(db.name).size }));
+
 app.post("/api/backups", async (req, res) => {
   const { name } = z.object({ name: z.string().trim().min(1, "Name is required") }).parse(req.body);
   const base = name.replace(/\.db$/i, "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[-.]+|-+$/g, "");
@@ -483,6 +486,14 @@ app.get("/api/backups/:name/download", (req, res) => {
   res.download(path.join(backupsDir, file.name), file.name);
 });
 
+// `npm start` serves the built app from here too, so everything runs on one port. Deep links get index.html.
+const distDir = path.resolve(import.meta.dirname, "../dist");
+const serveApp = process.argv.includes("--serve");
+if (serveApp) {
+  app.use(express.static(distDir));
+  app.use((req, res, next) => (req.method === "GET" && !req.path.startsWith("/api/") ? res.sendFile(path.join(distDir, "index.html")) : next()));
+}
+
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err instanceof z.ZodError) return res.status(400).json({ error: z.prettifyError(err) });
   if ((err as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE") {
@@ -497,4 +508,4 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 // API_PORT runs a second copy next to the usual one (with DATA_DIR pointing at other data).
 const port = Number(process.env.API_PORT ?? 3001);
-app.listen(port, () => console.log(`API on http://localhost:${port}`));
+app.listen(port, () => console.log(serveApp ? `Job Tracker on http://localhost:${port}` : `API on http://localhost:${port}`));

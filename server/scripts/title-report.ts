@@ -20,6 +20,8 @@ const FIXTURE = [
   "Controller", "CFO", "Elementary School Teacher", "Teacher, Elementary School", "Assistant Principal",
   "Data Scientist", "Junior Data Scientist", "Lead Data Scientist", "Head of Data", "Product Designer",
   "Senior UX Designer", "Design Director", "Associate Director of Marketing", "Executive Director",
+  "Physical Therapist", "Senior Physical Therapist", "Staff Pharmacist", "Journeyman Electrician", "Lead Mechanic",
+  "Sous Chef", "Senior Paralegal", "Case Manager", "Property Manager", "Senior Case Manager",
 ];
 
 function report(label: string, jobs: TitleInput[], synonyms: string[][] = []) {
