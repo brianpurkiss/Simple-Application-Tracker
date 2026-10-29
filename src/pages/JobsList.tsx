@@ -32,7 +32,7 @@ import type { TitleInfo } from "@/lib/titles/types";
 import { loadSelected, saveOrder, saveSelected } from "@/lib/listOrder";
 import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { daysSince, formatDate, isOnHold } from "@/lib/format";
-import { isActive, isScheduledDue, needsFollowUp, reachedInterview } from "@/lib/jobs";
+import { isActive, isApplication, isScheduledDue, needsFollowUp, reachedInterview } from "@/lib/jobs";
 import { FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
@@ -44,7 +44,7 @@ const GROUP_FILTERS: Record<string, (job: Job) => boolean> = {
   // Timed-out (auto-ghosted) jobs that reached an interview still count; a manually logged close-out does not.
   interviewing: (j) => INTERVIEWING_STATUSES.has(j.status) || (j.auto_ghosted && reachedInterview(j)),
   followup: needsFollowUp,
-  closed: (j) => !isActive(j),
+  closed: (j) => isApplication(j) && !isActive(j),
 };
 
 const dateCell = (key: keyof Job): ColumnDef<Job> => ({

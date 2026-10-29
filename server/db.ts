@@ -42,6 +42,7 @@ db.exec(`
     notes TEXT NOT NULL DEFAULT '',
     job_description TEXT NOT NULL DEFAULT '',
     cover_letter TEXT NOT NULL DEFAULT '',
+    saved INTEGER NOT NULL DEFAULT 0,
     deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -117,6 +118,11 @@ if (!jobColumns.has("fit")) {
 // Until this date the job stays out of Follow Up and can't auto-ghost; NULL when there's no hold.
 if (!jobColumns.has("follow_up_on")) {
   db.exec("ALTER TABLE jobs ADD COLUMN follow_up_on TEXT");
+}
+
+// A posting kept for segment analysis without applying; it leaves activity and performance until it's applied to.
+if (!jobColumns.has("saved")) {
+  db.exec("ALTER TABLE jobs ADD COLUMN saved INTEGER NOT NULL DEFAULT 0");
 }
 
 // Optional start time (HH:MM) for scheduled interviews.

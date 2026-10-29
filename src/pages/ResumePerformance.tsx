@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import { Segmented } from "@/components/ui/segmented";
 import { useJobs, useProfile, useStarredGroups } from "@/lib/api";
+import { isApplication } from "@/lib/jobs";
 import { useFactContext } from "@/hooks/useFactContext";
 import { applicationsNeeded, type Combo, comboBy, type Metric, PERF_DIMS, type PerfDim, VERSION_MODES } from "@/lib/stats";
 import { perfDimValues } from "@/lib/titles/perfDims";
@@ -49,7 +50,9 @@ const TOO_FEW_PREVIEW = 5;
 const rateOf = (c: Combo, metric: Metric) => (metric === "interview" ? c.interviewRate : c.rejectedRate) ?? 0;
 
 export default function ResumePerformance() {
-  const { data: jobs = [], isLoading, error } = useJobs();
+  const { data: allJobs = [], isLoading, error } = useJobs();
+  // Saved postings weren't applied to; they still help work out titles and types.
+  const jobs = useMemo(() => allJobs.filter(isApplication), [allJobs]);
   const { data: profile } = useProfile();
   const [params] = useSearchParams();
   const updateParams = useParamUpdater();
@@ -58,7 +61,7 @@ export default function ResumePerformance() {
 
   const metric: Metric = params.get("metric") === "rejected" ? "rejected" : "interview";
   const sort = (SORTS.find((s) => s.key === params.get("sort"))?.key ?? "confidence") as SortKey;
-  const groupVersions = params.get("versions") === "grouped";
+  const groupVersions = params.get("versions") !== "separate";
   const confidence = CONFIDENCE.find((c) => c.key === params.get("conf")) ?? CONFIDENCE[1];
   const minAge = Math.max(0, Number(params.get("recency") ?? DEFAULT_MIN_AGE) || 0);
   const ghostDays = Math.max(1, Number(params.get("ghost") ?? GHOSTED_DAYS) || GHOSTED_DAYS);
@@ -94,7 +97,7 @@ export default function ResumePerformance() {
   const { shown: view, phase } = useSettled(live, JSON.stringify(live));
   const vConfidence = CONFIDENCE.find((c) => c.key === view.conf) ?? CONFIDENCE[1];
   const { data: stars = [] } = useStarredGroups();
-  const factCtx = useFactContext(jobs);
+  const factCtx = useFactContext(allJobs);
   const values = useMemo(() => perfDimValues(stars, factCtx), [stars, factCtx]);
   const { combos, baseline, total, excluded } = useMemo(
     () => comboBy(jobs, view.dims, { values, metric: view.metric, minSample: view.minSample, minAge: view.minAge, groupVersions: view.groupVersions, z: vConfidence.z, ghostDays: view.ghostDays }),
@@ -130,7 +133,7 @@ export default function ResumePerformance() {
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
   if (error) return <p className="text-destructive">Couldn't load applications.</p>;
 
-  const filtersActive = metric !== "interview" || groupVersions || minAge !== DEFAULT_MIN_AGE || ghostDays !== GHOSTED_DAYS || confidence.key !== "balanced" || minSample !== DEFAULT_MIN_SAMPLE;
+  const filtersActive = metric !== "interview" || !groupVersions || minAge !== DEFAULT_MIN_AGE || ghostDays !== GHOSTED_DAYS || confidence.key !== "balanced" || minSample !== DEFAULT_MIN_SAMPLE;
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
@@ -219,7 +222,7 @@ export default function ResumePerformance() {
                   <Segmented
                     options={VERSION_MODES}
                     value={groupVersions ? "grouped" : "separate"}
-                    onChange={(v) => setParam("versions", v === "grouped" ? "grouped" : null)}
+                    onChange={(v) => setParam("versions", v === "grouped" ? null : "separate")}
                   />
                 </div>
               </div>

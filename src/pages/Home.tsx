@@ -7,7 +7,7 @@ import { useEvents, useJobs, useProfile, type ActivityEvent, type Job } from "@/
 import { addDays, weekStart } from "@/lib/activity";
 import { daysSince, formatDate, formatTime, relativeDay, today } from "@/lib/format";
 import { nowTime } from "@/lib/clock";
-import { isActive, isScheduledDue, needsFollowUp } from "@/lib/jobs";
+import { isActive, isApplication, isScheduledDue, needsFollowUp } from "@/lib/jobs";
 import { momentum } from "@/lib/insights";
 import { INTERVIEWING_STATUSES, TIMED_EVENT_TYPES } from "@/lib/options";
 import { EVENT_COLORS } from "@/lib/colors";
@@ -208,7 +208,8 @@ function WeeklyBars({ counts, target }: { counts: { week: string; n: number }[];
 
 export default function Home() {
   const { search } = useLocation();
-  const { data: jobs = [], isLoading } = useJobs();
+  const { data: allJobs = [], isLoading } = useJobs();
+  const jobs = useMemo(() => allJobs.filter(isApplication), [allJobs]);
   const { data: events = [] } = useEvents();
   const name = useProfile().data?.your_name;
   const todayIso = today();

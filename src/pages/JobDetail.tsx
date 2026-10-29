@@ -11,7 +11,7 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { AllNotesDialog } from "@/components/AllNotesDialog";
 import { EVENT_COLORS } from "@/lib/colors";
 import { StatusBadge } from "@/components/StatusBadge";
-import { type Job, type JobInput, useDeleteJob, useJob, useJobs, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
+import { type Job, type JobInput, useApplyJob, useDeleteJob, useJob, useJobs, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
 import { factHints, typeNames } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { daysSince, formatDate, today } from "@/lib/format";
@@ -56,6 +56,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const update = useUpdateJob(job.id);
   const deleteJob = useDeleteJob();
   const restoreJob = useRestoreJob();
+  const applyJob = useApplyJob(job.id);
   const navigate = useNavigate();
   const location = useLocation();
   const titles = useSuggestions("title", []);
@@ -137,6 +138,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   ]);
 
   const restore = () => restoreJob.mutate(job.id, { onSuccess: () => toastSaved("Restored from trash") });
+  const markApplied = () => applyJob.mutate(today(), { onSuccess: () => toastSaved("Marked as applied"), onError: (e) => toastError(e) });
 
   const quiet = daysSince(job.last_activity ?? job.applied_date);
 
@@ -149,6 +151,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           This job is in the trash.
           <Button size="sm" variant="outline" className="ml-auto" onClick={restore}>
             <RotateCcw /> Restore
+          </Button>
+        </div>
+      )}
+      {job.saved && !job.deleted_at && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dotted border-slate-400/40 px-4 py-2.5 text-sm text-muted-foreground">
+          Saved, not applied. It can be included on Segments, but never counts in Activity or Performance.
+          <Button size="sm" variant="outline" className="ml-auto" onClick={markApplied} disabled={applyJob.isPending}>
+            Mark as Applied Today
           </Button>
         </div>
       )}

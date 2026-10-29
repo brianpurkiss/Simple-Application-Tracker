@@ -1,7 +1,7 @@
 // Dropdown options. Edit these lists to change what the app offers.
 
 // Status is computed from the history: the latest event that sets a status wins.
-export const STATUSES = ["Applied", "Scheduled", "Interviewed", "Offer", "Accepted", "Rejected", "Withdrew", "Ghosted", "Scam"] as const;
+export const STATUSES = ["Saved", "Applied", "Scheduled", "Interviewed", "Offer", "Accepted", "Rejected", "Withdrew", "Ghosted", "Scam"] as const;
 
 export const CLOSED_STATUSES = new Set<string>(["Accepted", "Rejected", "Withdrew", "Ghosted", "Scam"]);
 

@@ -18,8 +18,13 @@ type TermCategory = { title: string; description?: string; terms: Term[] };
 export const TERM_CATEGORIES: TermCategory[] = [
   {
     title: "Statuses",
-    description: "Status is never stored. It is derived from the latest event in a job's history, defaulting to Applied.",
+    description: "Status is never stored. It is derived from the latest event in a job's history, defaulting to Applied (or Saved).",
     terms: [
+      {
+        term: "Saved",
+        definition: "A posting you're keeping for analysis without applying: found after it closed, or a sign you need a new resume. It counts on Segments (jobs, combos, salary) when \"Include saved\" is on, and never in Activity, Performance, Home or the active list.",
+        calculation: "Added with \"Just saving this\" checked and no history yet. Logging an Applied event or setting an applied date turns it into an application.",
+      },
       { term: "Applied", definition: "The job has been applied to and nothing has happened since. Shown as \"Waiting for Response\" in the outcomes chart." },
       {
         term: "Scheduled",

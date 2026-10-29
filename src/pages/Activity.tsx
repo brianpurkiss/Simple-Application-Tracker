@@ -18,6 +18,7 @@ import SalaryDistribution from "@/components/stats/SalaryDistribution";
 import Timing from "@/components/stats/Timing";
 import WeekdayInsights from "@/components/stats/WeekdayInsights";
 import { type ActivityEvent, type Job, useEvents, useJobs, useResumes, useStarredGroups } from "@/lib/api";
+import { isApplication } from "@/lib/jobs";
 import { resolveCompanyType, resolveJobTypes, type FactContext } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { COMPANY_TYPE_PARAM, RESUME_PARAM, STAR_FILTERS } from "@/lib/jobFilters";
@@ -148,13 +149,15 @@ function AreaView({ events }: { events: ActivityEvent[] }) {
 
 export default function Activity() {
   const { data: events = [], isLoading: loadingEvents } = useEvents();
-  const { data: jobs = [], isLoading: loadingJobs } = useJobs();
+  const { data: allJobs = [], isLoading: loadingJobs } = useJobs();
+  // Saved postings weren't applied to; they still help work out titles and types.
+  const jobs = useMemo(() => allJobs.filter(isApplication), [allJobs]);
   const { data: resumes = [] } = useResumes();
   const [params] = useSearchParams();
   const updateParams = useParamUpdater();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { data: stars = [] } = useStarredGroups();
-  const factCtx = useFactContext(jobs);
+  const factCtx = useFactContext(allJobs);
   const grouped = params.get("versions") === "grouped";
   const selected = FILTERS.map((f) => params.getAll(f.param).map((v) => (f.field === "resume_version" && grouped ? resumeFamily(v) : v)));
 

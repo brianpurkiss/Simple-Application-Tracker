@@ -8,6 +8,8 @@ export type Swatch = { hex: string; dot: string; text: string; badge: string };
 const CLAY = "#c4775a";
 
 export const STATUS_COLORS: Record<string, Swatch> = {
+  // Not applied to yet: the quietest tone, outlined like a placeholder.
+  Saved: { hex: "#94a3b8", dot: "bg-slate-400", text: "text-slate-400", badge: "bg-transparent text-slate-400 border-slate-400/40 border-dotted" },
   Applied: { hex: "#f59e0b", dot: "bg-amber-500", text: "text-amber-400", badge: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
   Scheduled: { hex: "#38bdf8", dot: "bg-sky-400", text: "text-sky-300", badge: "bg-sky-400/15 text-sky-300 border-sky-400/30" },
   Interviewed: { hex: "#3b82f6", dot: "bg-blue-500", text: "text-blue-400", badge: "bg-blue-500/15 text-blue-300 border-blue-500/30" },

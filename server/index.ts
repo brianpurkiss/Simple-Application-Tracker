@@ -48,6 +48,8 @@ const jobSchema = z.object({
   notes: text,
   job_description: z.string(),
   cover_letter: z.string(),
+  // A posting kept for segment analysis, not applied to.
+  saved: z.boolean().transform(Number),
 });
 
 const eventSchema = z.object({
@@ -72,7 +74,8 @@ const jobListSql = `
     coalesce((SELECT CASE
         WHEN ${upcomingEventSql} THEN 'Scheduled'
         ELSE CASE e.type ${statusCase} END END FROM events e
-      WHERE e.job_id = j.id AND e.type IN (${statusEventTypes}) ORDER BY date DESC, id DESC LIMIT 1), 'Applied') AS status,
+      WHERE e.job_id = j.id AND e.type IN (${statusEventTypes}) ORDER BY date DESC, id DESC LIMIT 1),
+      CASE WHEN j.saved THEN 'Saved' ELSE 'Applied' END) AS status,
     (SELECT max(date) FROM events e WHERE e.job_id = j.id AND e.type IN (${updateTypes})) AS latest_update,
     (SELECT max(date) FROM events e WHERE e.job_id = j.id AND e.type = 'Follow-Up') AS last_follow_up,
     -- Upcoming screens and interviews aren't activity yet; counting them would make "days since" go negative.
@@ -99,7 +102,7 @@ function withAutoGhost<T extends { status: string; last_heard: string | null; ap
 }
 
 // Job types are stored as JSON text.
-const withJobTypes = (job: any) => ({ ...job, job_types: JSON.parse(job.job_types || "[]") as string[] });
+const withJobTypes = (job: any) => ({ ...job, job_types: JSON.parse(job.job_types || "[]") as string[], saved: !!job.saved });
 
 // Descriptions and cover letters can be long; the list views only need to know whether they're filled in.
 const listJobs = (where: string, order: string) =>
@@ -168,6 +171,8 @@ app.post("/api/jobs", (req, res) => {
   const body = jobSchema.partial().required({ title: true }).parse(req.body);
   const badRange = rangeError(body.salary_min, body.salary_max);
   if (badRange) return res.status(400).json({ error: badRange });
+  // Applying is what turns a saved posting into an application.
+  if (body.applied_date) body.saved = 0;
   const cols = Object.keys(body);
   const create = db.transaction(() => {
     const { lastInsertRowid } = db
@@ -189,6 +194,7 @@ app.patch("/api/jobs/:id", (req, res) => {
     body.salary_max !== undefined ? body.salary_max : current?.salary_max,
   );
   if (badRange) return res.status(400).json({ error: badRange });
+  if (body.applied_date) body.saved = 0;
   const cols = Object.keys(body);
   if (cols.length) {
     db.prepare(updateSql("jobs", cols, true)).run({ ...body, id: Number(req.params.id) });
@@ -217,8 +223,19 @@ app.post("/api/jobs/:id/events", (req, res) => {
   const { lastInsertRowid } = db
     .prepare("INSERT INTO events (job_id, date, type, description, notes, time) VALUES (?, @date, @type, @description, @notes, @time)")
     .run(req.params.id, { ...body, time: TIMED_EVENT_TYPES.has(body.type) ? body.time : null });
-  db.prepare("UPDATE jobs SET updated_at = datetime('now') WHERE id = ?").run(req.params.id);
+  db.prepare(`UPDATE jobs SET updated_at = datetime('now')${body.type === "Applied" ? ", saved = 0" : ""} WHERE id = ?`).run(req.params.id);
   res.status(201).json(getEvent(lastInsertRowid as number));
+});
+
+// Turns a saved posting into an application: the applied date and its Applied event, like adding a job applied to.
+app.post("/api/jobs/:id/apply", (req, res) => {
+  const { date: appliedOn } = z.object({ date }).parse(req.body);
+  const id = Number(req.params.id);
+  db.transaction(() => {
+    db.prepare("UPDATE jobs SET saved = 0, applied_date = ?, updated_at = datetime('now') WHERE id = ?").run(appliedOn, id);
+    db.prepare("INSERT INTO events (job_id, date, type) VALUES (?, ?, 'Applied')").run(id, appliedOn);
+  })();
+  res.json(getJob(id));
 });
 
 app.patch("/api/events/:id", (req, res) => {
@@ -376,12 +393,12 @@ const resumeSchema = z.object({
 const resumeSql = `
   SELECT r.id, r.version, r.notes, r.plain_text, r.pdf_name, r.pdf_size, r.pdf IS NOT NULL AS has_pdf, r.active,
     r.created_at, r.updated_at,
-    (SELECT count(*) FROM jobs j WHERE j.resume_version = r.version AND j.deleted_at IS NULL) AS job_count,
+    (SELECT count(*) FROM jobs j WHERE j.resume_version = r.version AND j.deleted_at IS NULL AND NOT j.saved) AS job_count,
     (SELECT count(*) FROM jobs j
-      WHERE j.resume_version = r.version AND j.deleted_at IS NULL
+      WHERE j.resume_version = r.version AND j.deleted_at IS NULL AND NOT j.saved
         AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Screen'))) AS interview_job_count,
     (SELECT count(DISTINCT lower(trim(j.company))) FROM jobs j
-      WHERE j.resume_version = r.version AND j.deleted_at IS NULL AND trim(j.company) != ''
+      WHERE j.resume_version = r.version AND j.deleted_at IS NULL AND NOT j.saved AND trim(j.company) != ''
         AND EXISTS (SELECT 1 FROM events e WHERE e.job_id = j.id AND e.type IN ('Interview', 'Screen'))) AS interview_company_count
   FROM resumes r`;
 

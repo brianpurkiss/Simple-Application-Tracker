@@ -2,7 +2,10 @@ import { CLOSED_STATUSES, INTERVIEWING_STATUSES, STALE_DAYS } from "./options";
 import type { Job } from "./api";
 import { daysSince, isOnHold } from "./format";
 
-export const isActive = (job: Job) => !CLOSED_STATUSES.has(job.status);
+// Saved postings weren't applied to, so they stay out of activity, performance and the pipeline.
+export const isApplication = (job: Job) => !job.saved;
+
+export const isActive = (job: Job) => isApplication(job) && !CLOSED_STATUSES.has(job.status);
 
 // Jobs that got to an interview at some point, including ones that ended after it.
 export const reachedInterview = (job: Job) => job.interview_count + job.screen_count > 0;

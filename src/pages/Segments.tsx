@@ -1,28 +1,27 @@
 import { Fragment, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ChartNoAxesCombined, ChevronRight, Star } from "lucide-react";
-import { StatusBadge } from "@/components/StatusBadge";
+import { newestFirst, RateCell, SALARY_COLUMNS, type SalaryCells, SalaryCellsView, SegmentJobList, salaryCells } from "@/components/segments/shared";
+import { SegmentCombos } from "@/components/segments/SegmentCombos";
 import { FactTypes, LabelPicker } from "@/components/FactTypes";
 import { TitleSynonyms } from "@/components/TitleSynonyms";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { type Job, type StarKind, type StarredGroup, useJobs, useResumes, useStarredGroups, useToggleStar } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import { type FactContext, type FactKind, type FactSource, resolveCompanyType, resolveJobTypes } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { splitResumes } from "@/lib/options";
-import { rowLink } from "@/lib/rowLink";
-import { fmtPct, interviewed, MIN_SAMPLE, pct } from "@/lib/stats";
+import { interviewed, interviewRateOf, pct } from "@/lib/stats";
 import { titleGroups, type TitleGroup, type TitleVariant } from "@/lib/titles/groups";
 import { isStarred, starSet } from "@/lib/titles/starred";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/demo";
 
-type SortKey = "label" | "jobs" | "applications" | "rejections" | "totalInterviews" | "uniqueInterviews" | "rate";
+type SortKey = "label" | "jobs" | "applications" | "rejections" | "totalInterviews" | "uniqueInterviews" | "rate" | "salaryLow" | "salaryMid" | "salaryHigh";
 
-const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
+const COLUMNS: { key: SortKey; label: string; numeric?: boolean; title?: string }[] = [
   { key: "label", label: "Title" },
   { key: "jobs", label: "Jobs", numeric: true },
   { key: "applications", label: "Applications", numeric: true },
@@ -30,10 +29,11 @@ const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
   { key: "totalInterviews", label: "Total Interviews", numeric: true },
   { key: "uniqueInterviews", label: "Unique Interviews", numeric: true },
   { key: "rate", label: "Interview Rate", numeric: true },
+  ...SALARY_COLUMNS,
 ];
 
-// The tabs: Job Titles groups by title or seniority; Job Type and Company Type review the automatic values.
-type Tab = "title" | "seniority" | "jobType" | "companyType" | "resume";
+// The tabs: Job Titles groups by title or seniority; Job Type and Company Type review the automatic values; Combos crosses them.
+type Tab = "title" | "seniority" | "jobType" | "companyType" | "resume" | "combos";
 type GroupBy = "title" | "seniority" | "type" | "company" | "resume";
 
 const TABS: { key: Tab; label: string; dim: string }[] = [
@@ -42,6 +42,7 @@ const TABS: { key: Tab; label: string; dim: string }[] = [
   { key: "jobType", label: "Job Type", dim: "type" },
   { key: "companyType", label: "Company Type", dim: "company" },
   { key: "resume", label: "Resumes", dim: "resume" },
+  { key: "combos", label: "Combos", dim: "" },
 ];
 
 const LABEL_HEADERS: Record<GroupBy, string> = { title: "Job Title", seniority: "Seniority", type: "Job Type", company: "Company Type", resume: "Resume" };
@@ -80,17 +81,20 @@ function attributeGroups(jobs: Job[], ctx: FactContext, by: "seniority" | "type"
 }
 
 // `missing` marks a starred group that no longer has any jobs.
-type Row = Omit<TitleGroup, "jobs"> & { jobs: number; applications: number; rejections: number; totalInterviews: number; uniqueInterviews: number; rate: number | null; missing?: boolean };
+type Row = Omit<TitleGroup, "jobs"> & SalaryCells & {
+  jobs: number; applications: number; rejections: number; totalInterviews: number; uniqueInterviews: number; rate: number | null; missing?: boolean;
+};
 
 // A starred group with no jobs keeps its row, named from the label saved with the star.
 function emptyRow(s: StarredGroup): Row {
   const label = s.label || s.key.replace(/^(seniority|type):/, "");
-  return { key: s.key, label, jobs: 0, variants: [], shared: false, unpaired: false, applications: 0, rejections: 0, totalInterviews: 0, uniqueInterviews: 0, rate: null, missing: true };
+  return { key: s.key, label, jobs: 0, variants: [], shared: false, unpaired: false, applications: 0, rejections: 0, totalInterviews: 0, uniqueInterviews: 0, rate: null, ...salaryCells([]), missing: true };
 }
 
 export default function Segments() {
-  const { data: jobs = [], isLoading } = useJobs();
-  const factCtx = useFactContext(jobs);
+  const { data: allJobs = [], isLoading } = useJobs();
+  // Saved postings help work out titles and types either way; they only count in the tables when included.
+  const factCtx = useFactContext(allJobs);
   const [sort, setSort] = useState<SortKey>("jobs");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [showTail, setShowTail] = useState(false);
@@ -99,7 +103,11 @@ export default function Segments() {
   const tabParam = params.get("tab");
   const tab: Tab = TABS.find((t) => t.key === tabParam)?.key ?? "title";
   const setTab = (next: Tab) => updateParams((p) => (next === "title" ? p.delete("tab") : p.set("tab", next)));
-  const groupBy: GroupBy = tab === "jobType" ? "type" : tab === "companyType" ? "company" : tab === "resume" ? "resume" : tab;
+  const includeSaved = params.get("saved") === "1";
+  const jobs = useMemo(() => (includeSaved ? allJobs : allJobs.filter((j) => !j.saved)), [allJobs, includeSaved]);
+  const savedCount = allJobs.filter((j) => j.saved).length;
+  const averageRate = useMemo(() => interviewRateOf(jobs), [jobs]);
+  const groupBy: GroupBy = tab === "jobType" ? "type" : tab === "companyType" ? "company" : tab === "resume" ? "resume" : tab === "combos" ? "title" : tab;
   const factKind: FactKind | null = tab === "jobType" ? "job" : tab === "companyType" ? "company" : null;
   // Company Type and Resumes aren't starred groups, so their rows have no star.
   const starKind: StarKind | null = groupBy === "company" || groupBy === "resume" ? null : groupBy;
@@ -111,17 +119,19 @@ export default function Segments() {
   const jobRows: Row[] = useMemo(
     () =>
       (groupBy === "title" ? titleGroups(jobs, factCtx.titles) : attributeGroups(jobs, factCtx, groupBy)).map((g) => {
-        const applied = g.jobs.filter((j) => j.applied_date);
+        // Included saved postings count as jobs and toward pay, but not as applications.
+        const applied = g.jobs.filter((j) => j.applied_date && !j.saved);
         const interviews = applied.filter(interviewed);
         return {
           ...g,
           jobs: g.jobs.length,
           applications: applied.length,
-          rejections: g.jobs.filter((j) => j.status === "Rejected").length,
+          rejections: applied.filter((j) => j.status === "Rejected").length,
           // Every screen and interview logged, versus how many different companies gave us one.
           totalInterviews: interviews.reduce((n, j) => n + j.interview_count + j.screen_count, 0),
           uniqueInterviews: new Set(interviews.map((j) => j.company.trim().toLowerCase())).size,
           rate: pct(interviews.length, applied.length),
+          ...salaryCells(g.jobs),
         };
       }),
     [jobs, factCtx, groupBy],
@@ -182,6 +192,7 @@ export default function Segments() {
       sourceOf={sourceOf}
       factKind={factKind}
       factCtx={factCtx}
+      averageRate={averageRate}
     />
   );
 
@@ -193,16 +204,22 @@ export default function Segments() {
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b pb-3">
           <div className="flex items-center gap-2">
             <Segmented options={TABS} value={tab} onChange={setTab} collapse />
-            <Link to={`/performance?dims=${TABS.find((t) => t.key === tab)!.dim}`} title="View performance" aria-label="View performance" className="rounded p-1.5 text-muted-foreground hover:text-foreground">
+            {tab !== "combos" && <Link to={`/performance?dims=${TABS.find((t) => t.key === tab)!.dim}`} title="View performance" aria-label="View performance" className="rounded p-1.5 text-muted-foreground hover:text-foreground">
               <ChartNoAxesCombined className="size-4" />
-            </Link>
+            </Link>}
           </div>
+          <label className="flex items-center gap-1.5 text-sm text-muted-foreground" title="Postings kept for analysis without applying">
+            <input type="checkbox" checked={includeSaved} onChange={(e) => updateParams((p) => (e.target.checked ? p.set("saved", "1") : p.delete("saved")))} />
+            Include saved{savedCount > 0 && ` (${savedCount})`}
+          </label>
           {tab === "title" && <span className="ml-auto"><TitleSynonyms /></span>}
-          {factKind && <FactTypes kind={factKind} jobs={jobs} factCtx={factCtx} />}
+          {factKind && <FactTypes kind={factKind} jobs={allJobs} factCtx={factCtx} />}
         </div>
       </div>
 
-      {tab === "resume" ? (
+      {tab === "combos" ? (
+        <SegmentCombos jobs={jobs} factCtx={factCtx} stars={stars} resumes={resumes} />
+      ) : tab === "resume" ? (
         <>
           {table(visible.filter((r) => activeResumes.has(r.label)), { title: "Active", empty: "No active resumes." })}
           {table(visible.filter((r) => !activeResumes.has(r.label)), { title: "Inactive", empty: "No inactive resumes.", muted: true })}
@@ -211,7 +228,7 @@ export default function Segments() {
         table(visible)
       )}
 
-      {tailKeys.size > 0 && (
+      {tab !== "combos" && tailKeys.size > 0 && (
         <div className="flex justify-center">
           <Button variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={showTail} onClick={() => setShowTail((s) => !s)}>
             {showTail ? "Show Less" : `View More (${tailKeys.size})`}
@@ -223,7 +240,7 @@ export default function Segments() {
   );
 }
 
-function TitleTable({ title, empty = "No jobs yet.", muted, rows, labelHeader, sort, onSort, open, onToggle, isStar, onStar, sourceOf, factKind, factCtx }: {
+function TitleTable({ title, empty = "No jobs yet.", muted, rows, labelHeader, sort, onSort, open, onToggle, isStar, onStar, sourceOf, factKind, factCtx, averageRate }: {
   /** Heading shown above the table, for tabs that split into sections. */
   title?: string;
   empty?: string;
@@ -241,8 +258,9 @@ function TitleTable({ title, empty = "No jobs yet.", muted, rows, labelHeader, s
   sourceOf?: (job: Job) => { source: FactSource; reason: string };
   factKind: FactKind | null;
   factCtx: FactContext;
+  /** The interview rate across every application shown, for flagging rows above it. */
+  averageRate: number | null;
 }) {
-  const navigate = useNavigate();
   const card = (
     <div className="table-bleed overflow-hidden rounded-lg border bg-card">
       <Table>
@@ -252,6 +270,7 @@ function TitleTable({ title, empty = "No jobs yet.", muted, rows, labelHeader, s
               <TableHead key={c.key} className={cn(c.numeric && "text-right")}>
                 <button
                   type="button"
+                  title={c.title}
                   onClick={() => onSort(c.key)}
                   className={cn("hover:text-foreground", sort === c.key && "text-foreground underline underline-offset-4")}
                 >
@@ -302,38 +321,24 @@ function TitleTable({ title, empty = "No jobs yet.", muted, rows, labelHeader, s
                   <TableCell className="text-right">{r.rejections}</TableCell>
                   <TableCell className="text-right">{r.totalInterviews}</TableCell>
                   <TableCell className="text-right">{r.uniqueInterviews}</TableCell>
-                  <TableCell className={cn("text-right", r.applications < MIN_SAMPLE && "text-muted-foreground")}>{fmtPct(r.rate)}</TableCell>
+                  <RateCell rate={r.rate} applications={r.applications} average={averageRate} />
+                  <SalaryCellsView row={r} />
                 </TableRow>
                 {expanded && (
                   <TableRow className="bg-muted/20 hover:bg-muted/20">
                     <TableCell colSpan={COLUMNS.length} className="py-2 pr-4 pl-11">
-                      <ul className="text-sm">
-                        {r.variants.flatMap((v) =>
-                          [...v.jobs]
-                            .sort((a, b) => (b.applied_date ?? "").localeCompare(a.applied_date ?? ""))
-                            .map((j) => (
-                              <li
-                                key={j.id}
-                                className="-mx-2 flex cursor-pointer items-center gap-3 rounded px-2 py-1 hover:bg-muted/60"
-                                {...rowLink(navigate, `/jobs/${j.id}`)}
-                              >
-                                <span className={cn("min-w-0 flex-1 truncate", v.rolledUp && "text-muted-foreground")}>
-                                  {j.title}
-                                  {j.normalized_title && <span className="ml-2 text-xs text-muted-foreground">→ {j.normalized_title}</span>}
-                                  {v.rolledUp && <span className="ml-2 text-xs text-muted-foreground">rolled up</span>}
-                                </span>
-                                <span className="w-48 truncate text-muted-foreground">{j.company}</span>
-                                <span className="w-24 whitespace-nowrap text-muted-foreground">{formatDate(j.applied_date)}</span>
-                                {sourceOf && (() => {
-                                  const { source, reason } = sourceOf(j);
-                                  return <span title={reason} className={cn("w-24 text-xs", source === "none" ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground")}>{SOURCE_LABEL[source]}</span>;
-                                })()}
-                                {factKind && <LabelPicker job={j} kind={factKind} factCtx={factCtx} />}
-                                <span className="w-44 text-right"><StatusBadge job={j} /></span>
-                              </li>
-                            )),
+                      <SegmentJobList
+                        items={r.variants.flatMap((v) => newestFirst(v.jobs).map((job) => ({ job, rolledUp: v.rolledUp })))}
+                        extra={(j) => (
+                          <>
+                            {sourceOf && (() => {
+                              const { source, reason } = sourceOf(j);
+                              return <span title={reason} className={cn("w-24 text-xs", source === "none" ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground")}>{SOURCE_LABEL[source]}</span>;
+                            })()}
+                            {factKind && <LabelPicker job={j} kind={factKind} factCtx={factCtx} />}
+                          </>
                         )}
-                      </ul>
+                      />
                     </TableCell>
                   </TableRow>
                 )}

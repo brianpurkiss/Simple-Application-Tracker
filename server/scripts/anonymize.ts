@@ -8,6 +8,9 @@
 //
 //   npm run demo:seed -- --salary-multiplier=2.5
 //   npm run demo:seed -- --salary-multiplier=2-2.4
+//
+// Rules for changing this script (and why): docs/demo-data.md. A new column on jobs, events, resumes or profile is
+// copied through as-is unless it gets an override below.
 
 import { randomInt } from "node:crypto";
 import fs from "node:fs";

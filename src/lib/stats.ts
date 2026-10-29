@@ -13,12 +13,38 @@ export const MIN_SAMPLE = 9;
 export const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : null);
 export const fmtPct = (n: number | null) => (n === null ? "–" : `${n}%`);
 
+// Share of applications (not saved postings) that reached a screen or interview.
+export const interviewRateOf = (jobs: Job[]) => {
+  const applied = jobs.filter((j) => j.applied_date && !j.saved);
+  return pct(applied.filter(interviewed).length, applied.length);
+};
+
 export const median = (nums: number[]) => {
   if (!nums.length) return null;
   const s = [...nums].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 };
+
+// Linear-interpolated quantile (q from 0 to 1), so a quarter of a small group still lands between two listings.
+const quantile = (sorted: number[], q: number) => {
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos);
+  return sorted[lo] + (sorted[Math.min(lo + 1, sorted.length - 1)] - sorted[lo]) * (pos - lo);
+};
+
+// The middle of a job's listed pay range, or its one end when only one is listed. Null when no pay is listed.
+export const salaryMid = (j: Job) =>
+  j.salary_min == null && j.salary_max == null ? null : ((j.salary_min ?? j.salary_max!) + (j.salary_max ?? j.salary_min!)) / 2;
+
+export type SalaryQuartiles = { p25: number; p50: number; p75: number; n: number };
+
+// The 25th, 50th and 75th percentile of range midpoints, across jobs that list pay.
+export function salaryQuartiles(jobs: Job[]): SalaryQuartiles | null {
+  const mids = jobs.map(salaryMid).filter((m): m is number => m != null).sort((a, b) => a - b);
+  if (!mids.length) return null;
+  return { p25: quantile(mids, 0.25), p50: quantile(mids, 0.5), p75: quantile(mids, 0.75), n: mids.length };
+}
 
 const hasOffer = (j: Job) => j.status === "Offer" || j.status === "Accepted";
 export const interviewed = (j: Job) => reachedInterview(j) || hasOffer(j);
@@ -225,6 +251,21 @@ export type Combo = {
 
 type ComboResult = { combos: Combo[]; baseline: number; total: number; excluded: number };
 
+// One group per combination of values (each job's value lists, in dimension order), so a job in two starred titles counts in both.
+export function groupByDims(entries: { j: Job; lists: string[][] }[]): Map<string, { parts: string[]; jobs: Job[] }> {
+  const groups = new Map<string, { parts: string[]; jobs: Job[] }>();
+  for (const { j, lists } of entries) {
+    const product = lists.reduce<string[][]>((acc, l) => acc.flatMap((p) => [...new Set(l)].map((v) => [...p, v])), [[]]);
+    for (const parts of product) {
+      const key = parts.join("\u0000");
+      const g = groups.get(key) ?? { parts, jobs: [] };
+      g.jobs.push(j);
+      groups.set(key, g);
+    }
+  }
+  return groups;
+}
+
 // Groups jobs by every dimension in `dims` (in order) and grades each group against the overall rate.
 export function comboBy(
   jobs: Job[],
@@ -255,17 +296,7 @@ export function comboBy(
   const hit = metric === "interview" ? interviewed : rejected_;
   const baseline = eligible.length ? eligible.filter((e) => hit(e.j)).length / eligible.length : 0;
 
-  const groups = new Map<string, { parts: string[]; jobs: Job[] }>();
-  for (const { j, lists } of eligible) {
-    // One group per combination of values, so a job in two starred titles counts in both.
-    const product = lists.reduce<string[][]>((acc, l) => acc.flatMap((p) => [...new Set(l)].map((v) => [...p, v])), [[]]);
-    for (const parts of product) {
-      const key = parts.join("\u0000");
-      const g = groups.get(key) ?? { parts, jobs: [] };
-      g.jobs.push(j);
-      groups.set(key, g);
-    }
-  }
+  const groups = groupByDims(eligible);
 
   const combos = [...groups.entries()].map(([key, g]): Combo => {
     const n = g.jobs.length;
@@ -281,8 +312,8 @@ export function comboBy(
     else if (flip ? hi < baseline : lo > baseline) tier = "standout";
     else if (flip ? lo > baseline : hi < baseline) tier = "under";
     else if (flip ? rate < baseline : rate > baseline) tier = "watch";
-    const paid = g.jobs.filter(interviewed).filter((j) => j.salary_min != null || j.salary_max != null);
-    const mids = paid.map((j) => ((j.salary_min ?? j.salary_max!) + (j.salary_max ?? j.salary_min!)) / 2);
+    const paid = g.jobs.filter(interviewed).filter((j) => salaryMid(j) != null);
+    const mids = paid.map((j) => salaryMid(j)!);
     return {
       key,
       parts: g.parts,

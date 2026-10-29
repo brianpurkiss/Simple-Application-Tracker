@@ -44,6 +44,8 @@ export type Job = {
   first_interview: string | null;
   rejected_date: string | null;
   auto_ghosted: boolean;
+  /** A posting kept for segment analysis, not applied to. Left out of activity and performance until it's applied to. */
+  saved: boolean;
   deleted_at: string | null;
 };
 
@@ -181,6 +183,8 @@ export async function uploadResumePdf(id: number, file: File): Promise<Resume> {
 export const useUploadResumePdf = (id: number) =>
   useResumeMutation((file: File) => uploadResumePdf(id, file));
 
+export const useApplyJob = (jobId: number) =>
+  useInvalidatingMutation((date: string) => request<Job>("POST", `/api/jobs/${jobId}/apply`, { date }));
 export const useAddEvent = (jobId: number) =>
   useInvalidatingMutation((e: EventInput) => request<JobEvent>("POST", `/api/jobs/${jobId}/events`, e));
 export const useUpdateEvent = () =>

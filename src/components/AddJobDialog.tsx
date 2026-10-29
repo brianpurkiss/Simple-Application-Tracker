@@ -32,8 +32,10 @@ export function AddJobDialog() {
   const [job, setJob] = useState(blank);
   const [salaryMin, setSalaryMin] = useState("");
   const [salaryMax, setSalaryMax] = useState("");
+  // Saved postings are kept for segment analysis without being applied to.
+  const [savedOnly, setSavedOnly] = useState(false);
   const badRange = salaryRangeInvalid(salaryMin, salaryMax);
-  const keyFieldsFilled = [job.title, job.company, job.jd_link, job.resume_version].every((v) => v?.trim());
+  const keyFieldsFilled = [job.title, job.company, job.jd_link, ...(savedOnly ? [] : [job.resume_version])].every((v) => v?.trim());
   const create = useCreateJob();
   const navigate = useNavigate();
   const location = useLocation();
@@ -58,14 +60,15 @@ export function AddJobDialog() {
     e.preventDefault();
     if (badRange) return;
     create.mutate(
-      { ...job, salary_min: toSalary(salaryMin), salary_max: toSalary(salaryMax), applied_date: job.applied_date || null },
+      { ...job, salary_min: toSalary(salaryMin), salary_max: toSalary(salaryMax), applied_date: savedOnly ? null : job.applied_date || null, saved: savedOnly },
       {
         onSuccess: (created) => {
           setOpen(false);
           setJob(blank());
           setSalaryMin("");
           setSalaryMax("");
-          toastSaved(`Added ${created.title}`);
+          setSavedOnly(false);
+          toastSaved(`${savedOnly ? "Saved" : "Added"} ${created.title}`);
           // The demo saves nothing, so there's no new job page to open.
           if (!DEMO) navigate(`/jobs/${created.id}`);
         },
@@ -98,15 +101,22 @@ export function AddJobDialog() {
               <SalaryRangeField min={salaryMin} max={salaryMax} onMin={setSalaryMin} onMax={setSalaryMax} invalid={badRange} />
               <SelectField label="Fit" value={job.fit!} onChange={set("fit")} options={FITS} />
               <SelectField label="Work Mode" value={job.work_mode!} onChange={set("work_mode")} options={WORK_MODES} />
-              <TextField label="Applied" type="date" value={job.applied_date ?? ""} onChange={set("applied_date")} />
+              {!savedOnly && <TextField label="Applied" type="date" value={job.applied_date ?? ""} onChange={set("applied_date")} />}
               <SelectField label="Applied Via" value={job.applied_via!} onChange={set("applied_via")} options={APPLIED_VIA} />
               <ComboField label="Agency Name" value={job.agency_name!} onChange={set("agency_name")} options={agencyNames} />
             </div>
           </section>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} className="mt-0.5" />
+            <span>
+              Just saving this, not applied
+              <span className="block text-xs text-muted-foreground">Can be included on Segments for combos and salary; never counts in Activity or Performance. Mark it applied later from its page.</span>
+            </span>
+          </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             {/* Soft check: highlights the form once the key fields are filled, never blocks submit. */}
-            <Button type="submit" variant={keyFieldsFilled ? "default" : "outline"} disabled={create.isPending}>Add Job</Button>
+            <Button type="submit" variant={keyFieldsFilled ? "default" : "outline"} disabled={create.isPending}>{savedOnly ? "Save Job" : "Add Job"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
