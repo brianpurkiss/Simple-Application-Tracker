@@ -51,6 +51,10 @@ const checks: Check[] = [
     params: [today()],
   },
   { title: "Salary minimum above maximum", sql: `SELECT id, title, company, salary_min, salary_max FROM jobs j WHERE ${live} AND salary_min > salary_max` },
+  {
+    title: "Bonus given both as a percentage and a flat amount (the flat amount is used)",
+    sql: `SELECT id, title, company, bonus_pct, bonus_amount FROM jobs j WHERE ${live} AND bonus_pct IS NOT NULL AND bonus_amount IS NOT NULL`,
+  },
 ];
 
 let problems = 0;

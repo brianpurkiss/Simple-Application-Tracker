@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { TextAreaField, TextField } from "@/components/fields";
-import SalaryTarget from "@/components/stats/SalaryTarget";
+import SalaryTarget, { ProfileNumber } from "@/components/stats/SalaryTarget";
 import { useProfile, useResumes, useUpdateProfile } from "@/lib/api";
 import { isEditable, useHotkey } from "@/hooks/hotkeys";
 import { splitResumes } from "@/lib/options";
@@ -76,6 +76,14 @@ export default function User() {
             <span className="block text-xs text-muted-foreground">Replaces salaries with a placeholder across the app, so you can show it to others.</span>
           </span>
         </label>
+      </Section>
+
+      <Section title="Previous Job Compensation" className="space-y-4">
+        <div className="flex flex-wrap gap-x-8 gap-y-4">
+          <ProfileNumber field="past_base_salary" label="Base Salary" />
+          <ProfileNumber field="past_package" label="Annual Package" />
+          <ProfileNumber field="past_days_off" label="Paid Days Off" money={false} placeholder="Days a year" />
+        </div>
       </Section>
 
       <Section

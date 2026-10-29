@@ -19,6 +19,11 @@ app.use(express.json());
 const text = z.string().trim();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const salary = z.number().int().min(0).nullable();
+const money = salary;
+const pct = z.number().min(0).max(100).nullable();
+const count = z.number().int().min(0).max(366).nullable();
+// Unknown (null), no (0) or yes (1).
+const triState = z.union([z.literal(0), z.literal(1)]).nullable();
 
 const rangeError = (min: number | null | undefined, max: number | null | undefined) =>
   min != null && max != null && min > max ? "Salary minimum can't be above the maximum" : null;
@@ -44,6 +49,29 @@ const jobSchema = z.object({
   contact_email: text,
   contact_phone: text,
   contact_linkedin: text,
+  comp_source: z.enum(["", "posted", "offer"]),
+  bonus_pct: pct,
+  bonus_amount: money,
+  equity_type: z.enum(["", "none", "rsu", "options", "profit_share", "other"]),
+  equity_annual: money,
+  equity_vest_years: z.number().min(0).max(20).nullable(),
+  signing_bonus: money,
+  relocation: money,
+  match_rate_pct: z.number().min(0).max(500).nullable(),
+  match_cap_pct: pct,
+  hsa_employer: money,
+  stipends_annual: money,
+  benefit_medical: triState,
+  benefit_dental: triState,
+  benefit_vision: triState,
+  benefit_life: triState,
+  benefit_disability: triState,
+  medical_premium_pct: pct,
+  pto_days: count,
+  pto_unlimited: z.boolean().transform(Number),
+  sick_days: count,
+  holidays: count,
+  parental_leave_weeks: z.number().int().min(0).max(104).nullable(),
   offer_info: text,
   notes: text,
   job_description: z.string(),
@@ -102,7 +130,7 @@ function withAutoGhost<T extends { status: string; last_heard: string | null; ap
 }
 
 // Job types are stored as JSON text.
-const withJobTypes = (job: any) => ({ ...job, job_types: JSON.parse(job.job_types || "[]") as string[], saved: !!job.saved });
+const withJobTypes = (job: any) => ({ ...job, job_types: JSON.parse(job.job_types || "[]") as string[], saved: !!job.saved, pto_unlimited: !!job.pto_unlimited });
 
 // Descriptions and cover letters can be long; the list views only need to know whether they're filled in.
 const listJobs = (where: string, order: string) =>
@@ -118,7 +146,7 @@ const getJob = (id: number) => {
 };
 
 const getProfile = () => {
-  const row = db.prepare("SELECT salary_target, your_name, cover_letter, job_list_view, hide_financials FROM profile WHERE id = 1").get() as any;
+  const row = db.prepare("SELECT salary_target, past_base_salary, past_package, past_days_off, your_name, cover_letter, job_list_view, hide_financials FROM profile WHERE id = 1").get() as any;
   return { ...row, hide_financials: !!row.hide_financials };
 };
 
@@ -126,7 +154,7 @@ app.get("/api/profile", (_req, res) => {
   res.json(getProfile());
 });
 
-const profileSchema = z.object({ salary_target: salary, your_name: text, cover_letter: z.string(), job_list_view: z.enum(["compact", "expanded"]), hide_financials: z.boolean().transform(Number) }).partial();
+const profileSchema = z.object({ salary_target: salary, past_base_salary: money, past_package: money, past_days_off: count, your_name: text, cover_letter: z.string(), job_list_view: z.enum(["compact", "expanded"]), hide_financials: z.boolean().transform(Number) }).partial();
 app.patch("/api/profile", (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid profile" });

@@ -27,6 +27,31 @@ db.exec(`
     fit TEXT NOT NULL DEFAULT '',
     salary_min INTEGER,
     salary_max INTEGER,
+    -- The rest of the package (see COMP_COLUMNS below). Money is whole dollars per year, percentages are 0-100,
+    -- and benefit_* are NULL (unknown), 0 (no) or 1 (yes).
+    comp_source TEXT NOT NULL DEFAULT '',
+    bonus_pct REAL,
+    bonus_amount INTEGER,
+    equity_type TEXT NOT NULL DEFAULT '',
+    equity_annual INTEGER,
+    equity_vest_years REAL,
+    signing_bonus INTEGER,
+    relocation INTEGER,
+    match_rate_pct REAL,
+    match_cap_pct REAL,
+    hsa_employer INTEGER,
+    stipends_annual INTEGER,
+    benefit_medical INTEGER,
+    benefit_dental INTEGER,
+    benefit_vision INTEGER,
+    benefit_life INTEGER,
+    benefit_disability INTEGER,
+    medical_premium_pct INTEGER,
+    pto_days INTEGER,
+    pto_unlimited INTEGER NOT NULL DEFAULT 0,
+    sick_days INTEGER,
+    holidays INTEGER,
+    parental_leave_weeks INTEGER,
     resume_version TEXT NOT NULL DEFAULT '',
     work_mode TEXT NOT NULL DEFAULT '',
     applied_date TEXT,
@@ -85,6 +110,10 @@ db.exec(`
     cover_letter TEXT NOT NULL DEFAULT '',
     job_list_view TEXT NOT NULL DEFAULT 'compact',
     hide_financials INTEGER NOT NULL DEFAULT 0,
+    -- The last job's compensation, to compare new roles against. Dollars per year and paid days off per year.
+    past_base_salary INTEGER,
+    past_package INTEGER,
+    past_days_off INTEGER,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   INSERT OR IGNORE INTO profile (id) VALUES (1);
@@ -154,6 +183,24 @@ if (!jobColumns.has("salary_min")) {
     }
   })();
   console.log(`Salary migrated to numeric range. Unparsed: ${unparsed.length ? unparsed.join(", ") : "none"}`);
+}
+
+// The structured compensation package beyond base salary, added together. The definitions mirror the CREATE TABLE above.
+const COMP_COLUMNS: [string, string][] = [
+  ["comp_source", "TEXT NOT NULL DEFAULT ''"], ["bonus_pct", "REAL"], ["bonus_amount", "INTEGER"],
+  ["equity_type", "TEXT NOT NULL DEFAULT ''"], ["equity_annual", "INTEGER"], ["equity_vest_years", "REAL"],
+  ["signing_bonus", "INTEGER"], ["relocation", "INTEGER"], ["match_rate_pct", "REAL"], ["match_cap_pct", "REAL"],
+  ["hsa_employer", "INTEGER"], ["stipends_annual", "INTEGER"], ["benefit_medical", "INTEGER"], ["benefit_dental", "INTEGER"],
+  ["benefit_vision", "INTEGER"], ["benefit_life", "INTEGER"], ["benefit_disability", "INTEGER"],
+  ["medical_premium_pct", "INTEGER"], ["pto_days", "INTEGER"], ["pto_unlimited", "INTEGER NOT NULL DEFAULT 0"],
+  ["sick_days", "INTEGER"], ["holidays", "INTEGER"], ["parental_leave_weeks", "INTEGER"],
+];
+const missingComp = COMP_COLUMNS.filter(([name]) => !jobColumns.has(name));
+if (missingComp.length) {
+  db.exec(`VACUUM INTO '${path.join(backupsDir, `jobs-pre-compensation-${Date.now()}.db`)}'`);
+  db.transaction(() => {
+    for (const [name, def] of missingComp) db.exec(`ALTER TABLE jobs ADD COLUMN ${name} ${def}`);
+  })();
 }
 
 // A hand-written title used only for title analysis; the real title stays as posted. Empty when unused.
@@ -264,6 +311,10 @@ if (!profileColumns.has("job_list_view")) {
 // Masks salary figures everywhere so the app can be shown without revealing them.
 if (!profileColumns.has("hide_financials")) {
   db.exec("ALTER TABLE profile ADD COLUMN hide_financials INTEGER NOT NULL DEFAULT 0");
+}
+// The last job's compensation, for comparing new roles against.
+for (const col of ["past_base_salary", "past_package", "past_days_off"]) {
+  if (!profileColumns.has(col)) db.exec(`ALTER TABLE profile ADD COLUMN ${col} INTEGER`);
 }
 const resumeColumns = new Set((db.pragma("table_info(resumes)") as { name: string }[]).map((c) => c.name));
 if (!resumeColumns.has("active")) {

@@ -35,6 +35,7 @@ import { daysSince, formatDate, isOnHold } from "@/lib/format";
 import { isActive, isApplication, isScheduledDue, needsFollowUp, reachedInterview } from "@/lib/jobs";
 import { FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
+import { annualPackage, hasExtras } from "@/lib/compensation";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { cn } from "@/lib/utils";
 import { toastError, toastSaved } from "@/lib/demo";
@@ -81,7 +82,10 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void, ctx: Fa
     header: "Job Title",
     cell: ({ row }) => {
       const { title, fit, salary_min, salary_max } = row.original;
-      const detail = expanded ? [fit, formatSalary(salary_min, salary_max)].filter(Boolean).join(" · ") : "";
+      // The estimated package follows the base range when bonus, equity or other recurring pay adds to it.
+      const pkg = hasExtras(row.original) ? annualPackage(row.original) : null;
+      const pay = [formatSalary(salary_min, salary_max), pkg && `${formatSalary(pkg.min, pkg.max)} package`].filter(Boolean).join(", ");
+      const detail = expanded ? [fit, pay].filter(Boolean).join(" · ") : "";
       return (
         <div className="max-w-[11rem] sm:max-w-[22rem]">
           <div className="flex items-center gap-1.5">

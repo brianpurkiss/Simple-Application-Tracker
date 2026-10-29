@@ -73,8 +73,9 @@ push to main ──.github/workflows/pages.yml──▶ build:demo ──▶ Git
 | Job/company types, synonyms, starred groups | Remapped through the same word and type pools. Starter synonym sets that exist verbatim in `server/db.ts` are kept, because they're generic. |
 | Resume versions | Each family name gets a candy name. Version numbers are kept, so family grouping still works. |
 | Resume PDFs | Regenerated: one placeholder page per resume, with the fake name. |
-| Profile | Fake name and cover letter. `salary_target` is a fixed demo value (500k). `hide_financials` is off. |
+| Profile | Fake name and cover letter. `salary_target` and the past-job figures (`past_base_salary`, `past_package`, `past_days_off`) are fixed demo values. `hide_financials` is off. |
 | Salaries | Each job is scaled by a multiplier given on the command line (a range picks one per job, keyed on real details that never reach the seed). Each end of the range then gets its own random nudge of −0.2 to +0.2 to the multiplier, drawn fresh every run, and is rounded to $5k. |
+| Compensation beyond base (bonus, equity, 401k match, benefits, time off) | Dollar figures get the job's salary multiplier and a fresh nudge, rounded to $1k. Percentages and day counts get a small random nudge every run. Yes/no answers, equity type, source and unlimited PTO are kept. |
 | Dates | Shifted by whole weeks so the run day lands on `DEMO_NOW` (weekdays preserved). Each job's dates then move together by −1, 0 or +1 day, keyed on private details, and never past the demo day. |
 | Timestamps (`created_at` etc.) | Time of day is set to a fixed `12:00:00`, so entry times don't leak. |
 | Event times | Re-drawn randomly within working hours (9:00–16:30, on the quarter hour) every run. Real screens and interviews dated on or after the demo day are replaced by a fixed, curated schedule, which makes the Home callout ("Interview in 15 min") show. |

@@ -5,7 +5,8 @@ import { ArrowLeft, BellRing, CalendarClock, ExternalLink, Mail, Maximize2, Phon
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ComboField, CompanyTypeField, InlineFields, JobTypesField, SalaryRangeField, SelectField, TextAreaField, TextField } from "@/components/fields";
+import { ComboField, CompanyTypeField, InlineFields, JobTypesField, SelectField, TextAreaField, TextField } from "@/components/fields";
+import { COMP_KEYS, CompensationCard, compToPatch, isCompKey } from "@/components/CompensationCard";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { AllNotesDialog } from "@/components/AllNotesDialog";
@@ -31,7 +32,7 @@ const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}<
 const EDITABLE = [
   "title", "normalized_title", "company", "company_type", "fit", "salary_min", "salary_max", "job_types", "resume_version", "work_mode", "applied_date",
   "follow_up_on", "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "contact_linkedin", "offer_info", "notes",
-  "job_description", "cover_letter",
+  "job_description", "cover_letter", ...COMP_KEYS,
 ] as const satisfies readonly (keyof JobInput)[];
 
 type Draft = Record<(typeof EDITABLE)[number], string>;
@@ -73,6 +74,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
       k === "applied_date" || k === "follow_up_on" ? v || null
         : k === "salary_min" || k === "salary_max" ? toSalary(v)
         : k === "job_types" ? JSON.parse(v)
+        : isCompKey(k) ? compToPatch(k, v)
         : v,
     onSaved: () => setEpoch((n) => n + 1),
     // Step back when we came from the list so its filters (kept in the URL) survive.
@@ -252,13 +254,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle>Compensation</CardTitle></CardHeader>
-            <CardContent className="grid gap-4">
-              <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />
-              <TextAreaField label="Offer Info (base, bonus, equity, benefits, deadline…)" value={draft.offer_info} onChange={set("offer_info")} rows={3} />
-            </CardContent>
-          </Card>
+          <CompensationCard draft={draft} set={set} badRange={badRange} />
         </div>
 
         <div className="space-y-5 lg:col-span-2">

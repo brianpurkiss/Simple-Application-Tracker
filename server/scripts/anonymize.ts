@@ -370,11 +370,38 @@ const agency = assigner(AGENCIES, "agencies", (n) => `Candy Recruiters No. ${n}`
 // seed), then each end of the range gets its own random nudge, fresh on every run, so no range keeps its real shape.
 // Rounded to $5k.
 const SALARY_NUDGES = [-0.2, -0.1, 0, 0.1, 0.2];
+const jobMultiplier = (key: string) => multMin + ((hash(key) % 10_000) / 9_999) * (multMax - multMin);
 function salaryRange(min: number | null, max: number | null, key: string) {
-  const m = multMin + ((hash(key) % 10_000) / 9_999) * (multMax - multMin);
+  const m = jobMultiplier(key);
   const scale = (n: number | null) => (n === null ? null : Math.round((n * (m + SALARY_NUDGES[randomInt(SALARY_NUDGES.length)])) / 5000) * 5000);
   const [lo, hi] = [scale(min), scale(max)];
   return lo !== null && hi !== null && lo > hi ? [hi, lo] : [lo, hi];
+}
+
+// The rest of the package. Dollar figures get the job's salary multiplier and their own random nudge, rounded to $1k.
+// Percentages and day counts get a small random nudge, fresh every run, so an unusual mix can't point to a real
+// employer. Yes/no answers, equity type and source are shape, not content, and are kept. Columns missing from an
+// older real database come out as blanks.
+const MONEY_KEYS = ["bonus_amount", "equity_annual", "signing_bonus", "relocation", "hsa_employer", "stipends_annual"] as const;
+const NUDGED_KEYS = [
+  ["bonus_pct", 2], ["match_rate_pct", 10], ["match_cap_pct", 1], ["medical_premium_pct", 5], ["equity_vest_years", 1],
+  ["pto_days", 2], ["sick_days", 1], ["holidays", 1], ["parental_leave_weeks", 2],
+] as const;
+const BENEFIT_KEYS = ["benefit_medical", "benefit_dental", "benefit_vision", "benefit_life", "benefit_disability"] as const;
+function compensation(j: Record<string, unknown>, salaryKey: string): Row {
+  const m = jobMultiplier(salaryKey);
+  const value = (k: string) => (typeof j[k] === "number" ? (j[k] as number) : null);
+  const money = (n: number | null) => (n === null ? null : Math.round((n * (m + SALARY_NUDGES[randomInt(SALARY_NUDGES.length)])) / 1000) * 1000);
+  const nudge = (n: number | null, by: number, k: string) =>
+    n === null ? null : Math.min(k === "medical_premium_pct" || k === "match_cap_pct" ? 100 : Infinity, Math.max(0, n + randomInt(-by, by + 1)));
+  return {
+    comp_source: j.comp_source === "posted" || j.comp_source === "offer" ? j.comp_source : "",
+    equity_type: ["none", "rsu", "options", "profit_share", "other"].includes(String(j.equity_type)) ? j.equity_type : "",
+    pto_unlimited: j.pto_unlimited ? 1 : 0,
+    ...Object.fromEntries(MONEY_KEYS.map((k) => [k, money(value(k))])),
+    ...Object.fromEntries(NUDGED_KEYS.map(([k, by]) => [k, nudge(value(k), by, k)])),
+    ...Object.fromEntries(BENEFIT_KEYS.map((k) => [k, value(k) === null ? null : value(k) ? 1 : 0])),
+  };
 }
 
 function jdFor(title: string, companyName: string, key: string) {
@@ -392,7 +419,8 @@ function jdFor(title: string, companyName: string, key: string) {
 
 const jobs: Row[] = realJobs.map((j) => {
   const key = `job-${j.id}`;
-  const salaries = salaryRange(j.salary_min, j.salary_max, `salary|${j.company}|${j.title}|${j.applied_date}|${j.created_at}`);
+  const salaryKey = `salary|${j.company}|${j.title}|${j.applied_date}|${j.created_at}`;
+  const salaries = salaryRange(j.salary_min, j.salary_max, salaryKey);
   const title = candyTitle(j, titles.get(j.id));
   const companyName = j.company.trim() ? company(j.company) : "";
   const types = resolveJobTypes(j, ctx);
@@ -410,6 +438,7 @@ const jobs: Row[] = realJobs.map((j) => {
     job_types: keepTypes ? types.values.map((v) => typeName(v)) : [],
     salary_min: salaries[0],
     salary_max: salaries[1],
+    ...compensation(r, salaryKey),
     resume_version: j.resume_version ? resumeVersion(j.resume_version) : "",
     jd_link: "",
     agency_name: j.agency_name.trim() ? agency(j.agency_name) : "",
@@ -527,6 +556,10 @@ const profile = [{
   ...realProfile,
   ...PROFILE,
   salary_target: 500_000,
+  // Fixed demo figures for the past job, never the real ones.
+  past_base_salary: 400_000,
+  past_package: 450_000,
+  past_days_off: 25,
   hide_financials: 0,
   updated_at: `${demoDay} ${FIXED_TIME}`,
 }];

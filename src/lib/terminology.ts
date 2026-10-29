@@ -104,7 +104,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
       { term: "Open-ended range", definition: "A role with only a minimum or only a maximum. Counted at its single known value and reported as \"without range\"." },
       { term: "Midpoint", definition: "The middle of a role's range: (min + max) / 2, using whichever side exists if only one is set. Basis for \"mean\" salary figures on the Performance page." },
       { term: "Top of Range", definition: "A role's maximum, or its minimum if there is no maximum. Basis for Highest, Lowest, Average and Median Salary in Extras." },
-      { term: "Salary Target", definition: "Your target yearly salary (profile.salary_target), set on the User page and drawn as a reference line on salary charts.", avoid: ["Salary target (sentence case)"] },
+      { term: "Base Salary Target", definition: "Your target yearly base salary (profile.salary_target), set on the User page, drawn as a reference line on salary charts and compared with each job's base range.", avoid: ["Salary Target", "Base salary target (sentence case)"] },
       {
         term: "Salary Distribution",
         definition: "Activity chart of how many roles' ranges cover each pay level.",

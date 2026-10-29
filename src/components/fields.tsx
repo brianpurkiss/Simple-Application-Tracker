@@ -1,6 +1,7 @@
 import { createContext, useContext, useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -80,7 +81,7 @@ export function TextAreaField({ label, value, onChange, className, rows = 4 }: B
   );
 }
 
-export function SelectField({ label, value, onChange, options, className }: Base & { options: readonly string[] }) {
+export function SelectField({ label, value, onChange, options, labels, className }: Base & { options: readonly string[]; labels?: Record<string, string> }) {
   const id = useId();
   // Keep unknown values (e.g. imported ones) selectable.
   const all = value && !options.includes(value) ? [value, ...options] : options;
@@ -90,10 +91,52 @@ export function SelectField({ label, value, onChange, options, className }: Base
       <Select value={value} onValueChange={(v) => { touch(); onChange(v); }}>
         <SelectTrigger id={id} className={cn("w-full", plain)}><SelectValue placeholder="—" /></SelectTrigger>
         <SelectContent>
-          {all.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+          {all.map((o) => <SelectItem key={o} value={o}>{labels?.[o] ?? o}</SelectItem>)}
         </SelectContent>
       </Select>
     </Field>
+  );
+}
+
+// A single number, held as a string ("" is no value). `money` shows whole dollars with commas and is masked by
+// "hide financials"; `decimals` allows a fractional part (percentages, years); `unit` is shown after the box.
+export function NumberField({ label, value, onChange, money, decimals, unit, placeholder, className }: Base & {
+  money?: boolean; decimals?: boolean; unit?: string; placeholder?: string;
+}) {
+  const id = useId();
+  const { plain, touch } = useInline();
+  const clean = (v: string) =>
+    decimals ? v.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 7) : v.replace(/\D/g, "").slice(0, money ? 9 : 3);
+  const shown = money && value ? Number(value).toLocaleString("en-US") : value;
+  return (
+    <Field label={label} id={id} className={className}>
+      <div className="flex items-center gap-2">
+        {money && <span className="text-muted-foreground">$</span>}
+        <Input
+          id={id}
+          type="text"
+          inputMode={decimals ? "decimal" : "numeric"}
+          data-financial={money ? "" : undefined}
+          value={shown}
+          placeholder={placeholder}
+          className={cn(plain, money && "ml-0 w-full")}
+          onChange={(e) => { touch(); onChange(clean(e.target.value)); }}
+        />
+        {unit && <span className="shrink-0 text-sm text-muted-foreground">{unit}</span>}
+      </div>
+    </Field>
+  );
+}
+
+const TRI_STATE = [{ key: "1", label: "Yes" }, { key: "0", label: "No" }, { key: "", label: "?", title: "Unknown" }] as const;
+
+// Yes / No / Unknown, held as "1", "0" or "".
+export function TriStateField({ label, value, onChange, className }: Base) {
+  return (
+    <div className={cn("flex items-center justify-between gap-3", className)}>
+      <span className="text-sm">{label}</span>
+      <Segmented options={TRI_STATE} value={value as "1" | "0" | ""} onChange={onChange} />
+    </div>
   );
 }
 

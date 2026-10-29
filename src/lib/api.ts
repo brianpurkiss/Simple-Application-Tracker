@@ -26,6 +26,38 @@ export type Job = {
   contact_email: string;
   contact_phone: string;
   contact_linkedin: string;
+  /** Whether the compensation below is from the posting or an offer; "" when not said. */
+  comp_source: "" | "posted" | "offer";
+  /** Target bonus as a % of base. Use bonus_amount instead when it's stated in dollars. */
+  bonus_pct: number | null;
+  bonus_amount: number | null;
+  equity_type: "" | "none" | "rsu" | "options" | "profit_share" | "other";
+  /** Estimated equity value per year, in dollars. */
+  equity_annual: number | null;
+  equity_vest_years: number | null;
+  /** One-time cash; shown, but never counted in the annual package. */
+  signing_bonus: number | null;
+  relocation: number | null;
+  /** 401k match: the employer matches match_rate_pct% of contributions, up to match_cap_pct% of salary. */
+  match_rate_pct: number | null;
+  match_cap_pct: number | null;
+  hsa_employer: number | null;
+  stipends_annual: number | null;
+  /** Benefits: null is unknown, 0 no, 1 yes. */
+  benefit_medical: TriState;
+  benefit_dental: TriState;
+  benefit_vision: TriState;
+  benefit_life: TriState;
+  benefit_disability: TriState;
+  /** % of the employee's medical premium the employer pays. */
+  medical_premium_pct: number | null;
+  pto_days: number | null;
+  pto_unlimited: boolean;
+  /** Null when sick time is part of PTO or not stated. */
+  sick_days: number | null;
+  holidays: number | null;
+  parental_leave_weeks: number | null;
+  /** Free-form compensation notes. */
   offer_info: string;
   notes: string;
   job_description?: string; // only included when fetching a single job
@@ -48,6 +80,8 @@ export type Job = {
   saved: boolean;
   deleted_at: string | null;
 };
+
+export type TriState = 0 | 1 | null;
 
 export type JobEvent = {
   id: number;
@@ -197,7 +231,17 @@ export const useDeleteEvent = () =>
   useInvalidatingMutation((id: number) => request<void>("DELETE", `/api/events/${id}`));
 
 type JobListView = "compact" | "expanded";
-export type Profile = { salary_target: number | null; your_name: string; cover_letter: string; job_list_view: JobListView; hide_financials: boolean };
+export type Profile = {
+  salary_target: number | null;
+  /** The last job's base salary, annual package and paid days off, for comparison. */
+  past_base_salary: number | null;
+  past_package: number | null;
+  past_days_off: number | null;
+  your_name: string;
+  cover_letter: string;
+  job_list_view: JobListView;
+  hide_financials: boolean;
+};
 
 export const useProfile = () =>
   useQuery({ queryKey: ["profile"], queryFn: () => request<Profile>("GET", "/api/profile") });

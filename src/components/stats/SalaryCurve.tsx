@@ -85,7 +85,7 @@ export default function SalaryCurve({ series, target }: { series: SalarySeries[]
                     <div className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-500 bg-card" style={{ left: at(r.interviewed.mean) }} title={`Interviewed mean ${k(Math.round(r.interviewed.mean / 1000) * 1000)}`} />
                   )}
                   {target != null && (
-                    <div className="absolute top-1/2 z-10 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500 ring-2 ring-card" style={{ left: at(target) }} title={`Salary Target ${k(target)}`} />
+                    <div className="absolute top-1/2 z-10 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500 ring-2 ring-card" style={{ left: at(target) }} title={`Base Salary Target ${k(target)}`} />
                   )}
                   <div className="absolute top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 bg-foreground" style={{ left: at(r.mean!) }} title={`Mean ${k(Math.round(r.mean! / 1000) * 1000)}`} />
                 </div>
@@ -105,7 +105,7 @@ export default function SalaryCurve({ series, target }: { series: SalarySeries[]
             <span className="ml-3 mr-1 inline-block h-2.5 w-5 translate-y-0.5 rounded-full bg-emerald-500" /> Interviewed
             <span className="ml-3 mr-1 inline-block h-3 w-0.5 translate-y-0.5 bg-foreground" /> Mean (all roles)
             <span className="ml-3 mr-1 inline-block size-2.5 translate-y-0.5 rounded-full border-2 border-emerald-500" /> Mean of interviewed roles
-            {target != null && <><span className="ml-3 mr-1 inline-block size-2.5 translate-y-0.5 rounded-full bg-amber-500" /> Salary Target</>}
+            {target != null && <><span className="ml-3 mr-1 inline-block size-2.5 translate-y-0.5 rounded-full bg-amber-500" /> Base Salary Target</>}
           </p>
         </>
       ) : (
