@@ -165,7 +165,6 @@ export const TERM_CATEGORIES: TermCategory[] = [
       { term: "Application Streak", definition: "Consecutive days with at least one application. Stays alive if today is empty but yesterday had one. Best streak is also tracked." },
       { term: "Pace target", definition: "Rounded mean applications per week across all full weeks, minimum 1. Weeks on pace counts consecutive weeks at or above it." },
       { term: "Applications This Week", definition: "Compared against the trailing 8-week average." },
-      { term: "Follow-ups This Week", definition: "Home tile counting Follow-Up events logged since Monday, with last week's count for comparison." },
       { term: "Active Pipeline", definition: "Count of active jobs, with how many are interviewing." },
       { term: "Best Week", definition: "The most applications in a single week." },
       { term: "Extras", definition: "Fastest/Slowest Reply, Quickest/Slowest Rejection, Most Interviews at One Company, Busiest Day/Week, Applications per Active Day, Lucky Resume, Days Searching, Events Logged, Ghosted, Mondays vs. Fridays, and four salary cards (Highest, Lowest, Average, Median)." },
@@ -248,7 +247,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
       {
         term: "Follow Up",
         definition: "Interviewing-stage jobs that have gone quiet. Appears as the Follow Up nav link, the Jobs list filter, the amber row highlight and the Home card.",
-        calculation: "Quiet for 7+ days (STALE_DAYS, from last activity or applied date) AND (auto-ghosted with a screen or interview, OR status Interviewed). Offer is excluded. Skipped while the job's Follow Up On date is in the future.",
+        calculation: "Quiet for 7+ days (STALE_DAYS, from last activity or applied date) AND (auto-ghosted with a screen or interview, OR status Interviewed). Offer is excluded. Skipped while the job's Follow Up On date is in the future; once that date arrives, any active job with it set appears here.",
         avoid: ["Needs follow-up", "Follow up (lowercase)"],
       },
       { term: "Interviewing (Home card)", definition: "Home card listing active jobs with status Interviewed or Offer, freshest activity first." },

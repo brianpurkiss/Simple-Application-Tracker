@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ChevronRight, Star } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ChartNoAxesCombined, ChevronRight, Star } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { FactTypes, LabelPicker } from "@/components/FactTypes";
@@ -8,10 +8,12 @@ import { TitleSynonyms } from "@/components/TitleSynonyms";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { type Job, type StarKind, type StarredGroup, useJobs, useStarredGroups, useToggleStar } from "@/lib/api";
+import { type Job, type StarKind, type StarredGroup, useJobs, useResumes, useStarredGroups, useToggleStar } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { type FactContext, type FactKind, type FactSource, resolveCompanyType, resolveJobTypes } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
+import { useParamUpdater } from "@/hooks/useParamUpdater";
+import { splitResumes } from "@/lib/options";
 import { rowLink } from "@/lib/rowLink";
 import { fmtPct, interviewed, MIN_SAMPLE, pct } from "@/lib/stats";
 import { titleGroups, type TitleGroup, type TitleVariant } from "@/lib/titles/groups";
@@ -34,12 +36,12 @@ const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
 type Tab = "title" | "seniority" | "jobType" | "companyType" | "resume";
 type GroupBy = "title" | "seniority" | "type" | "company" | "resume";
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "title", label: "Job Titles" },
-  { key: "seniority", label: "Seniority" },
-  { key: "jobType", label: "Job Type" },
-  { key: "companyType", label: "Company Type" },
-  { key: "resume", label: "Resumes" },
+const TABS: { key: Tab; label: string; dim: string }[] = [
+  { key: "title", label: "Job Titles", dim: "title" },
+  { key: "seniority", label: "Seniority", dim: "seniority" },
+  { key: "jobType", label: "Job Type", dim: "type" },
+  { key: "companyType", label: "Company Type", dim: "company" },
+  { key: "resume", label: "Resumes", dim: "resume" },
 ];
 
 const LABEL_HEADERS: Record<GroupBy, string> = { title: "Job Title", seniority: "Seniority", type: "Job Type", company: "Company Type", resume: "Resume" };
@@ -92,11 +94,16 @@ export default function Segments() {
   const [sort, setSort] = useState<SortKey>("jobs");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [showTail, setShowTail] = useState(false);
-  const [tab, setTab] = useState<Tab>("title");
+  const [params] = useSearchParams();
+  const updateParams = useParamUpdater();
+  const tabParam = params.get("tab");
+  const tab: Tab = TABS.find((t) => t.key === tabParam)?.key ?? "title";
+  const setTab = (next: Tab) => updateParams((p) => (next === "title" ? p.delete("tab") : p.set("tab", next)));
   const groupBy: GroupBy = tab === "jobType" ? "type" : tab === "companyType" ? "company" : tab === "resume" ? "resume" : tab;
   const factKind: FactKind | null = tab === "jobType" ? "job" : tab === "companyType" ? "company" : null;
   // Company Type and Resumes aren't starred groups, so their rows have no star.
   const starKind: StarKind | null = groupBy === "company" || groupBy === "resume" ? null : groupBy;
+  const { data: resumes = [] } = useResumes();
   const { data: stars = [] } = useStarredGroups();
   const starred = useMemo(() => starSet(stars), [stars]);
   const toggleStar = useToggleStar();
@@ -143,6 +150,9 @@ export default function Segments() {
   }, [rows, groupBy, starred]);
   const visible = showTail ? sorted : sorted.filter((r) => !tailKeys.has(r.key));
 
+  // Rows are named by resume version; anything not matching an active resume (inactive, superseded, or none) is inactive.
+  const activeResumes = new Set(splitResumes(resumes).active.map((r) => r.version));
+
   const toggle = (key: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -156,8 +166,11 @@ export default function Segments() {
   // On the review tabs, each job shows where its value came from, and can be labeled right there.
   const sourceOf = tab === "jobType" ? (j: Job) => resolveJobTypes(j, factCtx) : tab === "companyType" ? (j: Job) => resolveCompanyType(j, factCtx) : undefined;
 
-  const table = (list: Row[]) => (
+  const table = (list: Row[], opts: { title?: string; empty?: string; muted?: boolean } = {}) => (
     <TitleTable
+      title={opts.title}
+      empty={opts.empty}
+      muted={opts.muted}
       rows={list}
       labelHeader={LABEL_HEADERS[groupBy]}
       sort={sort}
@@ -178,13 +191,25 @@ export default function Segments() {
       <div className="space-y-3">
         <h1 className="text-xl font-semibold">Segments</h1>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b pb-3">
-          <Segmented options={TABS} value={tab} onChange={setTab} />
+          <div className="flex items-center gap-2">
+            <Segmented options={TABS} value={tab} onChange={setTab} />
+            <Link to={`/performance?dims=${TABS.find((t) => t.key === tab)!.dim}`} title="View performance" aria-label="View performance" className="rounded p-1.5 text-muted-foreground hover:text-foreground">
+              <ChartNoAxesCombined className="size-4" />
+            </Link>
+          </div>
           {tab === "title" && <span className="ml-auto"><TitleSynonyms /></span>}
           {factKind && <FactTypes kind={factKind} jobs={jobs} factCtx={factCtx} />}
         </div>
       </div>
 
-      {table(visible)}
+      {tab === "resume" ? (
+        <>
+          {table(visible.filter((r) => activeResumes.has(r.label)), { title: "Active", empty: "No active resumes." })}
+          {table(visible.filter((r) => !activeResumes.has(r.label)), { title: "Inactive", empty: "No inactive resumes.", muted: true })}
+        </>
+      ) : (
+        table(visible)
+      )}
 
       {tailKeys.size > 0 && (
         <div className="flex justify-center">
@@ -198,7 +223,11 @@ export default function Segments() {
   );
 }
 
-function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, onStar, sourceOf, factKind, factCtx }: {
+function TitleTable({ title, empty = "No jobs yet.", muted, rows, labelHeader, sort, onSort, open, onToggle, isStar, onStar, sourceOf, factKind, factCtx }: {
+  /** Heading shown above the table, for tabs that split into sections. */
+  title?: string;
+  empty?: string;
+  muted?: boolean;
   rows: Row[];
   labelHeader: string;
   sort: SortKey;
@@ -214,7 +243,7 @@ function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, o
   factCtx: FactContext;
 }) {
   const navigate = useNavigate();
-  return (
+  const card = (
     <div className="overflow-hidden rounded-lg border bg-card">
       <Table>
         <TableHeader className="bg-muted/50">
@@ -238,7 +267,7 @@ function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, o
             const starred = isStar(r);
             return (
               <Fragment key={r.key}>
-                <TableRow className={cn(!r.missing && "cursor-pointer")} onClick={() => !r.missing && onToggle(r.key)} aria-expanded={r.missing ? undefined : expanded}>
+                <TableRow className={cn(!r.missing && "cursor-pointer", muted && "text-muted-foreground")} onClick={() => !r.missing && onToggle(r.key)} aria-expanded={r.missing ? undefined : expanded}>
                   <TableCell className={cn("font-medium", r.missing && "text-orange-500")} title={r.missing ? "No jobs in this group right now" : undefined}>
                     <span className="flex items-center gap-1.5">
                       <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-90", r.missing && "invisible")} />
@@ -313,11 +342,17 @@ function TitleTable({ rows, labelHeader, sort, onSort, open, onToggle, isStar, o
           })}
           {!rows.length && (
             <TableRow>
-              <TableCell colSpan={COLUMNS.length} className="py-10 text-center text-muted-foreground">No jobs yet.</TableCell>
+              <TableCell colSpan={COLUMNS.length} className="py-10 text-center text-muted-foreground">{empty}</TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
     </div>
   );
+  return title ? (
+    <section className="space-y-2">
+      <h2 className="text-sm font-medium">{title}</h2>
+      {card}
+    </section>
+  ) : card;
 }

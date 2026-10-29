@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Area, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Legend } from "@/components/stats/Legend";
@@ -35,8 +35,8 @@ import { perfDimValues } from "@/lib/titles/perfDims";
 
 // Each filter lives in the URL as a repeated param so views can be shared and survive reloads.
 const FILTERS = [
-  { param: COMPANY_TYPE_PARAM, label: "Company Type", field: "company_type" },
-  { param: RESUME_PARAM, label: "Resume Version", field: "resume_version" },
+  { param: COMPANY_TYPE_PARAM, label: "Company Type", field: "company_type", tab: "companyType" },
+  { param: RESUME_PARAM, label: "Resume Version", field: "resume_version", tab: "resume" },
 ] as const;
 
 // A job matches when it is in any picked starred group (see STAR_FILTERS in jobFilters).
@@ -263,7 +263,7 @@ export default function Activity() {
         <div className="space-y-4">
           {STAR_FILTERS.map((f, i) => starOptions[i].length > 0 && (
             <div key={f.param} className="space-y-1">
-              <Label>{f.label}</Label>
+              <Label><Link to={`/segments?tab=${f.tab}`} className="hover:underline">{f.label}</Link></Label>
               <div className="flex flex-wrap gap-1.5 pt-1 text-sm">
                 {starOptions[i].map((o) => (
                   <PillToggle key={o.key} pressed={starSelected[i].includes(o.key)} onClick={() => toggleValue(f.param, o.key)}>
@@ -275,7 +275,7 @@ export default function Activity() {
           ))}
           {FILTERS.map((f, i) => (
             <div key={f.param} className="space-y-1">
-              <Label>{f.label}</Label>
+              <Label><Link to={`/segments?tab=${f.tab}`} className="hover:underline">{f.label}</Link></Label>
               {f.field === "resume_version" && (
                 <div>
                   <Segmented options={VERSION_MODES} value={grouped ? "grouped" : "separate"} onChange={setVersions} />

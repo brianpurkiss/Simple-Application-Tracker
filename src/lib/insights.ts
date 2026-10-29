@@ -28,12 +28,14 @@ export const rollingAverage = (values: number[], size: number) =>
 
 export type Momentum = {
   streak: { current: number; best: number };
+  recentDays: { date: string; n: number }[]; // the last 14 days, oldest first, ending today
   weeksOnPace: number; // weeks in a row at or above the usual weekly application count
   paceTarget: number;
   thisWeek: { applications: number; interviews: number };
   average: { applications: number; interviews: number } | null; // trailing full weeks
   pipeline: { active: number; interviewing: number };
   best: { applications: number; interviews: number };
+  previousBest: number; // most applications in any week before this one
 };
 
 export function momentum(jobs: Job[], events: ActivityEvent[], todayIso: string): Momentum {
@@ -81,6 +83,10 @@ export function momentum(jobs: Job[], events: ActivityEvent[], todayIso: string)
 
   return {
     streak: { current, best },
+    recentDays: Array.from({ length: 14 }, (_, i) => {
+      const date = addDays(todayIso, i - 13);
+      return { date, n: appsByDay.get(date) ?? 0 };
+    }),
     weeksOnPace,
     paceTarget,
     thisWeek,
@@ -89,6 +95,7 @@ export function momentum(jobs: Job[], events: ActivityEvent[], todayIso: string)
       active: jobs.filter(isActive).length,
       interviewing: jobs.filter((j) => INTERVIEWING_STATUSES.has(j.status)).length,
     },
+    previousBest: Math.max(0, ...[...appsByWeek].filter(([w]) => w !== thisMonday).map(([, n]) => n)),
     best: {
       applications: Math.max(0, ...appsByWeek.values()),
       interviews: Math.max(0, ...interviewsByWeek.values()),

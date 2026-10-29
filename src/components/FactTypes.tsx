@@ -75,7 +75,7 @@ export function FactTypes({ kind, jobs, factCtx }: { kind: FactKind; jobs: Job[]
   };
 
   return (
-    <div className="flex flex-1 flex-wrap items-center justify-between gap-3 text-sm">
+    <div className="flex flex-1 flex-wrap items-center justify-end gap-3 text-sm">
       <span className="text-muted-foreground">
         {handSet} hand-set · {automatic} automatic · <span className={unknown ? "text-amber-600 dark:text-amber-500" : undefined}>{unknown} unknown</span>
       </span>
