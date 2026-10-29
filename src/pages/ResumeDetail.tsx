@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChartNoAxesCombined, ExternalLink, FileUp, Briefcase, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -51,8 +52,8 @@ function ResumeEditor({ resume }: { resume: Resume }) {
     if (fileInput.current) fileInput.current.value = "";
   };
 
-  const remove = () => {
-    if (!confirm(`Delete resume "${saved.version}"? Jobs that used it keep their version label.`)) return;
+  const remove = async () => {
+    if (!(await confirmDialog({ message: `Delete resume "${saved.version}"? Jobs that used it keep their version label.`, confirmLabel: "Delete", destructive: true }))) return;
     deleteResume.mutate(resume.id, {
       onSuccess: () => {
         navigate("/resumes");
@@ -89,7 +90,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
         </Button>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         <div className="space-y-5 lg:col-span-2">
           <Card>
             <CardHeader><CardTitle>Details</CardTitle></CardHeader>
@@ -170,7 +171,7 @@ function ResumeEditor({ resume }: { resume: Resume }) {
 
       {changed.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 backdrop-blur">
-          <div className="mx-auto flex max-w-[1600px] items-center justify-end gap-3 px-6 py-3">
+          <div className="mx-auto flex max-w-[1600px] items-center justify-end gap-3 px-4 py-3 sm:px-6">
             <span className="text-sm text-muted-foreground">Unsaved changes</span>
             <Button variant="outline" onClick={() => setDraft(saved)}>Discard</Button>
             <Button onClick={save} disabled={update.isPending || !draft.version.trim()}>Save</Button>

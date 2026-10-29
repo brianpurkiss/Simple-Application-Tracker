@@ -136,28 +136,28 @@ export default function ResumePerformance() {
     <div className="flex flex-col gap-6 lg:flex-row">
     <div className="min-w-0 flex-1 space-y-6">
       <title>Performance | Application Tracker</title>
-      <div className="flex flex-wrap items-end gap-6">
-        <div>
+      <div className="flex items-start justify-between gap-4 sm:items-end">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold">Performance</h1>
           <p className={cn("text-sm text-muted-foreground", fade)}>
             {total} Applications Counted
             {excluded > 0 && `, ${excluded} Too Recent`} · {view.metric === "interview" ? "Avg Interview Rate" : "Avg Rejected, No Interview Rate"} {Math.round(baseline * 100)}% · {resumeCount} {resumeCount === 1 ? "Resume" : "Resumes"}
           </p>
         </div>
-        <div className="ml-auto">
+        <div className="shrink-0">
           <FilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((o) => !o)} active={filtersActive} />
         </div>
       </div>
 
       <Highlights combos={combos} metric={view.metric} baseline={baseline} fade={fade} />
 
-      <div className="grid items-start gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
       <section className="space-y-4 rounded-lg border bg-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
-            <h2 className="mr-1 font-medium">Group By</h2>
+            <h2 className="mr-1 font-medium max-sm:w-full">Group By</h2>
             {PERF_DIMS.map((d) => (
-              <PillToggle key={d.key} pressed={selected.includes(d.key)} onClick={() => toggleDim(d.key)}>
+              <PillToggle key={d.key} pressed={selected.includes(d.key)} onClick={() => toggleDim(d.key)} className="max-sm:px-2.5 max-sm:text-sm">
                 {d.label}
               </PillToggle>
             ))}
@@ -195,10 +195,10 @@ export default function ResumePerformance() {
             <h2 className="font-medium">{dimLabel(view.heatRow)} × {dimLabel(view.heatCol)}</h2>
             <p className="text-sm text-muted-foreground">Rate · Applications</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Segmented options={PERF_DIMS} value={heatRow} onChange={(d) => setHeat("heatRow", d)} />
+          <div className="flex items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1">
+            <Segmented options={PERF_DIMS} value={heatRow} onChange={(d) => setHeat("heatRow", d)} collapse />
             <span className="text-muted-foreground">×</span>
-            <Segmented options={PERF_DIMS} value={heatCol} onChange={(d) => setHeat("heatCol", d)} />
+            <Segmented options={PERF_DIMS} value={heatCol} onChange={(d) => setHeat("heatCol", d)} collapse />
           </div>
         </div>
         <div className={fade}>

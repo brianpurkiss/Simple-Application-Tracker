@@ -24,7 +24,7 @@ export function FilterPanel({ open, children }: { open: boolean; children: React
     <div
       aria-hidden={!open}
       className={cn(
-        "shrink-0 overflow-x-hidden transition-[width,margin,opacity,visibility] duration-300 ease-out lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto",
+        "shrink-0 overflow-x-hidden max-lg:order-first transition-[width,margin,opacity,visibility] duration-300 ease-out lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto",
         open ? "visible opacity-100 lg:w-96" : "invisible -mt-6 h-0 overflow-hidden opacity-0 lg:-ml-6 lg:mt-0 lg:h-auto lg:w-0",
       )}
     >

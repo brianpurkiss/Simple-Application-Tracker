@@ -7,7 +7,7 @@ import { useEvents, useJobs, useProfile, type ActivityEvent, type Job } from "@/
 import { addDays, weekStart } from "@/lib/activity";
 import { daysSince, formatDate, formatTime, relativeDay, today } from "@/lib/format";
 import { nowTime } from "@/lib/clock";
-import { isActive, needsFollowUp } from "@/lib/jobs";
+import { isActive, isScheduledDue, needsFollowUp } from "@/lib/jobs";
 import { momentum } from "@/lib/insights";
 import { INTERVIEWING_STATUSES, TIMED_EVENT_TYPES } from "@/lib/options";
 import { EVENT_COLORS } from "@/lib/colors";
@@ -158,8 +158,8 @@ function JobRows({ jobs, detail, empty }: { jobs: Job[]; detail: (j: Job) => str
             <div className="truncate font-medium">{j.title}</div>
             <div className="truncate text-sm text-muted-foreground">{j.company || "Unknown"}{via(j) && ` · via ${via(j)}`}</div>
           </div>
-          <StatusBadge job={j} />
-          <span className="w-28 text-right text-sm whitespace-nowrap text-muted-foreground">{detail(j)}</span>
+          <span className="hidden sm:inline-flex"><StatusBadge job={j} /></span>
+          <span className="shrink-0 text-right text-sm whitespace-nowrap sm:w-28 text-muted-foreground">{detail(j)}</span>
         </li>
       ))}
     </ul>
@@ -217,7 +217,7 @@ export default function Home() {
   const jobsById = useMemo(() => new Map(jobs.map((j) => [j.id, j])), [jobs]);
 
   const data = useMemo(() => {
-    const followUp = jobs.filter(needsFollowUp).sort((a, b) => quietDays(b) - quietDays(a));
+    const followUp = jobs.filter(needsFollowUp).sort((a, b) => Number(isScheduledDue(b)) - Number(isScheduledDue(a)) || quietDays(b) - quietDays(a));
     // Same group as the Interviewing KPI; the freshest conversations first.
     const interviewing = jobs
       .filter((j) => isActive(j) && INTERVIEWING_STATUSES.has(j.status))
@@ -258,21 +258,21 @@ export default function Home() {
 
       <UpcomingInterviews events={upcoming} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <WeekProgress done={m.thisWeek.applications} target={m.paceTarget} previousBest={m.previousBest} average={m.average?.applications ?? null} />
         <StreakTile current={m.streak.current} best={m.streak.best} days={m.recentDays} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Follow Up" titleTo={FOLLOW_UP} count={followUp.length}>
-          <JobRows jobs={followUp} detail={(j) => (j.follow_up_on ? `Scheduled ${formatDate(j.follow_up_on)}` : `${quietDays(j)} days quiet`)} empty="Nothing is waiting on a follow-up." />
+          <JobRows jobs={followUp} detail={(j) => (isScheduledDue(j) ? `Scheduled ${formatDate(j.follow_up_on)}` : `${quietDays(j)} days quiet`)} empty="Nothing is waiting on a follow-up." />
         </Card>
         <Card title="Interviewing" titleTo="/jobs?status=interviewing" count={interviewing.length}>
           <JobRows jobs={interviewing} detail={(j) => `${quietDays(j)} days quiet`} empty="No active interviews right now." />
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Applications, last 8 weeks">
           <WeeklyBars counts={weekly} target={m.paceTarget} />
         </Card>

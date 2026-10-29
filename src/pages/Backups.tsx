@@ -54,7 +54,7 @@ export default function Backups() {
         <Button onClick={openDialog}><Database /> Back up now</Button>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="table-bleed overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>

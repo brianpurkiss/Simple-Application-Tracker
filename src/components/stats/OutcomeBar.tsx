@@ -12,7 +12,7 @@ export default function OutcomeBar({ outcomes }: { outcomes: Outcome[] }) {
           <div key={o.key} title={`${o.label}: ${o.count}`} style={{ width: `${(o.count / total) * 100}%`, backgroundColor: o.color }} />
         ))}
       </div>
-      <ul className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         {outcomes.map((o) => (
           <li key={o.key} className="flex items-center gap-2">
             <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: o.color }} />

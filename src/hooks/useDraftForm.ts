@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { isEditable, useHotkey } from "@/hooks/hotkeys";
+import { confirmDialog, DISCARD } from "@/components/ConfirmDialog";
 import { toastError } from "@/lib/demo";
 
 type Mutation = {
@@ -41,9 +42,9 @@ export function useDraftForm<K extends string>(
     });
   };
 
-  useHotkey("Escape", (e) => {
+  useHotkey("Escape", async (e) => {
     if (isEditable(e.target)) return (e.target as HTMLElement).blur();
-    if (changed.length > 0 && !window.confirm("Discard unsaved changes?")) return;
+    if (changed.length > 0 && !(await confirmDialog(DISCARD))) return;
     onLeave();
   });
 

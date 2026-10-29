@@ -50,7 +50,7 @@ function Panel({ events, category, title, noun }: { events: ActivityEvent[] } & 
 
 export default function WeekdayInsights({ events }: { events: ActivityEvent[] }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       {PANELS.map((p) => (
         <Panel key={p.category} events={events} {...p} />
       ))}

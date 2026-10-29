@@ -6,6 +6,8 @@ Track applications. Analyze application performance. Keep up with roles to follo
 
 Local-only. Private. No third-party accounts. Free and open source.
 
+## 👉 [**TRY THE LIVE DEMO**](https://brianpurkiss.github.io/Simple-Application-Tracker) 👈
+
 ![Home dashboard with upcoming interviews, KPIs and recent activity](docs/screenshots/home-dashboard.png)
 
 ## What it does
@@ -14,6 +16,8 @@ Local-only. Private. No third-party accounts. Free and open source.
 
 Log every event, keep organized notes, and get automatically reminded about roles to follow up on to keep the momentum.
 
+[**Try it: Jobs list →**](https://brianpurkiss.github.io/Simple-Application-Tracker/jobs)
+
 ![Jobs list with status, fit, resume and follow-up highlighting](docs/screenshots/jobs-list.png)
 
 - **A full timeline for every job**: Applied, Contact, Follow-Up, Screen, Interview, Offer, Accepted, Rejection, Withdrew, and Ghosted
@@ -21,11 +25,15 @@ Log every event, keep organized notes, and get automatically reminded about role
 - **Automatic status organization** from the history, so you log what happened instead of editing a status field.
 - **A sortable, searchable jobs** list with filters with compact and expanded views to find and compare.
 
+[**Look at a job listing →**](https://brianpurkiss.github.io/Simple-Application-Tracker/jobs/231)
+
 ![Individual job listing, with role info and history](docs/screenshots/job-listing-with-history.png)
 
 ### 2. Analyze what's working, then iterate
 
 Is the new resume version opening doors? Can I flex into a VP role? Do I get interviews when applying into a certain job type? Now I can analyze performance and (hopefully) figure it out. 
+
+[**Try the analysis: Performance →**](https://brianpurkiss.github.io/Simple-Application-Tracker/performance)
 
 ![Performance analysis comparing resumes and job types](docs/screenshots/application-performance-analysis.png)
 
@@ -43,6 +51,8 @@ The job hunt process is hard, and the longer it drags on, the more depressing it
 ### 4. Analytics, because data is fun
 
 No, that’s not sarcasm. Data can be fun and interesting. … to me at least. 
+
+[**Look at the fun data: Activity →**](https://brianpurkiss.github.io/Simple-Application-Tracker/activity) ·
 
 ![Activity charts: funnel, timing and weekly cohorts](docs/screenshots/activity-charts.png)
 
@@ -62,6 +72,8 @@ No, that’s not sarcasm. Data can be fun and interesting. … to me at least.
 
 Keyboard-first, a command palette for everything else. Press `?` in the app for the full list of shortcuts and commands.
 
+[**Try it: Keyboard shortcuts →**](https://brianpurkiss.github.io/Simple-Application-Tracker/shortcuts) - or press `Cmd+K` anywhere in the demo
+
 ![Command palette and global search](docs/screenshots/command-palette.png)
 
 ## Why I built it
@@ -78,7 +90,9 @@ And besides. Charts and graphs are fun.
 
 ## Get started
 
-You'll need [Node.js](https://nodejs.org/).
+Want to look around first? [Try the demo](https://brianpurkiss.github.io/Simple-Application-Tracker).
+
+To run your own private copy, you'll need [Node.js](https://nodejs.org/).
 
 ```bash
 git clone https://github.com/brianpurkiss/Simple-Application-Tracker.git

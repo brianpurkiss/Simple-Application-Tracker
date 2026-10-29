@@ -192,7 +192,7 @@ export default function Segments() {
         <h1 className="text-xl font-semibold">Segments</h1>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b pb-3">
           <div className="flex items-center gap-2">
-            <Segmented options={TABS} value={tab} onChange={setTab} />
+            <Segmented options={TABS} value={tab} onChange={setTab} collapse />
             <Link to={`/performance?dims=${TABS.find((t) => t.key === tab)!.dim}`} title="View performance" aria-label="View performance" className="rounded p-1.5 text-muted-foreground hover:text-foreground">
               <ChartNoAxesCombined className="size-4" />
             </Link>
@@ -244,7 +244,7 @@ function TitleTable({ title, empty = "No jobs yet.", muted, rows, labelHeader, s
 }) {
   const navigate = useNavigate();
   const card = (
-    <div className="overflow-hidden rounded-lg border bg-card">
+    <div className="table-bleed overflow-hidden rounded-lg border bg-card">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>

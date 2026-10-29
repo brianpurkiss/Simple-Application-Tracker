@@ -2,11 +2,11 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { fmtPct, type Kpis } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 
-export function Kpi({ label, value, children }: { label: string; value: string; children?: React.ReactNode }) {
+export function Kpi({ label, value, children, className }: { label: string; value: string; children?: React.ReactNode; className?: string }) {
   return (
-    <div className="rounded-lg border bg-card p-5">
+    <div className={cn("rounded-lg border bg-card p-4 sm:p-5", className)}>
       <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="mt-1 text-3xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums sm:text-3xl">{value}</div>
       <div className="mt-1 text-sm text-muted-foreground">{children}</div>
     </div>
   );
@@ -29,7 +29,7 @@ const days = (n: number | null) => (n === null ? "–" : `${n}d`);
 
 export default function KpiRow({ k }: { k: Kpis }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 max-sm:contents sm:grid-cols-2 lg:grid-cols-5">
       <Kpi label="Applications" value={String(k.applications)}>
         <Delta now={k.last7} before={k.prev7} />
       </Kpi>

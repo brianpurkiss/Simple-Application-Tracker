@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
 import { type Job, useAddEvent } from "@/lib/api";
+import { celebrate } from "@/lib/confetti";
 import { toastError } from "@/lib/demo";
+import { needsFollowUp } from "@/lib/jobs";
 
 // Jobs list dialog: log a history event without opening the job. Open while `job` is set.
 export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: string; onClose: () => void }) {
@@ -15,6 +18,7 @@ export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: 
 
   const [draft, setDraft] = useState(blankEvent);
   const add = useAddEvent(shown?.id ?? 0);
+  const onJobsList = useLocation().pathname === "/jobs";
   const addButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -26,10 +30,13 @@ export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: 
     if (!shown) return;
     (document.activeElement as HTMLElement | null)?.blur();
     const { type } = draft;
+    // Checked before the mutation, since logging the follow-up drops the job off the Follow Up list.
+    const clearedFollowUp = onJobsList && type === "Follow-Up" && needsFollowUp(shown);
     add.mutate(draft, {
       onSuccess: () => {
         onClose();
         celebrateEvent(type, addButton.current);
+        if (clearedFollowUp) celebrate(500);
         toast.success(`${type} added to ${shown.title}`);
       },
       onError: (err) => toastError(err),

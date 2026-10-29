@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { rowLink } from "@/lib/rowLink";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -17,8 +18,8 @@ export default function Trash() {
   const onRestore = (job: Job) =>
     restore.mutate(job.id, { onSuccess: () => toast.success("Restored", { description: job.title }) });
 
-  const onDeleteForever = (job: Job) => {
-    if (!confirm(`Permanently delete "${job.title}" at ${job.company} and its history? This can't be undone.`)) return;
+  const onDeleteForever = async (job: Job) => {
+    if (!(await confirmDialog({ message: `Permanently delete "${job.title}" at ${job.company} and its history? This can't be undone.`, confirmLabel: "Delete forever", destructive: true }))) return;
     deleteForever.mutate(job.id);
   };
 
@@ -34,7 +35,7 @@ export default function Trash() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="table-bleed overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>

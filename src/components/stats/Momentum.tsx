@@ -10,7 +10,7 @@ export default function Momentum({ m }: { m: MomentumStats }) {
   const toGo = average ? Math.ceil(average.applications) - thisWeek.applications : 0;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 max-sm:contents sm:grid-cols-2 lg:grid-cols-4">
       <Kpi label="Application Streak" value={plural(streak.current, "day")}>
         {streak.current ? "Days in a row with an application" : "Apply today to start a new one"} · Best {streak.best}
         {m.weeksOnPace > 1 && <div>{m.weeksOnPace} weeks in a row at {m.paceTarget}+ a week</div>}
@@ -25,7 +25,7 @@ export default function Momentum({ m }: { m: MomentumStats }) {
       <Kpi label="Active Pipeline" value={String(m.pipeline.active)}>
         Still in play · {m.pipeline.interviewing} interviewing
       </Kpi>
-      <Kpi label="Best Week" value={plural(m.best.applications, "application")}>
+      <Kpi label="Best Week" value={plural(m.best.applications, "application")} className="max-sm:col-span-2">
         {plural(m.best.interviews, "interview")} in your best interview week
         {bestShare !== null && <div>This week is {bestShare}% of your best</div>}
       </Kpi>

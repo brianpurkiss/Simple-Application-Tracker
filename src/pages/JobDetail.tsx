@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { confirmDialog, DISCARD } from "@/components/ConfirmDialog";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarClock, ExternalLink, Mail, Maximize2, Phone, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, BellRing, CalendarClock, ExternalLink, Mail, Maximize2, Phone, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,6 +23,7 @@ import { jobActions, usePalette, usePaletteActions } from "@/components/CommandP
 import { MOD } from "@/lib/shortcuts";
 import { FilterAccordion } from "@/components/stats/FilterMenu";
 import { APPLIED_VIA, FITS, GHOSTED_DAYS, RESUME_VERSIONS, WORK_MODES, sortResumeVersions } from "@/lib/options";
+import { needsFollowUp } from "@/lib/jobs";
 import { toastError } from "@/lib/demo";
 
 // An event type name in its History color.
@@ -100,8 +102,8 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const at = order.indexOf(job.id);
   const nextId = at >= 0 ? order[at + 1] : undefined;
   const prevId = at > 0 ? order[at - 1] : undefined;
-  const step = (id: number | undefined) => {
-    if (id === undefined || (changed.length > 0 && !window.confirm("Discard unsaved changes?"))) return;
+  const step = async (id: number | undefined) => {
+    if (id === undefined || (changed.length > 0 && !(await confirmDialog(DISCARD)))) return;
     saveSelected(id);
     navigate(`/jobs/${id}`, { replace: true, state: location.state });
   };
@@ -114,6 +116,9 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   useHotkey("k", stepKey(prevId));
 
   // Applies right away and leaves any other unsaved edits alone.
+  // Logging a follow-up clears the banner right away, ahead of the refetch.
+  const [followedUpId, setFollowedUpId] = useState<number | null>(null);
+  const followUpNeeded = needsFollowUp(job) && followedUpId !== job.id;
   const setFollowUp = (date: string | null) =>
     update.mutate({ follow_up_on: date }, {
       onSuccess: () => {
@@ -169,11 +174,11 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
         )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         <div className="space-y-5 lg:col-span-3">
           <Card>
             <CardHeader><CardTitle>Job</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ComboField label="Job Title" value={draft.title} onChange={set("title")} options={titles} />
               <TextField label="Company" value={draft.company} onChange={set("company")} />
               <TextField
@@ -199,7 +204,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
 
           <Card>
             <CardHeader><CardTitle>Application</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextField label="Applied" type="date" value={draft.applied_date} onChange={set("applied_date")} />
               <ComboField label="Resume Version" value={draft.resume_version} onChange={set("resume_version")} options={resumeVersions} placeholder="General 1.0" />
               <SelectField label="Applied Via" value={draft.applied_via} onChange={set("applied_via")} options={APPLIED_VIA} />
@@ -209,7 +214,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
 
           <Card>
             <CardHeader><CardTitle>Point of Contact</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <TextField label="Name" value={draft.contact_name} onChange={set("contact_name")} />
               <div className="flex items-end gap-1">
                 <TextField label="Email" type="email" value={draft.contact_email} onChange={set("contact_email")} className="flex-1" />
@@ -282,8 +287,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                 </DialogContent>
               </Dialog>
             </CardHeader>
-            <CardContent>
-              <HistoryPanel jobId={job.id} events={job.events} />
+            <CardContent className="space-y-4">
+              {!job.deleted_at && followUpNeeded && (
+                <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300">
+                  <BellRing className="size-4 shrink-0" />
+                  Follow up needed
+                </div>
+              )}
+              <HistoryPanel jobId={job.id} events={job.events} followUpNeeded={followUpNeeded} onFollowUpLogged={() => setFollowedUpId(job.id)} />
             </CardContent>
           </Card>
 
@@ -352,7 +363,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
 
       {changed.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 backdrop-blur">
-          <div className="mx-auto flex max-w-[1600px] items-center justify-end gap-3 px-6 py-3">
+          <div className="mx-auto flex max-w-[1600px] items-center justify-end gap-3 px-4 py-3 sm:px-6">
             <span className="text-sm text-muted-foreground">Unsaved changes</span>
             <Button variant="outline" onClick={() => { setDraft(saved); setEpoch((n) => n + 1); }}>Discard</Button>
             <Button onClick={save} disabled={update.isPending || !draft.title.trim() || badRange}>Save</Button>

@@ -24,12 +24,17 @@ export function statusLabel(job: Pick<Job, "status" | "interview_count" | "scree
   return job.status;
 }
 
+// A scheduled follow-up whose day has arrived and hasn't been followed up on yet.
+export const isScheduledDue = (job: Job) =>
+  !!job.follow_up_on && isActive(job) && !isOnHold(job) && !(job.last_follow_up && job.last_follow_up >= job.follow_up_on);
+
 // Interviewing jobs (or auto-ghosted ones that got to an interview) that have gone quiet — worth a follow-up. Logging a
 // follow-up counts as activity, so it drops off for a while. Logging Ghosted closes it out. Held jobs are skipped; a scheduled date that has arrived brings the job back.
 export function needsFollowUp(job: Job) {
   if (isOnHold(job)) return false;
-  // A scheduled follow-up date that has arrived puts the job back in Follow Up, whatever its status or quiet time.
-  if (job.follow_up_on && isActive(job)) return true;
+  // A scheduled follow-up date that has arrived puts the job back in Follow Up, whatever its status or quiet time —
+  // until a follow-up is logged on or after that date, which counts as the scheduled one done.
+  if (isScheduledDue(job)) return true;
   const days = daysSince(job.last_activity ?? job.applied_date);
   const waiting = (job.auto_ghosted && reachedInterview(job)) || (INTERVIEWING_STATUSES.has(job.status) && job.status !== "Offer");
   return waiting && days !== null && days >= STALE_DAYS;

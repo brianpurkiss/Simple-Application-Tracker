@@ -1,8 +1,10 @@
 import { useRef, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { Check, NotebookPen, Pencil, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
+import { burstFrom } from "@/lib/confetti";
 import { type EventInput, type JobEvent, useAddEvent, useDeleteEvent, useUpdateEvent } from "@/lib/api";
 import { EventNotes } from "@/components/EventNotes";
 import { formatDate, formatTime } from "@/lib/format";
@@ -71,7 +73,9 @@ function EventRow({ event }: { event: JobEvent }) {
           size="icon"
           variant="ghost"
           className="size-7"
-          onClick={() => confirm(`Delete this ${event.type} event?`) && remove.mutate(event.id)}
+          onClick={async () => {
+            if (await confirmDialog({ message: `Delete this ${event.type} event?`, confirmLabel: "Delete", destructive: true })) remove.mutate(event.id);
+          }}
         >
           <Trash2 />
         </Button>
@@ -80,7 +84,12 @@ function EventRow({ event }: { event: JobEvent }) {
   );
 }
 
-export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEvent[] }) {
+export function HistoryPanel({ jobId, events, followUpNeeded = false, onFollowUpLogged }: {
+  jobId: number;
+  events: JobEvent[];
+  followUpNeeded?: boolean;
+  onFollowUpLogged?: () => void;
+}) {
   const [draft, setDraft] = useState(blankEvent);
   const add = useAddEvent(jobId);
   const addButton = useRef<HTMLButtonElement>(null);
@@ -95,6 +104,10 @@ export function HistoryPanel({ jobId, events }: { jobId: number; events: JobEven
       onSuccess: () => {
         setDraft(blankEvent());
         celebrateEvent(type, addButton.current);
+        if (type === "Follow-Up" && followUpNeeded) {
+          if (addButton.current) burstFrom(addButton.current, 135);
+          onFollowUpLogged?.();
+        }
       },
       onError: (err) => toastError(err),
     });

@@ -11,7 +11,7 @@ function ResumeTable({ title, resumes, empty, muted }: { title: string; resumes:
   return (
     <section className="space-y-2">
       <h2 className="text-sm font-medium">{title}</h2>
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="table-bleed overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>

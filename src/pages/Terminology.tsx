@@ -37,7 +37,7 @@ export default function Terminology() {
         />
       </div>
       {categories.length === 0 && <p className="text-sm text-muted-foreground">No terms match "{query}".</p>}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {categories.map((c) => (
           <section key={c.title} className="h-fit rounded-lg border bg-card">
             <div className="border-b px-4 py-2.5">

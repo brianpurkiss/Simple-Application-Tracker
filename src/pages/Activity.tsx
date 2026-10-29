@@ -242,9 +242,11 @@ export default function Activity() {
         <h1 className="text-xl font-semibold">Activity</h1>
         <FilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((o) => !o)} active={filtersActive} />
       </div>
-      <KpiRow k={stats} />
-      <Momentum m={momentumStats} />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 sm:block sm:space-y-4">
+        <KpiRow k={stats} />
+        <Momentum m={momentumStats} />
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Funnel steps={funnel(filteredJobs)} />
         <OutcomeBar outcomes={outcomes(filteredJobs)} />
       </div>

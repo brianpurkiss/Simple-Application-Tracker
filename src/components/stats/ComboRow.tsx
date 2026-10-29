@@ -61,7 +61,7 @@ export default function ComboRow({ combo, metric, baseline, index = 0, phase = "
   return (
     <li className={cn("space-y-1", combo.tier === "low" && "opacity-50")}>
       <button type="button" onClick={() => setOpen((o) => !o)} className="block w-full space-y-1 text-left" aria-expanded={open}>
-        <div className={cn("flex items-baseline justify-between gap-2 text-sm transition-opacity duration-200 motion-reduce:transition-none", fadeOut)}>
+        <div className={cn("flex flex-col gap-0.5 text-sm transition-opacity sm:flex-row sm:items-baseline sm:justify-between sm:gap-2 duration-200 motion-reduce:transition-none", fadeOut)}>
           <span className="flex min-w-0 items-center gap-1.5">
             <ChevronRight className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
             <span className="truncate">
@@ -74,13 +74,15 @@ export default function ComboRow({ combo, metric, baseline, index = 0, phase = "
             </span>
             {tier && <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-xs", tier.className)}>{tier.label}</span>}
           </span>
-          <span className="shrink-0 tabular-nums">
+          <span className="pl-5 tabular-nums sm:shrink-0 sm:pl-0">
             <span className="font-medium">{fmtPct(metric === "interview" ? combo.interviewRate : combo.rejectedRate)}</span>
             <span className="text-muted-foreground">
               {" "}
               · {metric === "interview" ? combo.interviews : combo.rejected}/{combo.n} · {fmtLift(combo.lift)} avg
-              {combo.interviewSalaryMean !== null && ` · ${k(Math.round(combo.interviewSalaryMean))} Mean`}
-              {combo.interviewSalaryMax !== null && ` · ${k(combo.interviewSalaryMax)} Max`}
+              <span className="hidden sm:inline">
+                {combo.interviewSalaryMean !== null && ` · ${k(Math.round(combo.interviewSalaryMean))} Mean`}
+                {combo.interviewSalaryMax !== null && ` · ${k(combo.interviewSalaryMax)} Max`}
+              </span>
             </span>
           </span>
         </div>
@@ -100,7 +102,7 @@ export default function ComboRow({ combo, metric, baseline, index = 0, phase = "
         <ul className="ml-5 divide-y rounded-md border text-sm">
           {listed.map((j) => (
             <li key={j.id}>
-              <Link to={`/jobs/${j.id}`} className="flex items-center justify-between gap-3 px-3 py-1.5 hover:bg-accent/50">
+              <Link to={`/jobs/${j.id}`} className="flex flex-wrap items-center justify-between gap-x-3 px-3 py-1.5 hover:bg-accent/50 sm:flex-nowrap">
                 <span className="truncate">{companyLabel(j)} <span className="text-muted-foreground">· {j.title} · {j.resume_version}</span></span>
                 <span className="shrink-0 text-xs text-muted-foreground">{statusLabel(j)} · {formatDate(j.applied_date)}</span>
               </Link>

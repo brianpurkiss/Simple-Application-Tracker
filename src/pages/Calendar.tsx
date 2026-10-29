@@ -141,7 +141,7 @@ export default function Calendar() {
         );
       })}
 
-      <div className="sticky bottom-0 -mx-6 max-h-60 space-y-2 overflow-y-auto border-t bg-card px-6 py-3">
+      <div className="sticky bottom-0 -mx-4 max-h-60 space-y-2 overflow-y-auto border-t bg-card px-4 py-3 sm:-mx-6 sm:px-6">
         <h3 className="text-sm font-medium">
           {formatDate(selected)} · {picked.length} event{picked.length === 1 ? "" : "s"}
         </h3>
@@ -151,8 +151,8 @@ export default function Calendar() {
             <li key={e.id}>
               <Link to={e.resume_id ? `/resumes/${e.resume_id}` : `/jobs/${e.job_id}`} className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent/50">
                 <span className={cn("size-2.5 shrink-0", shapeOf(categoryOf(e)))} style={{ backgroundColor: colorOf(categoryOf(e)) }} />
-                <span className="w-32 shrink-0 text-muted-foreground">{e.type}</span>
-                <span className="truncate">{e.title}{e.company && <span className="text-muted-foreground"> · {e.company}</span>}</span>
+                <span className="w-24 shrink-0 text-muted-foreground sm:w-32">{e.type}</span>
+                <span className="min-w-0 truncate">{e.title}{e.company && <span className="text-muted-foreground"> · {e.company}</span>}</span>
               </Link>
             </li>
           ))}

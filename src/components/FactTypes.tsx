@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,8 +34,8 @@ function TypeRow({ type, used, first, last, onMove }: { type: FactType; used: nu
     if (name.trim() === type.name) return;
     rename.mutate({ id: type.id, name: name.trim() }, { onError: (e) => { onError(e); setName(type.name); } });
   };
-  const del = () => {
-    if (used && !window.confirm(`${used} ${used === 1 ? "job is" : "jobs are"} labeled ${type.name}. Delete it and remove the label from them?`)) return;
+  const del = async () => {
+    if (used && !(await confirmDialog({ message: `${used} ${used === 1 ? "job is" : "jobs are"} labeled ${type.name}. Delete it and remove the label from them?`, confirmLabel: "Delete", destructive: true }))) return;
     remove.mutate(type.id, { onError });
   };
   return (
@@ -70,8 +71,8 @@ export function FactTypes({ kind, jobs, factCtx }: { kind: FactKind; jobs: Job[]
     reorder.mutate({ kind, ids }, { onError });
   };
   const add = () => create.mutate({ kind, name: draft.trim() }, { onSuccess: () => setDraft(""), onError });
-  const startOver = () => {
-    if (!window.confirm("Clear every hand-set Job Type and Company Type on all jobs? A backup is saved first, and the type lists stay as they are.")) return;
+  const startOver = async () => {
+    if (!(await confirmDialog({ message: "Clear every hand-set Job Type and Company Type on all jobs? A backup is saved first, and the type lists stay as they are.", confirmLabel: "Clear labels", destructive: true }))) return;
     reset.mutate(undefined, { onSuccess: (r) => toast.success("Labels cleared", { description: `Backup saved as ${r.backup}` }), onError });
   };
 

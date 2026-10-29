@@ -10,7 +10,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ChevronDown, Plus, Rows2, Rows4, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ListFilter, Plus, Rows2, Rows4, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,7 +32,7 @@ import type { TitleInfo } from "@/lib/titles/types";
 import { loadSelected, saveOrder, saveSelected } from "@/lib/listOrder";
 import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { daysSince, formatDate, isOnHold } from "@/lib/format";
-import { isActive, needsFollowUp, reachedInterview } from "@/lib/jobs";
+import { isActive, isScheduledDue, needsFollowUp, reachedInterview } from "@/lib/jobs";
 import { toast } from "sonner";
 import { FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
@@ -61,7 +61,7 @@ const textCell = (id: string, header: string, value: (job: Job) => string): Colu
   sortUndefined: "last",
   cell: ({ getValue }) => {
     const v = getValue() as string;
-    return v ? <span className="block max-w-[160px] truncate" title={v}>{v}</span> : <span className="text-muted-foreground">—</span>;
+    return v ? <span className="block max-w-[7rem] truncate sm:max-w-[160px]" title={v}>{v}</span> : <span className="text-muted-foreground">—</span>;
   },
 });
 
@@ -84,7 +84,7 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void, ctx: Fa
       const { title, fit, salary_min, salary_max } = row.original;
       const detail = expanded ? [fit, formatSalary(salary_min, salary_max)].filter(Boolean).join(" · ") : "";
       return (
-        <div className="max-w-[22rem]">
+        <div className="max-w-[11rem] sm:max-w-[22rem]">
           <div className="flex items-center gap-1.5">
             <span className="truncate font-medium" title={title}>{title}</span>
             {isOnHold(row.original) && (
@@ -108,14 +108,14 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void, ctx: Fa
       const tooltip = [company, via && `via ${via}`].filter(Boolean).join(" · ");
       if (expanded) {
         return (
-          <div className="max-w-[200px]" title={tooltip}>
+          <div className="max-w-[8rem] sm:max-w-[200px]" title={tooltip}>
             <div className="truncate">{name}</div>
             {via && <div className="truncate text-xs text-muted-foreground">via {via}</div>}
           </div>
         );
       }
       return (
-        <span className="block max-w-[200px] truncate" title={tooltip}>
+        <span className="block max-w-[8rem] truncate sm:max-w-[200px]" title={tooltip}>
           {name}
           {via && <span className="text-muted-foreground"> · via {via}</span>}
         </span>
@@ -256,6 +256,8 @@ export default function JobsList() {
   // Filters behind "More Filters": how many are set, so the closed button still shows them.
   const picked = (kind: StarKind) => starPicked[STAR_FILTERS.findIndex((f) => f.kind === kind)];
   const moreApplied = [resumeFilter !== "", fitFilter !== "all", picked("title") !== "all", picked("seniority") !== "all"].filter(Boolean).length;
+  // On phones Job Type and Company Type also sit behind More Filters.
+  const moreAppliedMobile = moreApplied + [picked("type") !== "all", companyTypeFilter !== "all"].filter(Boolean).length;
 
   // Each filter's test for one job, keyed by its URL param. "all" (or no resume) matches every job.
   const facetTest: Record<string, (j: Job, v: string) => boolean> = {
@@ -317,7 +319,13 @@ export default function JobsList() {
   const allRows = table.getRowModel().rows;
   // In the Follow Up view, jobs with a future follow-up date sit in their own group at the end.
   const splitScheduled = statusFilter === "followup";
-  const rows = splitScheduled ? [...allRows.filter((r) => !isOnHold(r.original)), ...allRows.filter((r) => isOnHold(r.original))] : allRows;
+  const rows = splitScheduled
+    ? [
+        ...allRows.filter((r) => isScheduledDue(r.original)),
+        ...allRows.filter((r) => !isOnHold(r.original) && !isScheduledDue(r.original)),
+        ...allRows.filter((r) => isOnHold(r.original)),
+      ]
+    : allRows;
   const firstScheduled = splitScheduled ? rows.findIndex((r) => isOnHold(r.original)) : -1;
   // Rows remount (replaying the enter animation) when filters or sort change; search changes keep
   // existing rows in place so only newly matching rows animate in.
@@ -427,11 +435,29 @@ export default function JobsList() {
     if (selectedId !== null) tableWrap.current?.querySelector(`[data-job-id="${selectedId}"]`)?.scrollIntoView({ block: "nearest" });
   }, [selectedId, hasRows]);
 
+  // Job count and view toggle at the end of the first filter row.
+  const listMeta = (
+    <>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        {filtersApplied && (
+          <>
+            <button onClick={clearFilters} className="underline-offset-4 hover:text-foreground hover:underline">
+              Clear<span className="max-sm:hidden"> Filters</span>
+            </button>
+            <span aria-hidden className="max-sm:hidden">·</span>
+          </>
+        )}
+        <span><span className="sm:hidden">({rows.length})</span><span className="max-sm:hidden">{rows.length} Jobs</span></span>
+      </div>
+      <Segmented options={VIEW_OPTIONS} value={view} onChange={(v) => updateProfile.mutate({ job_list_view: v })} />
+    </>
+  );
+
   return (
     <div className="space-y-4">
       <title>{`${statusFilter === "followup" ? "Follow Up" : "Jobs"} | Application Tracker`}</title>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-sm">
+        <div className="relative min-w-0 flex-1 sm:w-full sm:max-w-sm sm:flex-none">
           <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
           <Input
             id={SEARCH_INPUT_ID}
@@ -450,6 +476,7 @@ export default function JobsList() {
             className="bg-card pl-8"
           />
         </div>
+        <div className="contents max-sm:hidden">
         {chips.map(([key, label]) => (
           <button
             key={key}
@@ -463,7 +490,8 @@ export default function JobsList() {
             {label} <span className="ml-1 opacity-70">{counts[key]}</span>
           </button>
         ))}
-        <div className="ml-auto">
+        </div>
+        <div className="sm:ml-auto">
           <AddJobDialog />
         </div>
       </div>
@@ -471,7 +499,7 @@ export default function JobsList() {
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <Select value={statusFilter} onValueChange={(v) => setParam("status", v)}>
-            <SelectTrigger className="w-52 bg-card [&_.status-dot]:hidden [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-32 bg-card sm:w-52 [&_.status-dot]:hidden [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All<FacetCount n={facetCount("status", "all")} /></SelectItem>
               {chips.map(([key, label]) => <SelectItem key={key} value={key}>{label}<FacetCount n={facetCount("status", key)} /></SelectItem>)}
@@ -486,18 +514,20 @@ export default function JobsList() {
               ))}
             </SelectContent>
           </Select>
-          {renderStar("type", "w-52")}
+          {renderStar("type", cn("w-[calc(50%-0.25rem)] max-sm:order-1 sm:w-52", !showMore && "max-sm:hidden"))}
           <Select value={companyTypeFilter} onValueChange={(v) => setParam("company_type", v)}>
-            <SelectTrigger className="w-48 bg-card [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
+            <SelectTrigger className={cn("w-[calc(50%-0.25rem)] bg-card max-sm:order-1 sm:w-48 [&_.facet-count]:hidden", !showMore && "max-sm:hidden")}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All company types<FacetCount n={facetCount(COMPANY_TYPE_PARAM, "all")} /></SelectItem>
               {typeNames(factCtx, "company").map((t) => <SelectItem key={t} value={t}>{t}<FacetCount n={facetCount(COMPANY_TYPE_PARAM, t)} /></SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="ghost" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore}>
-            More Filters
-            {moreApplied > 0 && <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground">{moreApplied}</span>}
-            <ChevronDown className={cn("transition-transform", showMore && "rotate-180")} />
+          <Button variant="ghost" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} aria-label="More Filters" className="relative max-sm:px-2">
+            <ListFilter className="sm:hidden" />
+            <span className="max-sm:hidden">More Filters</span>
+            {moreApplied > 0 && <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground max-sm:hidden">{moreApplied}</span>}
+            {moreAppliedMobile > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1.5 text-xs text-primary-foreground sm:hidden">{moreAppliedMobile}</span>}
+            <ChevronDown className={cn("transition-transform max-sm:hidden", showMore && "rotate-180")} />
           </Button>
           {resumeFilter && (
             <button
@@ -517,18 +547,7 @@ export default function JobsList() {
               Missing: {missing.label} <X className="size-3.5" />
             </button>
           )}
-          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-            {filtersApplied && (
-              <>
-                <button onClick={clearFilters} className="underline-offset-4 hover:text-foreground hover:underline">
-                  Clear Filters
-                </button>
-                <span aria-hidden>·</span>
-              </>
-            )}
-            <span>{rows.length} Jobs</span>
-          </div>
-          <Segmented options={VIEW_OPTIONS} value={view} onChange={(v) => updateProfile.mutate({ job_list_view: v })} />
+          <div className="ml-auto flex items-center gap-2">{listMeta}</div>
         </div>
         {showMore && (
           <div className="flex flex-wrap items-center gap-2">
@@ -539,16 +558,16 @@ export default function JobsList() {
                 else p.set("resume", v);
               })}
             >
-              <SelectTrigger className="w-52 bg-card [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[calc(50%-0.25rem)] bg-card sm:w-52 [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Any resume<FacetCount n={facetCount("resume", "all")} /></SelectItem>
                 {resumes.map((r) => <SelectItem key={r.version} value={r.version}>{r.version}<FacetCount n={facetCount("resume", r.version)} /></SelectItem>)}
               </SelectContent>
             </Select>
-            {renderStar("seniority", "w-52")}
-            {renderStar("title", "w-52")}
+            {renderStar("seniority", "w-[calc(50%-0.25rem)] sm:w-52")}
+            {renderStar("title", "w-[calc(50%-0.25rem)] sm:w-52")}
             <Select value={fitFilter} onValueChange={(v) => setParam("fit", v)}>
-              <SelectTrigger className="w-40 bg-card [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[calc(50%-0.25rem)] bg-card sm:w-40 [&_.facet-count]:hidden"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All fits<FacetCount n={facetCount("fit", "all")} /></SelectItem>
                 {FITS.map((f) => <SelectItem key={f} value={f}>{f}<FacetCount n={facetCount("fit", f)} /></SelectItem>)}
@@ -558,7 +577,7 @@ export default function JobsList() {
         )}
       </div>
 
-      <div ref={tableWrap} className="overflow-x-auto rounded-lg border bg-card">
+      <div ref={tableWrap} className="table-bleed overflow-x-auto rounded-lg border bg-card">
         <Table>
           <TableHeader className="bg-muted/50">
             {table.getHeaderGroups().map((hg) => (
