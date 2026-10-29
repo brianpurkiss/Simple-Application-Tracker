@@ -95,7 +95,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     });
   };
 
-  const { logHistory } = usePalette();
+  const { logHistory, quickLog } = usePalette();
 
   // J and K step through the jobs list's current order, like they do on the list itself.
   const order = loadOrder();
@@ -133,7 +133,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   usePaletteActions([
     ...(nextId !== undefined ? [{ id: "next", label: "Next job", group: "This job", keys: ["J"], keywords: "following", run: () => step(nextId) }] : []),
     ...(prevId !== undefined ? [{ id: "prev", label: "Previous job", group: "This job", keys: ["K"], keywords: "back", run: () => step(prevId) }] : []),
-    ...(job.deleted_at ? [] : jobActions(job, { logHistory, setFollowUp, group: "This job", withGeneric: false })),
+    ...(job.deleted_at ? [] : jobActions(job, { logHistory, quickLog, setFollowUp, group: "This job", withGeneric: false })),
     ...(changed.length > 0 ? [{ id: "save", label: "Save changes", group: "This job", keys: [MOD, "S"], run: () => { if (canSave) save(); } }] : []),
   ]);
 

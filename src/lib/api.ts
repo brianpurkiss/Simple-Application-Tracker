@@ -187,6 +187,9 @@ export const useApplyJob = (jobId: number) =>
   useInvalidatingMutation((date: string) => request<Job>("POST", `/api/jobs/${jobId}/apply`, { date }));
 export const useAddEvent = (jobId: number) =>
   useInvalidatingMutation((e: EventInput) => request<JobEvent>("POST", `/api/jobs/${jobId}/events`, e));
+// For callers that pick the job per call, like the command palette.
+export const useAddEventTo = () =>
+  useInvalidatingMutation(({ jobId, ...e }: EventInput & { jobId: number }) => request<JobEvent>("POST", `/api/jobs/${jobId}/events`, e));
 export const useUpdateEvent = () =>
   useInvalidatingMutation(({ id, ...e }: Partial<EventInput> & { id: number }) =>
     request<JobEvent>("PATCH", `/api/events/${id}`, e));

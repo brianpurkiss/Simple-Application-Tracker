@@ -189,7 +189,7 @@ export default function JobsList() {
   const view = profile?.job_list_view ?? "compact";
   // Compact view: every column but the last (Days Since) hugs its content; the last absorbs the leftover width.
   const shrink = view === "compact";
-  const { logHistory } = usePalette();
+  const { logHistory, quickLog } = usePalette();
   const [selectedId, setSelectedId] = useState<number | null>(loadSelected);
   const [showMore, setShowMore] = useState(false);
   const tableWrap = useRef<HTMLDivElement>(null);
@@ -380,6 +380,7 @@ export default function JobsList() {
       { id: "open", label: "Open selected job", group: "Selected job", keys: ["Enter"], run: () => navigate(`/jobs/${selected.id}`, { state: { fromList: true } }) },
       ...jobActions(selected, {
         logHistory,
+        quickLog,
         group: "Selected job",
         withGeneric: true,
         setFollowUp: (date) => updateSelected.mutate({ follow_up_on: date }, {

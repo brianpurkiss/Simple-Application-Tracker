@@ -1,10 +1,14 @@
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Keys } from "@/components/Keys";
+import { blankEvent, celebrateEvent } from "@/components/EventFields";
 import { QuickAddEvent } from "@/components/QuickAddEvent";
-import { type Job, useJobs, useResumes } from "@/lib/api";
+import { type Job, useAddEventTo, useJobs, useResumes } from "@/lib/api";
+import { celebrate } from "@/lib/confetti";
+import { toastError, toastSaved } from "@/lib/demo";
+import { needsFollowUp } from "@/lib/jobs";
 import { useAddJob, useFocusSearch } from "@/hooks/appActions";
 import { formatDate, today } from "@/lib/format";
 import { addDays } from "@/lib/activity";
@@ -27,6 +31,8 @@ type Palette = {
   isOpen: () => boolean;
   toggle: () => void;
   logHistory: (job: Job, type?: string) => void;
+  // Saves an event of `type` dated today, without opening the dialog.
+  quickLog: (job: Job, type: string) => void;
   register: (id: string, get: () => PaletteAction[]) => () => void;
 };
 
@@ -47,15 +53,19 @@ export function usePaletteActions(actions: PaletteAction[]) {
   useEffect(() => register(id, () => ref.current), [id, register]);
 }
 
-// "Log history…" plus one entry per event type, all opening the quick-add dialog for `job`.
-function logActions(job: Job, logHistory: Palette["logHistory"], group: string, withGeneric: boolean): PaletteAction[] {
+// "Log history…" opens the quick-add dialog for `job`; "Quick Log History: <type>" saves right away;
+// "Schedule Screen/Interview" open the dialog on that type to pick the day and time.
+function logActions(job: Job, { logHistory, quickLog }: Pick<Palette, "logHistory" | "quickLog">, group: string, withGeneric: boolean): PaletteAction[] {
   const generic: PaletteAction[] = withGeneric
     ? [{ id: "log", label: "Log history…", group, keys: ["L"], keywords: "add event note", run: () => logHistory(job) }]
     : [];
   return [
     ...generic,
     ...EVENT_TYPES.map((t) => ({
-      id: `log-${t}`, label: `Log History: ${t}`, group, keywords: "history add event", run: () => logHistory(job, t),
+      id: `log-${t}`, label: `Quick Log History: ${t}`, group, keywords: "history add event log", run: () => quickLog(job, t),
+    })),
+    ...["Screen", "Interview"].map((t) => ({
+      id: `schedule-${t}`, label: `Schedule ${t}`, group, keywords: "history add event log date time calendar", run: () => logHistory(job, t),
     })),
   ];
 }
@@ -69,13 +79,13 @@ const inDays = (n: number) => addDays(today(), n);
 // and schedule a follow-up.
 export function jobActions(
   job: Job,
-  o: { logHistory: Palette["logHistory"]; setFollowUp: (date: string | null) => void; group: string; withGeneric: boolean },
+  o: { logHistory: Palette["logHistory"]; quickLog: Palette["quickLog"]; setFollowUp: (date: string | null) => void; group: string; withGeneric: boolean },
 ): PaletteAction[] {
   const { group } = o;
   const action = (id: string, label: string, run: () => void, extra: Partial<PaletteAction> = {}): PaletteAction => ({ id, label, group, run, ...extra });
   const followUp = (id: string, label: string, date: string | null) => action(id, label, () => o.setFollowUp(date));
   return [
-    ...logActions(job, o.logHistory, group, o.withGeneric),
+    ...logActions(job, o, group, o.withGeneric),
     ...(job.jd_link ? [action("jd", "Open job description", () => void window.open(job.jd_link, "_blank", "noopener"), { keywords: "link posting url" })] : []),
     ...(job.contact_email ? [action("email", `Email ${job.contact_name || "contact"}`, () => { window.location.href = `mailto:${job.contact_email}`; }, { keywords: "contact recruiter mail" })] : []),
     ...(job.contact_phone ? [action("call", `Call ${job.contact_name || "contact"}`, () => { window.location.href = `tel:${job.contact_phone}`; }, { keywords: "contact recruiter phone" })] : []),
@@ -118,11 +128,27 @@ export function PaletteProvider({ children }: { children: ReactNode }) {
   openRef.current = open;
   const [quick, setQuick] = useState<{ job: Job; type?: string } | null>(null);
   const registry = useRef(new Map<string, () => PaletteAction[]>());
+  const addEvent = useAddEventTo();
+  const onJobsList = useLocation().pathname === "/jobs";
+  const quickLogRef = useRef<Palette["quickLog"]>(() => {});
+  quickLogRef.current = (job, type) => {
+    // Checked before the mutation, since logging the follow-up drops the job off the Follow Up list.
+    const clearedFollowUp = onJobsList && type === "Follow-Up" && needsFollowUp(job);
+    addEvent.mutate({ ...blankEvent(), type, jobId: job.id }, {
+      onSuccess: () => {
+        celebrateEvent(type, null);
+        if (clearedFollowUp) celebrate(500);
+        toastSaved(`${type} added to ${job.title}`);
+      },
+      onError: (err) => toastError(err),
+    });
+  };
 
   const value = useMemo<Palette>(() => ({
     isOpen: () => openRef.current,
     toggle: () => setOpen((o) => !o),
     logHistory: (job, type) => setQuick({ job, type }),
+    quickLog: (job, type) => quickLogRef.current(job, type),
     register: (id, get) => {
       registry.current.set(id, get);
       return () => void registry.current.delete(id);

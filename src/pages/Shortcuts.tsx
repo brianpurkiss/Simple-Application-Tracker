@@ -55,7 +55,8 @@ const GROUPS: { title: string; note?: string; items: Item[] }[] = [
     note: "On a job page, or for the selected job in the jobs list",
     items: [
       { label: "Log history…" },
-      { label: "Log a specific type: Applied, Contact, Interview, Note…" },
+      { label: "Quick Log History: Applied, Contact, Interview, Note… (saves right away, dated today)" },
+      { label: "Schedule Screen or Interview (pick the day and time)" },
       { label: "Schedule follow-up… (or clear it)" },
       { label: "Open job description" },
       { label: "Email the contact" },
