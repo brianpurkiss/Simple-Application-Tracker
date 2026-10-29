@@ -221,7 +221,7 @@ export const useTitleSynonyms = () =>
 
 function useSynonymMutation<V>(fn: (vars: V) => Promise<unknown>) {
   const qc = useQueryClient();
-  // Titles are consolidated from jobs plus synonyms, so refresh both for the Job Titles page.
+  // Titles are consolidated from jobs plus synonyms, so refresh both for the Segments page.
   return useMutation({
     mutationFn: fn,
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["title-synonyms"] }), qc.invalidateQueries({ queryKey: ["jobs"] })]),

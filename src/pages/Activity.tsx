@@ -31,6 +31,7 @@ import { today } from "@/lib/format";
 import { cumulative, extras, momentum, rollingAverage } from "@/lib/insights";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { jobGroupKeys } from "@/lib/titles/starred";
+import { perfDimValues } from "@/lib/titles/perfDims";
 
 // Each filter lives in the URL as a repeated param so views can be shared and survive reloads.
 const FILTERS = [
@@ -148,8 +149,8 @@ export default function Activity() {
       STAR_FILTERS.map((f) =>
         stars
           .filter((s) => s.kind === f.kind)
-          .map((s) => ({ ...s, count: jobs.filter((j) => jobKeys.get(j.id)?.[f.kind].includes(s.key)).length }))
-          .filter((o) => o.count > 0),
+          // A starred group with no jobs keeps its pill, as it keeps its row on Segments.
+          .map((s) => ({ ...s, count: jobs.filter((j) => jobKeys.get(j.id)?.[f.kind].includes(s.key)).length })),
       ),
     [stars, jobs, jobKeys],
   );
@@ -209,7 +210,8 @@ export default function Activity() {
   const stats = useMemo(() => kpis(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
   const momentumStats = useMemo(() => momentum(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
   const progress = useMemo(() => cumulative(filteredJobs, today()), [filteredJobs]);
-  const trivia = useMemo(() => extras(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
+  const segmentValues = useMemo(() => perfDimValues(stars, factCtx), [stars, factCtx]);
+  const trivia = useMemo(() => extras(filteredJobs, filteredEvents, today(), segmentValues), [filteredJobs, filteredEvents, segmentValues]);
   if (loadingEvents || loadingJobs) return <p className="text-muted-foreground">Loading…</p>;
 
   return (

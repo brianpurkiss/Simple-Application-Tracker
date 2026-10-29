@@ -31,17 +31,18 @@ const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
 ];
 
 // The tabs: Job Titles groups by title or seniority; Job Type and Company Type review the automatic values.
-type Tab = "title" | "seniority" | "jobType" | "companyType";
-type GroupBy = "title" | "seniority" | "type" | "company";
+type Tab = "title" | "seniority" | "jobType" | "companyType" | "resume";
+type GroupBy = "title" | "seniority" | "type" | "company" | "resume";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "title", label: "Job Titles" },
   { key: "seniority", label: "Seniority" },
   { key: "jobType", label: "Job Type" },
   { key: "companyType", label: "Company Type" },
+  { key: "resume", label: "Resumes" },
 ];
 
-const LABEL_HEADERS: Record<GroupBy, string> = { title: "Job Title", seniority: "Seniority", type: "Job Type", company: "Company Type" };
+const LABEL_HEADERS: Record<GroupBy, string> = { title: "Job Title", seniority: "Seniority", type: "Job Type", company: "Company Type", resume: "Resume" };
 
 const SOURCE_LABEL: Record<FactSource, string> = {
   manual: "Hand-set", family: "Title family", company: "Same company", learned: "Learned", starter: "Title words", none: "Unknown",
@@ -52,10 +53,11 @@ const UNKNOWN = "Unknown";
 
 // Groups jobs by one attribute; each distinct title becomes a variant so rows still expand to their jobs.
 // A job with several Job Types is in each of their groups.
-function attributeGroups(jobs: Job[], ctx: FactContext, by: "seniority" | "type" | "company"): TitleGroup[] {
+function attributeGroups(jobs: Job[], ctx: FactContext, by: "seniority" | "type" | "company" | "resume"): TitleGroup[] {
   const labelsOf = (j: Job): string[] =>
     by === "seniority" ? [ctx.titles.get(j.id)?.seniority.label || "Unspecified"]
       : by === "type" ? resolveJobTypes(j, ctx).values
+      : by === "resume" ? [j.resume_version.trim() || "No resume"]
       : [resolveCompanyType(j, ctx).value].filter(Boolean);
   const groups = new Map<string, Job[]>();
   for (const j of jobs) {
@@ -84,17 +86,17 @@ function emptyRow(s: StarredGroup): Row {
   return { key: s.key, label, jobs: 0, variants: [], shared: false, unpaired: false, applications: 0, rejections: 0, totalInterviews: 0, uniqueInterviews: 0, rate: null, missing: true };
 }
 
-export default function Titles() {
+export default function Segments() {
   const { data: jobs = [], isLoading } = useJobs();
   const factCtx = useFactContext(jobs);
   const [sort, setSort] = useState<SortKey>("jobs");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [showTail, setShowTail] = useState(false);
   const [tab, setTab] = useState<Tab>("title");
-  const groupBy: GroupBy = tab === "jobType" ? "type" : tab === "companyType" ? "company" : tab;
+  const groupBy: GroupBy = tab === "jobType" ? "type" : tab === "companyType" ? "company" : tab === "resume" ? "resume" : tab;
   const factKind: FactKind | null = tab === "jobType" ? "job" : tab === "companyType" ? "company" : null;
-  // Company Type isn't a starred group, so its rows have no star.
-  const starKind: StarKind | null = groupBy === "company" ? null : groupBy;
+  // Company Type and Resumes aren't starred groups, so their rows have no star.
+  const starKind: StarKind | null = groupBy === "company" || groupBy === "resume" ? null : groupBy;
   const { data: stars = [] } = useStarredGroups();
   const starred = useMemo(() => starSet(stars), [stars]);
   const toggleStar = useToggleStar();
@@ -172,9 +174,9 @@ export default function Titles() {
 
   return (
     <div className="space-y-4">
-      <title>Job Titles | Application Tracker</title>
+      <title>Segments | Application Tracker</title>
       <div className="space-y-3">
-        <h1 className="text-xl font-semibold">Job Titles</h1>
+        <h1 className="text-xl font-semibold">Segments</h1>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b pb-3">
           <Segmented options={TABS} value={tab} onChange={setTab} />
           {tab === "title" && <span className="ml-auto"><TitleSynonyms /></span>}

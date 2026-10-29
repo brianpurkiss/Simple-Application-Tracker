@@ -48,7 +48,7 @@ function TypeRow({ type, used, first, last, onMove }: { type: FactType; used: nu
 }
 
 // The list of types for one kind, plus how much of the job list they cover. Opened from the Job Type and
-// Company Type tabs of the Job Titles page.
+// Company Type tabs of the Segments page.
 export function FactTypes({ kind, jobs, factCtx }: { kind: FactKind; jobs: Job[]; factCtx: FactContext }) {
   const types = factCtx.model.types[kind];
   const create = useCreateFactType();

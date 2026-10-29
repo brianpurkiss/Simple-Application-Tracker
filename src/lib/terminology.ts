@@ -214,7 +214,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
         calculation: "The highest rung word present wins. Senior/Executive move a management rung up one; Associate/Assistant move it down one. Global, Fractional, Interim and Acting don't change rank.",
       },
       {
-        term: "Titles page",
+        term: "Segments page",
         definition: "One row per Title Family with Jobs, Applications (jobs with an applied date), Rejections (status Rejected), Interviews and Interview Rate. Expanding a row lists every original title in it. Titles that roll up from a narrower family are shown muted.",
         calculation: "Interview Rate = Interviews / Applications. Shown muted below the minimum sample (MIN_SAMPLE). A job also counts toward every broader family it rolls up to, so rows don't sum to the job total.",
       },
@@ -225,12 +225,12 @@ export const TERM_CATEGORIES: TermCategory[] = [
       },
       {
         term: "Auto group",
-        definition: "A title group created automatically when no job has that exact title. \"Director, Digital Experience Experimentation\" and \"Sr. Director, Digital Experience and Channels\" both roll up to an Auto group \"Director of Digital Experience\". Tagged Auto on the Titles page.",
+        definition: "A title group created automatically when no job has that exact title. \"Director, Digital Experience Experimentation\" and \"Sr. Director, Digital Experience and Channels\" both roll up to an Auto group \"Director of Digital Experience\". Tagged Auto on the Segments page.",
         calculation: "The words two families on the same rung share. The words must sit next to each other in at least one title. A single shared word only counts when it is a whole function somewhere else (e.g. Head of CRO). IC groups must keep their role word (e.g. Product Manager).",
       },
       {
         term: "Synonyms",
-        definition: "Sets of terms you enter on the Titles page that mean the same thing in a title, such as eCommerce, eCom, e-Commerce, eComm. Every term is treated as the first one, which is also how it is displayed. Titles themselves are never changed.",
+        definition: "Sets of terms you enter on the Segments page that mean the same thing in a title, such as eCommerce, eCom, e-Commerce, eComm. Every term is treated as the first one, which is also how it is displayed. Titles themselves are never changed.",
       },
       {
         term: "Normalized Title",
@@ -238,7 +238,7 @@ export const TERM_CATEGORIES: TermCategory[] = [
       },
       {
         term: "Titles without Pairings",
-        definition: "Title groups holding a single title that nothing else matched and that doesn't roll up anywhere. Hidden behind \"View Titles without Pairings\" on the Titles page so they can be fixed with a synonym or Normalized Title, or left alone if the role is unique.",
+        definition: "Title groups holding a single title that nothing else matched and that doesn't roll up anywhere. Hidden behind \"View Titles without Pairings\" on the Segments page so they can be fixed with a synonym or Normalized Title, or left alone if the role is unique.",
       },
       { term: "Other (title)", definition: "A title with no recognizable rung or role word, such as \"General submission\". Seniority is Unspecified." },
     ],

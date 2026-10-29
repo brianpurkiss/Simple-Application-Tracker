@@ -1,4 +1,4 @@
-// Helpers for filtering jobs by the groups starred on the Job Titles page. Group keys match
+// Helpers for filtering jobs by the groups starred on the Segments page. Group keys match
 // TitleGroup.key there: title groups use their own key, the others are "seniority:<label>" / "type:<label>".
 
 import type { StarKind, StarredGroup } from "../api.ts";

@@ -2,7 +2,7 @@ import { type ReactNode, StrictMode, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import {
-  Activity as ActivityIcon, BellRing, BriefcaseBusiness, CalendarDays, ChartNoAxesCombined, CircleUser, Search, Timeline,
+  Activity as ActivityIcon, BellRing, BriefcaseBusiness, CalendarDays, ChartNoAxesCombined, ChartPie, CircleUser, Search,
   type LucideIcon,
 } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,7 +20,7 @@ import ResumeDetail from "@/pages/ResumeDetail";
 import ResumePerformance from "@/pages/ResumePerformance";
 import Activity from "@/pages/Activity";
 import Calendar from "@/pages/Calendar";
-import Titles from "@/pages/Titles";
+import Segments from "@/pages/Segments";
 import Backups from "@/pages/Backups";
 import Trash from "@/pages/Trash";
 import Shortcuts from "@/pages/Shortcuts";
@@ -45,7 +45,7 @@ function ScrollToTop() {
 const NAV_ITEMS: [string, string, LucideIcon][] = [
   ["/jobs", "Jobs", BriefcaseBusiness],
   [FOLLOW_UP, "Follow Up", BellRing],
-  ["/titles", "Titles", Timeline],
+  ["/segments", "Segments", ChartPie],
   ["/performance", "Performance", ChartNoAxesCombined],
   ["/activity", "Activity", ActivityIcon],
   ["/calendar", "Cal", CalendarDays],
@@ -126,7 +126,8 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/performance" element={<ResumePerformance />} />
             <Route path="/activity" element={<Activity />} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path="/titles" element={<Titles />} />
+            <Route path="/segments" element={<Segments />} />
+            <Route path="/titles" element={<Navigate to="/segments" replace />} />
             <Route path="/stats" element={<Navigate to="/activity" replace />} />
             <Route path="/backups" element={<Backups />} />
             <Route path="/trash" element={<Trash />} />

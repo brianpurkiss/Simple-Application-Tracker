@@ -10,7 +10,7 @@ export const GO_TO = [
   { key: "r", label: "Resumes", to: "/resumes" },
   { key: "u", label: "User", to: "/user" },
   { key: "p", label: "Performance", to: "/performance" },
-  { key: "l", label: "Titles", to: "/titles" },
+  { key: "s", label: "Segments", to: "/segments" },
   { key: "a", label: "Activity", to: "/activity" },
   { key: "c", label: "Calendar", to: "/calendar" },
   { key: "t", label: "Terminology", to: "/terminology" },

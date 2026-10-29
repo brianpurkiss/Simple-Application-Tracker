@@ -4,7 +4,7 @@ import { daysBetween, formatDate } from "./format";
 import { isActive, reachedInterview } from "./jobs";
 import { INTERVIEWING_STATUSES } from "./options";
 import { plural } from "./text";
-import { MIN_AGE_DAYS, MIN_SAMPLE, heardBack, median, pct } from "./stats";
+import { type DimValues, MIN_AGE_DAYS, MIN_SAMPLE, heardBack, median, pct } from "./stats";
 
 const count = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
 
@@ -121,15 +121,54 @@ export function cumulative(jobs: Job[], todayIso: string): CumulativePoint[] {
   }));
 }
 
-export const EXTRA_GROUPS = ["Responses", "Interviews", "Activity", "Salary"] as const;
+export const EXTRA_GROUPS = ["Responses", "Interviews", "Activity", "Segments", "Salary"] as const;
 type ExtraGroup = (typeof EXTRA_GROUPS)[number];
 export type Extra = { group: ExtraGroup; label: string; value: string; detail?: string; jobId?: number };
 
 const money = (n: number) => `$${Math.round(n / 1000)}k`;
 const label = (j: Job) => `${j.title} at ${j.company}`;
 
+// A job can sit in several segments (titles roll up), so counts here can add up to more than the number of jobs.
+function segmentExtras(jobs: Job[], segments: DimValues): Extra[] {
+  const out: Extra[] = [];
+  const dims = [
+    { dim: "title", label: "Most Applied-To Title" },
+    { dim: "seniority", label: "Most Applied-To Seniority" },
+    { dim: "type", label: "Most Applied-To Job Type" },
+  ] as const;
+  const applied = jobs.filter((j) => j.applied_date);
+  const tally = (dim: (typeof dims)[number]["dim"], list: Job[]) => {
+    const counts = new Map<string, number>();
+    for (const j of list) for (const v of new Set(segments(j, dim))) count(counts, v);
+    return counts;
+  };
+  const top = (counts: Map<string, number>) => [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+
+  for (const { dim, label } of dims) {
+    const best = top(tally(dim, applied));
+    if (best) out.push({ group: "Segments", label, value: best[0], detail: `${plural(best[1], "application")}, ${pct(best[1], applied.length)}% of jobs` });
+  }
+
+  // Most interviews, so one lucky application in a tiny segment can't win; ties go to the segment applied to less.
+  const interviews = tally("title", jobs.filter(reachedInterview));
+  const appliedTo = tally("title", applied);
+  const winner = [...interviews].sort((a, b) => b[1] - a[1] || (appliedTo.get(a[0]) ?? 0) - (appliedTo.get(b[0]) ?? 0))[0];
+  if (winner) out.push({ group: "Segments", label: "Best-Performing Title", value: winner[0], detail: `${plural(winner[1], "job")} reached an interview of ${appliedTo.get(winner[0]) ?? 0} applied` });
+
+  const titles = tally("title", applied);
+  if (titles.size > 1) {
+    const topThree = [...titles.values()].sort((a, b) => b - a).slice(0, 3).reduce((n, c) => n + c, 0);
+    const total = [...titles.values()].reduce((n, c) => n + c, 0);
+    out.push({ group: "Segments", label: "Title Spread", value: plural(titles.size, "title"), detail: `Top three hold ${pct(topThree, total)}% of applications` });
+  }
+
+  const unsegmented = jobs.filter((j) => dims.every(({ dim }) => !segments(j, dim).length)).length;
+  if (unsegmented) out.push({ group: "Segments", label: "Outside Every Segment", value: String(unsegmented), detail: "Not in any starred group" });
+  return out;
+}
+
 // Trivia for the end of the page. Anything without enough data is left out rather than shown as zero.
-export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string): Extra[] {
+export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string, segments?: DimValues): Extra[] {
   const out: Extra[] = [];
   const applied = jobs.filter((j) => j.applied_date);
 
@@ -192,6 +231,8 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string): 
   const mon = rateFor(1);
   const fri = rateFor(5);
   if (mon !== null && fri !== null) out.push({ group: "Responses", label: "Mondays vs. Fridays", value: `${mon}% vs. ${fri}%`, detail: "Reply rate by the day you applied" });
+
+  if (segments) out.push(...segmentExtras(jobs, segments));
 
   // The top of each posted range is the figure compared here.
   const salaries = jobs

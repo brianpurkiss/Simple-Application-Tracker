@@ -193,7 +193,7 @@ export default function JobsList() {
   const [selectedId, setSelectedId] = useState<number | null>(loadSelected);
   const [showMore, setShowMore] = useState(false);
   const tableWrap = useRef<HTMLDivElement>(null);
-  // Title groups and stars come from the Job Titles page, so the columns and filters read the same groups.
+  // Title groups and stars come from the Segments page, so the columns and filters read the same groups.
   const { data: stars = [] } = useStarredGroups();
   const factCtx = useFactContext(jobs);
   const columns = useMemo(() => buildColumns(view === "expanded", logHistory, factCtx), [view, logHistory, factCtx]);

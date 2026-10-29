@@ -94,11 +94,11 @@ export const PERF_DIMS = [
   { key: "resume", label: "Resume" },
   { key: "title", label: "Job Title" },
   { key: "seniority", label: "Seniority" },
-  { key: "type", label: "Type" },
+  { key: "type", label: "Job Type" },
   { key: "company", label: "Company Type" },
 ] as const;
 export type PerfDim = (typeof PERF_DIMS)[number]["key"];
-// The values a job takes for a non-resume dimension (a job can sit in several starred titles). Empty = not in any starred group.
+// The values a job takes for a non-resume dimension (a job can sit in several starred titles). Empty = not in any starred group, once a kind has stars.
 export type DimValues = (job: Job, dim: Exclude<PerfDim, "resume">) => string[];
 
 // "eCom 2.3" -> "eCom 2.x". Labels without a ".N" suffix are left alone.

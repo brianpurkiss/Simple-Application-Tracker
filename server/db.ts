@@ -143,7 +143,7 @@ db.exec(`
 `);
 
 // Job Titles, seniorities and job types the user starred so other pages can filter by them.
-// `key` is the group key from the Job Titles page; `kind` is "title", "seniority" or "type".
+// `key` is the group key from the Segments page; `kind` is "title", "seniority" or "type".
 db.exec(`
   CREATE TABLE IF NOT EXISTS starred_groups (
     kind TEXT NOT NULL,
