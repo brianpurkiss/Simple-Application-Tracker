@@ -168,7 +168,6 @@ export const TERM_CATEGORIES: TermCategory[] = [
       { term: "Follow-ups This Week", definition: "Home tile counting Follow-Up events logged since Monday, with last week's count for comparison." },
       { term: "Active Pipeline", definition: "Count of active jobs, with how many are interviewing." },
       { term: "Best Week", definition: "The most applications in a single week." },
-      { term: "Total Progress", definition: "Cumulative chart of Applications, Replies and Interviews over time." },
       { term: "Extras", definition: "Fastest/Slowest Reply, Quickest/Slowest Rejection, Most Interviews at One Company, Busiest Day/Week, Applications per Active Day, Lucky Resume, Days Searching, Events Logged, Ghosted, Mondays vs. Fridays, and four salary cards (Highest, Lowest, Average, Median)." },
     ],
   },

@@ -1,6 +1,5 @@
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { CHART, REJECTED_POST, REJECTED_PRE } from "@/lib/colors";
-import { GHOSTED_DAYS } from "@/lib/options";
 import type { SpanStats, TimingPoint } from "@/lib/stats";
 
 const SERIES = [
@@ -15,7 +14,6 @@ export default function Timing({ data, afterInterview }: { data: TimingPoint[]; 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-medium">How Long Replies Take</h2>
-          <p className="text-sm text-muted-foreground">Days from applying. Past {GHOSTED_DAYS} days silence counts as ghosted.</p>
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
           {SERIES.map((s) => (
@@ -41,8 +39,7 @@ export default function Timing({ data, afterInterview }: { data: TimingPoint[]; 
         <Bar dataKey="rejected" name="Rejected, Post Interview" fill={REJECTED_POST.hex} radius={[3, 3, 0, 0]} />
       </BarChart>
       <div className="border-t pt-4">
-        <h3 className="text-sm font-medium">First Interview to Rejection</h3>
-        <p className="text-sm text-muted-foreground">Days from first interview to a formal rejection.</p>
+        <h3 className="text-sm font-medium">First Interview to Rejection (in days)</h3>
         {afterInterview ? (
           <dl className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-5">
             {[

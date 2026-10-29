@@ -74,7 +74,70 @@ export function funnel(jobs: Job[]): FunnelStep[] {
   return counts.map(([label, count]) => ({ label, count, ofTotal: pct(count, counts[0][1]) }));
 }
 
-export type Outcome = { key: string; label: string; color: string; count: number };
+export type FlowNode = { name: string; color: string };
+export type FlowLink = { source: number; target: number; value: number };
+
+const FLOW_NODES: FlowNode[] = [
+  { name: "Applied", color: STATUS_COLORS.Applied.hex },
+  { name: "No Response", color: STATUS_COLORS.Ghosted.hex },
+  { name: "Heard Back", color: "#8b5cf6" },
+  { name: "No Interview", color: REJECTED_PRE.hex },
+  { name: "1st Interview", color: STATUS_COLORS.Interviewed.hex },
+  { name: "Multiple Interviews", color: "#2563eb" },
+  { name: "Still Open", color: STATUS_COLORS.Applied.hex },
+  { name: "Offer", color: STATUS_COLORS.Offer.hex },
+  { name: "Accepted", color: STATUS_COLORS.Accepted.hex },
+  { name: "Rejected", color: STATUS_COLORS.Rejected.hex },
+  { name: "Withdrew", color: STATUS_COLORS.Withdrew.hex },
+  { name: "Ghosted", color: STATUS_COLORS.Ghosted.hex },
+  { name: "Scam", color: STATUS_COLORS.Scam.hex },
+];
+
+const FLOW_OUTCOME: Record<string, string> = {
+  Applied: "Still Open",
+  Scheduled: "Still Open",
+  Interviewed: "Still Open",
+  Offer: "Offer",
+  Accepted: "Accepted",
+  Rejected: "Rejected",
+  Withdrew: "Withdrew",
+  Ghosted: "Ghosted",
+  Scam: "Scam",
+};
+
+// Every job follows one path (Applied > response > 1st interview > multiple interviews > outcome), so flow in always equals flow out.
+// Nodes nothing flows through are dropped, and links are reindexed to match.
+export function flow(jobs: Job[]): { nodes: FlowNode[]; links: FlowLink[] } {
+  const counts = new Map<string, number>();
+  const add = (from: string, to: string) => counts.set(`${from}|${to}`, (counts.get(`${from}|${to}`) ?? 0) + 1);
+  for (const j of jobs) {
+    const outcome = FLOW_OUTCOME[j.status] ?? "Still Open";
+    if (!heardBack(j)) {
+      add("Applied", "No Response");
+      add("No Response", outcome);
+      continue;
+    }
+    add("Applied", "Heard Back");
+    if (!interviewed(j)) {
+      add("Heard Back", "No Interview");
+      add("No Interview", outcome);
+      continue;
+    }
+    add("Heard Back", "1st Interview");
+    if (multipleInterviews(j)) {
+      add("1st Interview", "Multiple Interviews");
+      add("Multiple Interviews", outcome);
+    } else add("1st Interview", outcome);
+  }
+  const used = FLOW_NODES.filter((n) => [...counts.keys()].some((k) => k.split("|").includes(n.name)));
+  const links = [...counts].map(([k, value]) => {
+    const [from, to] = k.split("|");
+    return { source: used.findIndex((n) => n.name === from), target: used.findIndex((n) => n.name === to), value };
+  });
+  return { nodes: used, links };
+}
+
+export type Outcome ={ key: string; label: string; color: string; count: number };
 
 export function outcomes(jobs: Job[]): Outcome[] {
   const rejected = jobs.filter((j) => j.status === "Rejected");

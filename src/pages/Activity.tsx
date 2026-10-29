@@ -9,11 +9,11 @@ import { PillToggle } from "@/components/ui/pill-toggle";
 import { Segmented } from "@/components/ui/segmented";
 import CohortTable from "@/components/stats/CohortTable";
 import Extras from "@/components/stats/Extras";
+import FlowSankey from "@/components/stats/FlowSankey";
 import Funnel from "@/components/stats/Funnel";
 import KpiRow from "@/components/stats/KpiRow";
 import Momentum from "@/components/stats/Momentum";
 import OutcomeBar from "@/components/stats/OutcomeBar";
-import PipelineCumulative from "@/components/stats/PipelineCumulative";
 import SalaryDistribution from "@/components/stats/SalaryDistribution";
 import Timing from "@/components/stats/Timing";
 import WeekdayInsights from "@/components/stats/WeekdayInsights";
@@ -21,14 +21,14 @@ import { type ActivityEvent, type Job, useEvents, useJobs, useResumes, useStarre
 import { resolveCompanyType, resolveJobTypes, type FactContext } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { COMPANY_TYPE_PARAM, RESUME_PARAM, STAR_FILTERS } from "@/lib/jobFilters";
-import { VERSION_MODES, funnel, interviewToRejection, kpis, outcomes, resumeFamily, timing, weeklyCohorts } from "@/lib/stats";
+import { VERSION_MODES, flow, funnel, interviewToRejection, kpis, outcomes, resumeFamily, timing, weeklyCohorts } from "@/lib/stats";
 import {
   CATEGORIES,
   type Category,
   weeklySeries,
 } from "@/lib/activity";
 import { today } from "@/lib/format";
-import { cumulative, extras, momentum, rollingAverage } from "@/lib/insights";
+import { extras, momentum, rollingAverage } from "@/lib/insights";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { jobGroupKeys } from "@/lib/titles/starred";
 import { perfDimValues } from "@/lib/titles/perfDims";
@@ -56,9 +56,20 @@ const shortDate = (iso: string) => {
 function AreaView({ events }: { events: ActivityEvent[] }) {
   // Rejections start hidden so the applications and interviews trend reads first.
   const [hidden, setHidden] = useState<Set<Category>>(new Set(["rejection"]));
+  const [mode, setMode] = useState<"weekly" | "cumulative">("weekly");
   const weekly = weeklySeries(events);
   const trend = rollingAverage(weekly.map((w) => w.applied), 4);
-  const data = weekly.map((w, i) => ({ ...w, trend: trend[i] }));
+  const perWeek = weekly.map((w, i) => ({ ...w, trend: trend[i] }));
+  const data = useMemo(() => {
+    if (mode === "weekly") return perWeek;
+    // Running totals; the 4-week average only makes sense per week.
+    const running = { applied: 0, interview: 0, offer: 0, rejection: 0, resume: 0, other: 0 };
+    return weekly.map((w) => {
+      for (const k of Object.keys(running) as (keyof typeof running)[]) running[k] += w[k];
+      return { ...w, ...running };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, mode]);
   const toggle = (c: Category) =>
     setHidden((h) => {
       const next = new Set(h);
@@ -70,22 +81,17 @@ function AreaView({ events }: { events: ActivityEvent[] }) {
   return (
     <div className="space-y-4 rounded-lg border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">Events per Week (Weeks Start Monday)</div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Segmented
+            options={[{ key: "weekly", label: "By Week" }, { key: "cumulative", label: "Cumulative" }] as const}
+            value={mode}
+            onChange={setMode}
+          />
+          <div className="text-sm text-muted-foreground">
+            {mode === "weekly" ? "Events per Week (Weeks Start Monday)" : "Running Total of Events"}
+          </div>
+        </div>
         <Legend keys={["applied", "interview", "offer", "rejection", "resume"]} hidden={hidden} onToggle={toggle} />
-      </div>
-      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        {(["applied", "interview"] as const).map((key) => {
-          const c = CATEGORIES.find((x) => x.key === key)!;
-          const avg = data.length ? data.reduce((sum, w) => sum + w[key], 0) / data.length : 0;
-          return (
-            <div key={key} className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-              <span className="text-muted-foreground">Avg {c.label} / Week</span>
-              <span className="font-semibold tabular-nums">{avg.toFixed(1)}</span>
-            </div>
-          );
-        })}
-        <div className="text-muted-foreground">across {data.length} weeks</div>
       </div>
       <div className="overflow-x-auto">
         <ComposedChart responsive data={data} style={{ width: "100%", minWidth: 480, height: 340 }} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
@@ -101,7 +107,7 @@ function AreaView({ events }: { events: ActivityEvent[] }) {
           <XAxis dataKey="week" tickFormatter={shortDate} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
           <YAxis allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
           <Tooltip
-            labelFormatter={(w) => `Week of ${shortDate(String(w))}`}
+            labelFormatter={(w) => `${mode === "weekly" ? "Week of" : "Through week of"} ${shortDate(String(w))}`}
             contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }}
             itemStyle={{ color: "var(--foreground)" }}
           />
@@ -117,10 +123,24 @@ function AreaView({ events }: { events: ActivityEvent[] }) {
               fill={`url(#fill-${c.key})`}
             />
           ))}
-          {!hidden.has("applied") && (
+          {mode === "weekly" && !hidden.has("applied") && (
             <Line type="monotone" dataKey="trend" name="Applications, 4-Week Average" stroke="#b45309" strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
           )}
         </ComposedChart>
+      </div>
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        {(["applied", "interview"] as const).map((key) => {
+          const c = CATEGORIES.find((x) => x.key === key)!;
+          const avg = weekly.length ? weekly.reduce((sum, w) => sum + w[key], 0) / weekly.length : 0;
+          return (
+            <div key={key} className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+              <span className="text-muted-foreground">Avg {c.label} / Week</span>
+              <span className="font-semibold tabular-nums">{avg.toFixed(1)}</span>
+            </div>
+          );
+        })}
+        <div className="text-muted-foreground">across {weekly.length} weeks</div>
       </div>
     </div>
   );
@@ -209,7 +229,6 @@ export default function Activity() {
 
   const stats = useMemo(() => kpis(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
   const momentumStats = useMemo(() => momentum(filteredJobs, filteredEvents, today()), [filteredJobs, filteredEvents]);
-  const progress = useMemo(() => cumulative(filteredJobs, today()), [filteredJobs]);
   const segmentValues = useMemo(() => perfDimValues(stars, factCtx), [stars, factCtx]);
   const trivia = useMemo(() => extras(filteredJobs, filteredEvents, today(), segmentValues), [filteredJobs, filteredEvents, segmentValues]);
   if (loadingEvents || loadingJobs) return <p className="text-muted-foreground">Loading…</p>;
@@ -228,12 +247,12 @@ export default function Activity() {
         <Funnel steps={funnel(filteredJobs)} />
         <OutcomeBar outcomes={outcomes(filteredJobs)} />
       </div>
+      <FlowSankey {...flow(filteredJobs)} />
       <div className="space-y-4">
         <h2 className="font-medium">Timeline</h2>
         <AreaView events={filteredEvents} />
         <WeekdayInsights events={filteredEvents} />
       </div>
-      <PipelineCumulative data={progress} />
       <Timing data={timing(filteredJobs)} afterInterview={interviewToRejection(filteredJobs)} />
       <CohortTable cohorts={weeklyCohorts(filteredJobs)} />
       <SalaryDistribution jobs={filteredJobs} />

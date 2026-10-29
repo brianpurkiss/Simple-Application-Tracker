@@ -96,32 +96,6 @@ export function momentum(jobs: Job[], events: ActivityEvent[], todayIso: string)
   };
 }
 
-export type CumulativePoint = { week: string; applications: number; replies: number; interviews: number };
-
-// Running totals at the end of each week.
-export function cumulative(jobs: Job[], todayIso: string): CumulativePoint[] {
-  const apps = new Map<string, number>();
-  const replies = new Map<string, number>();
-  const interviews = new Map<string, number>();
-  for (const j of jobs) {
-    if (j.applied_date) count(apps, weekStart(j.applied_date));
-    const reply = replyDate(j);
-    if (reply) count(replies, weekStart(reply));
-    if (j.first_interview) count(interviews, weekStart(j.first_interview));
-  }
-  const first = [...apps.keys(), ...replies.keys(), ...interviews.keys()].sort()[0];
-  if (!first) return [];
-  let a = 0;
-  let r = 0;
-  let i = 0;
-  return weeksBetween(first, todayIso).map((week) => ({
-    week,
-    applications: (a += apps.get(week) ?? 0),
-    replies: (r += replies.get(week) ?? 0),
-    interviews: (i += interviews.get(week) ?? 0),
-  }));
-}
-
 export const EXTRA_GROUPS = ["Responses", "Interviews", "Activity", "Segments", "Salary"] as const;
 type ExtraGroup = (typeof EXTRA_GROUPS)[number];
 export type Extra = { group: ExtraGroup; label: string; value: string; detail?: string; jobId?: number };

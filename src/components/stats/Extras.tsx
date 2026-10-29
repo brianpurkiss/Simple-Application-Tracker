@@ -6,7 +6,7 @@ export default function Extras({ items }: { items: Extra[] }) {
   return (
     <div className="space-y-4 rounded-lg border bg-card p-5">
       <h2 className="font-medium">
-        Extras <span className="text-sm font-normal text-muted-foreground">· Not exactly useful, but interesting.</span>
+        Extra Data <span className="text-sm font-normal text-muted-foreground">· Because data is fun.</span>
       </h2>
       {EXTRA_GROUPS.map((group) => {
         const rows = items.filter((x) => x.group === group);
