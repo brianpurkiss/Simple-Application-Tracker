@@ -26,6 +26,10 @@ export const STATUS_COLORS: Record<string, Swatch> = {
 export const REJECTED_POST = { hex: "#64748b", dot: "bg-slate-500" };
 export const REJECTED_PRE = { hex: "#94a3b8", dot: "bg-slate-400" };
 
+// Ghosted splits the same way: the deeper stone went further.
+export const GHOSTED_POST = { hex: "#78716c", dot: "bg-stone-500" };
+export const GHOSTED_PRE = { hex: "#a8a29e", dot: "bg-stone-400" };
+
 export const EVENT_COLORS: Record<string, { dot: string; text: string }> = {
   Applied: { dot: "bg-amber-400", text: "text-amber-400" },
   Contact: { dot: "bg-violet-500", text: "text-violet-500" },
