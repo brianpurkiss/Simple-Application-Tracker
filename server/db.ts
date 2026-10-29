@@ -231,6 +231,10 @@ if (!profileColumns.has("cover_letter")) {
 if (!profileColumns.has("job_list_view")) {
   db.exec("ALTER TABLE profile ADD COLUMN job_list_view TEXT NOT NULL DEFAULT 'compact'");
 }
+// Masks salary figures everywhere so the app can be shown without revealing them.
+if (!profileColumns.has("hide_financials")) {
+  db.exec("ALTER TABLE profile ADD COLUMN hide_financials INTEGER NOT NULL DEFAULT 0");
+}
 const resumeColumns = new Set((db.pragma("table_info(resumes)") as { name: string }[]).map((c) => c.name));
 if (!resumeColumns.has("active")) {
   db.exec("ALTER TABLE resumes ADD COLUMN active INTEGER NOT NULL DEFAULT 1");

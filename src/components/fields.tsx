@@ -55,7 +55,7 @@ export function SalaryRangeField({ min, max, onMin, onMax, invalid, className }:
   const lo = useInline();
   const hi = useInline(false);
   // Shown with commas, held as plain digits.
-  const input = { type: "text", inputMode: "numeric", "aria-invalid": invalid || undefined } as const;
+  const input = { type: "text", inputMode: "numeric", "aria-invalid": invalid || undefined, "data-financial": "" } as const;
   const show = (v: string) => (v ? Number(v).toLocaleString("en-US") : "");
   const digits = (v: string) => v.replace(/\D/g, "").slice(0, 9);
   return (

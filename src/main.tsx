@@ -1,4 +1,4 @@
-import { type ReactNode, StrictMode, useLayoutEffect } from "react";
+import { Fragment, type ReactNode, StrictMode, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import {
@@ -6,6 +6,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useProfile } from "@/lib/api";
+import { setHideFinancials } from "@/lib/salary";
 import { GlobalHotkeys } from "@/components/GlobalHotkeys";
 import { InterviewCallout } from "@/components/InterviewCallout";
 import { PaletteProvider, usePalette } from "@/components/CommandPalette";
@@ -33,6 +35,20 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { refetchOnWind
 function PageFade({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   return <div key={pathname} className="page-fade">{children}</div>;
+}
+
+// Applies the profile's "hide financial numbers" setting before the page renders, and remounts the page when it flips
+// so components that format salaries outside React state pick it up. Nothing renders until the profile has loaded,
+// so figures never flash on page load.
+function FinancialsGate({ children }: { children: ReactNode }) {
+  const { data: profile } = useProfile();
+  const hide = !!profile?.hide_financials;
+  setHideFinancials(hide);
+  useLayoutEffect(() => {
+    document.documentElement.toggleAttribute("data-hide-financials", hide);
+  }, [hide]);
+  if (!profile) return null;
+  return <Fragment key={String(hide)}>{children}</Fragment>;
 }
 
 // Reset scroll on page change; keyed on pathname so query-string filter changes don't jump to the top.
@@ -115,6 +131,7 @@ createRoot(document.getElementById("root")!).render(
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1600px] flex-1 px-6 py-6">
+          <FinancialsGate>
           <PageFade>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -135,6 +152,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/terminology" element={<Terminology />} />
           </Routes>
           </PageFade>
+          </FinancialsGate>
         </main>
         <footer className="border-t">
           <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-4 text-xs text-muted-foreground">

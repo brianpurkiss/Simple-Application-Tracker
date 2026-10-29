@@ -116,3 +116,12 @@
     animation: none;
   }
 }
+
+/* "Hide financial numbers" profile setting: salary inputs show blank boxes. Text figures are masked in code (lib/salary). */
+[data-hide-financials] [data-financial] {
+  color: transparent;
+  background-color: var(--muted);
+}
+[data-hide-financials] [data-financial]::placeholder {
+  color: transparent;
+}

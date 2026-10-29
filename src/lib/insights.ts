@@ -3,6 +3,7 @@ import { addDays, categoryOf, weekStart } from "./activity";
 import { daysBetween, formatDate } from "./format";
 import { isActive, reachedInterview } from "./jobs";
 import { INTERVIEWING_STATUSES } from "./options";
+import { k } from "./salary";
 import { plural } from "./text";
 import { type DimValues, MIN_AGE_DAYS, MIN_SAMPLE, heardBack, median, pct } from "./stats";
 
@@ -125,7 +126,7 @@ export const EXTRA_GROUPS = ["Responses", "Interviews", "Activity", "Segments", 
 type ExtraGroup = (typeof EXTRA_GROUPS)[number];
 export type Extra = { group: ExtraGroup; label: string; value: string; detail?: string; jobId?: number };
 
-const money = (n: number) => `$${Math.round(n / 1000)}k`;
+const money = (n: number) => k(Math.round(n / 1000) * 1000);
 const label = (j: Job) => `${j.title} at ${j.company}`;
 
 // A job can sit in several segments (titles roll up), so counts here can add up to more than the number of jobs.

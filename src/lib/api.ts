@@ -180,7 +180,7 @@ export const useDeleteEvent = () =>
   useInvalidatingMutation((id: number) => request<void>("DELETE", `/api/events/${id}`));
 
 type JobListView = "compact" | "expanded";
-export type Profile = { salary_target: number | null; your_name: string; cover_letter: string; job_list_view: JobListView };
+export type Profile = { salary_target: number | null; your_name: string; cover_letter: string; job_list_view: JobListView; hide_financials: boolean };
 
 export const useProfile = () =>
   useQuery({ queryKey: ["profile"], queryFn: () => request<Profile>("GET", "/api/profile") });

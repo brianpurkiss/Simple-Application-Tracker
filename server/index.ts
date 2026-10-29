@@ -110,13 +110,16 @@ const getJob = (id: number) => {
   return job && withAutoGhost(withJobTypes(job));
 };
 
-const getProfile = () => db.prepare("SELECT salary_target, your_name, cover_letter, job_list_view FROM profile WHERE id = 1").get();
+const getProfile = () => {
+  const row = db.prepare("SELECT salary_target, your_name, cover_letter, job_list_view, hide_financials FROM profile WHERE id = 1").get() as any;
+  return { ...row, hide_financials: !!row.hide_financials };
+};
 
 app.get("/api/profile", (_req, res) => {
   res.json(getProfile());
 });
 
-const profileSchema = z.object({ salary_target: salary, your_name: text, cover_letter: z.string(), job_list_view: z.enum(["compact", "expanded"]) }).partial();
+const profileSchema = z.object({ salary_target: salary, your_name: text, cover_letter: z.string(), job_list_view: z.enum(["compact", "expanded"]), hide_financials: z.boolean().transform(Number) }).partial();
 app.patch("/api/profile", (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid profile" });

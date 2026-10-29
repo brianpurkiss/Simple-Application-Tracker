@@ -1,8 +1,15 @@
-export const k = (n: number) => `$${Number.isInteger(n / 1000) ? n / 1000 : (n / 1000).toFixed(1)}k`;
+export const HIDDEN_MONEY = "$•••";
+
+// Set from the profile's "hide financial numbers" setting; every money display below goes through it.
+let hideFinancials = false;
+export const setHideFinancials = (hide: boolean) => { hideFinancials = hide; };
+
+export const k = (n: number) => (hideFinancials ? HIDDEN_MONEY : `$${Number.isInteger(n / 1000) ? n / 1000 : (n / 1000).toFixed(1)}k`);
 
 // "$150k–$180k", "$160k+", "$150k" or "" for display and search.
 export function formatSalary(min: number | null, max: number | null): string {
   if (min == null && max == null) return "";
+  if (hideFinancials) return HIDDEN_MONEY;
   if (min == null) return `Up to ${k(max!)}`;
   if (max == null) return `${k(min)}+`;
   return min === max ? k(min) : `${k(min)}–${k(max)}`;

@@ -25,6 +25,7 @@ export default function SalaryTarget() {
         <span className="text-sm text-muted-foreground">$</span>
         <Input
           id="salary-target"
+          data-financial=""
           type="number"
           min={0}
           step={1000}

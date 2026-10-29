@@ -30,7 +30,7 @@ export default function User() {
   useEffect(() => setName(profile?.your_name ?? ""), [profile?.your_name]);
   useEffect(() => setCoverLetter(profile?.cover_letter ?? ""), [profile?.cover_letter]);
 
-  const save = (patch: { your_name?: string; cover_letter?: string }) =>
+  const save = (patch: { your_name?: string; cover_letter?: string; hide_financials?: boolean }) =>
     update.mutate(patch, { onSuccess: () => toast.success("Saved"), onError: (err) => toast.error(err.message) });
   const saveName = () => name.trim() !== (profile?.your_name ?? "") && save({ your_name: name });
   const saveCoverLetter = () => coverLetter !== (profile?.cover_letter ?? "") && save({ cover_letter: coverLetter });
@@ -64,6 +64,18 @@ export default function User() {
           className="max-w-sm"
         />
         <SalaryTarget />
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!!profile?.hide_financials}
+            onChange={(e) => save({ hide_financials: e.target.checked })}
+            className="mt-0.5"
+          />
+          <span>
+            Hide financial numbers
+            <span className="block text-xs text-muted-foreground">Replaces salaries with a placeholder across the app, so you can show it to others.</span>
+          </span>
+        </label>
       </Section>
 
       <Section
