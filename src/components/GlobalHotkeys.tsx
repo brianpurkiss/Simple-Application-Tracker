@@ -47,7 +47,10 @@ export function GlobalHotkeys() {
     e.preventDefault();
     run();
   };
-  useHotkey("c", plain(addJob));
+  // Q for Quick Add (Todoist, Asana); C and N both open the full form (C as in Gmail and Linear, N for "new").
+  useHotkey("q", plain(addJob));
+  useHotkey("c", plain(() => navigate("/jobs/new")));
+  useHotkey("n", plain(() => navigate("/jobs/new")));
   useHotkey("/", plain(focusSearch));
   useHotkey("?", plain(() => navigate("/shortcuts")));
 

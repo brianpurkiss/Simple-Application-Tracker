@@ -194,8 +194,8 @@ function CommandPalette({ open, onOpenChange, registry }: { open: boolean; onOpe
       ...GO_TO.map((g) => ({
         id: `go-${g.key}`, label: `Go to ${g.label}`, group: "Go to", keys: ["G", g.key.toUpperCase()], sep: "then", run: () => navigate(g.to),
       })),
-      { id: "add-job", label: "Quick add a job", group: "Actions", keys: ["C"], keywords: "new create", run: addJob },
-      { id: "add-job-full", label: "Add a job (full form)", group: "Actions", keywords: "new create page", run: () => navigate("/jobs/new") },
+      { id: "add-job", label: "Quick add a job", group: "Actions", keys: ["Q"], keywords: "new create", run: addJob },
+      { id: "add-job-full", label: "Add a job (full form)", group: "Actions", keys: ["C"], keywords: "new create page", run: () => navigate("/jobs/new") },
       { id: "search", label: "Search the jobs list", group: "Actions", keys: ["/"], keywords: "find filter", run: focusSearch },
       { id: "shortcuts", label: "Keyboard shortcuts", group: "Actions", keys: ["?"], keywords: "help keys", run: () => navigate("/shortcuts") },
       { id: "trash", label: "Go to Trash", group: "Go to", keywords: "deleted", run: () => navigate("/trash") },
