@@ -181,6 +181,8 @@ export function MarkdownField({ label, value, onChange, className, rows = 4, tex
           className={cn(plain, textareaClassName)}
           onChange={(e) => change(e.target.value)}
           onPaste={onPaste}
+          // A blank field starts as this textarea; mark it editing on focus so the first keystroke doesn't swap in the preview.
+          onFocus={() => setEditing(true)}
           onBlur={() => { setEditing(false); onBlur?.(); }}
         />
       )}

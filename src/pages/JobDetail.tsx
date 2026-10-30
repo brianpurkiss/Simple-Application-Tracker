@@ -73,9 +73,11 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
     valid: (d) => !!d.title.trim() && !salaryRangeInvalid(d.salary_min, d.salary_max),
     toPatch,
     onSaved: () => { setEpoch((n) => n + 1); setEditing(false); },
-    // Escape while editing drops back to reading. Otherwise step back when we came from the list so its filters (kept in the URL) survive.
+    // Escape while editing drops back to reading, and with unsaved inline edits (notes, follow-up) it clears them and stays.
+    // Otherwise step back when we came from the list so its filters (kept in the URL) survive.
     onLeave: () =>
       editing ? exitEdit()
+        : changed.length > 0 ? discard()
         : (location.state as { fromList?: boolean } | null)?.fromList ? navigate(-1)
         : navigate("/jobs"),
   });
@@ -201,20 +203,12 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
           </Button>
         </div>
       )}
-      {job.saved && !job.deleted_at && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dotted border-slate-400/40 px-4 py-2.5 text-sm text-muted-foreground">
-          Saved, not applied. It can be included on Segments, but never counts in Activity or Performance.
-          <Button size="sm" variant="outline" className="ml-auto" onClick={markApplied} disabled={applyJob.isPending}>
-            Mark as Applied Today
-          </Button>
-        </div>
-      )}
       <div className="flex flex-wrap items-start gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} title="Back"><ArrowLeft /></Button>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold">{saved.title}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
-            <span>{saved.company}</span>
+            <span>{saved.company.trim() || "Unknown"}</span>
             <StatusBadge job={job} />
             {saved.jd_link && (
               <a href={saved.jd_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm hover:text-foreground">
@@ -265,6 +259,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                 <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300">
                   <BellRing className="size-4 shrink-0" />
                   Follow up needed
+                </div>
+              )}
+              {job.saved && !job.deleted_at && (
+                <div className="space-y-2.5 rounded-md border border-dotted border-slate-400/40 px-3 py-2.5 text-sm text-muted-foreground">
+                  <p>Saved, not applied. It can be included on Segments, but never counts in Activity or Performance.</p>
+                  <Button size="sm" variant="outline" className="w-full" onClick={markApplied} disabled={applyJob.isPending}>
+                    Mark as Applied Today
+                  </Button>
                 </div>
               )}
               <HistoryPanel jobId={job.id} events={job.events} followUpNeeded={followUpNeeded} onFollowUpLogged={() => setFollowedUpId(job.id)} />
