@@ -300,7 +300,8 @@ export function ComboField({ label, value, onChange, options, className, placeho
 /** What the app worked out for a fact field, shown while the field is left on automatic. */
 export type FactHint = { values: string[]; reason: string; likely?: { value: string; reason: string } };
 
-function FactStatus({ manual, auto, onReset, onUseLikely }: { manual: boolean; auto: FactHint; onReset: () => void; onUseLikely: (v: string) => void }) {
+// `quiet` holds back the "Unknown" warning, e.g. on a new job before there's a title to work from.
+function FactStatus({ manual, auto, onReset, onUseLikely, quiet }: { manual: boolean; auto: FactHint; onReset: () => void; onUseLikely: (v: string) => void; quiet?: boolean }) {
   const link = "underline underline-offset-4 hover:text-foreground";
   if (manual) {
     return (
@@ -319,13 +320,14 @@ function FactStatus({ manual, auto, onReset, onUseLikely }: { manual: boolean; a
       </p>
     );
   }
+  if (quiet) return null;
   return <p className="text-xs text-amber-600 dark:text-amber-500">Unknown: {auto.reason.toLowerCase()}. Pick one.</p>;
 }
 
 // Job Types: one pill per type. Left alone it shows the automatic types; toggling a pill sets them by hand,
 // starting from what's shown.
-export function JobTypesField({ label = "Job Type", value, onChange, options, auto, className }: {
-  label?: string; value: string[]; onChange: (value: string[]) => void; options: readonly string[]; auto: FactHint; className?: string;
+export function JobTypesField({ label = "Job Type", value, onChange, options, auto, quiet, className }: {
+  label?: string; value: string[]; onChange: (value: string[]) => void; options: readonly string[]; auto: FactHint; quiet?: boolean; className?: string;
 }) {
   const manual = value.length > 0;
   const shown = manual ? value : auto.values;
@@ -355,14 +357,14 @@ export function JobTypesField({ label = "Job Type", value, onChange, options, au
           );
         })}
       </div>
-      <FactStatus manual={manual} auto={auto} onReset={() => onChange([])} onUseLikely={(v) => onChange([v])} />
+      <FactStatus manual={manual} auto={auto} onReset={() => onChange([])} onUseLikely={(v) => onChange([v])} quiet={quiet} />
     </div>
   );
 }
 
 // Company Type: a select whose empty state shows the automatic value. Picking one sets it by hand.
-export function CompanyTypeField({ label = "Company Type", value, onChange, options, auto, className }: {
-  label?: string; value: string; onChange: (value: string) => void; options: readonly string[]; auto: FactHint; className?: string;
+export function CompanyTypeField({ label = "Company Type", value, onChange, options, auto, quiet, className }: {
+  label?: string; value: string; onChange: (value: string) => void; options: readonly string[]; auto: FactHint; quiet?: boolean; className?: string;
 }) {
   const id = useId();
   const all = value && !options.includes(value) ? [value, ...options] : options;
@@ -379,7 +381,7 @@ export function CompanyTypeField({ label = "Company Type", value, onChange, opti
           {all.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
         </SelectContent>
       </Select>
-      <FactStatus manual={!!value} auto={auto} onReset={() => set("")} onUseLikely={set} />
+      <FactStatus manual={!!value} auto={auto} onReset={() => set("")} onUseLikely={set} quiet={quiet} />
     </Field>
   );
 }

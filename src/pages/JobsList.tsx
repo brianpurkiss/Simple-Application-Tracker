@@ -10,7 +10,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ChevronDown, ListFilter, Plus, Rows2, Rows4, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ListFilter, Plus, Rows2, Rows4, Search, Target, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Segmented } from "@/components/ui/segmented";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_COLORS } from "@/lib/colors";
-import { AddJobDialog } from "@/components/AddJobDialog";
+import { AddJobButton } from "@/components/AddJobButton";
 import { MissingDataDialog } from "@/components/MissingDataDialog";
 import { isMissing, missingField } from "@/lib/missing";
 import { type PaletteAction, jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
@@ -35,7 +35,7 @@ import { daysSince, formatDate, isOnHold } from "@/lib/format";
 import { isActive, isApplication, isScheduledDue, needsFollowUp, reachedInterview } from "@/lib/jobs";
 import { FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary } from "@/lib/salary";
-import { annualPackage, hasExtras } from "@/lib/compensation";
+import { annualPackage, hasExtras, targetFit } from "@/lib/compensation";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { cn } from "@/lib/utils";
 import { toastError, toastSaved } from "@/lib/demo";
@@ -65,7 +65,7 @@ const textCell = (id: string, header: string, value: (job: Job) => string): Colu
   },
 });
 
-const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void, ctx: FactContext): ColumnDef<Job>[] => [
+const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void, ctx: FactContext, salaryTarget: number | null): ColumnDef<Job>[] => [
   {
     id: "actions",
     header: "",
@@ -86,10 +86,17 @@ const buildColumns = (expanded: boolean, onQuickAdd: (job: Job) => void, ctx: Fa
       const pkg = hasExtras(row.original) ? annualPackage(row.original) : null;
       const pay = [formatSalary(salary_min, salary_max), pkg && `${formatSalary(pkg.min, pkg.max)} package`].filter(Boolean).join(", ");
       const detail = expanded ? [fit, pay].filter(Boolean).join(" · ") : "";
+      // Marked when the base range reaches the Base Salary Target: the target sits inside it, or the range starts above it.
+      const onTarget = targetFit(salary_min, salary_max, salaryTarget);
       return (
         <div className="max-w-[11rem] sm:max-w-[22rem]">
           <div className="flex items-center gap-1.5">
             <span className="truncate font-medium" title={title}>{title}</span>
+            {onTarget && onTarget.kind !== "above" && (
+              <span className="shrink-0" title={onTarget.kind === "within" ? "Salary range includes your target" : "Salary range is above your target"}>
+                <Target className="size-3.5 text-white" aria-label="Salary on target" />
+              </span>
+            )}
             {isOnHold(row.original) && (
               <span className="shrink-0 rounded-full border px-1.5 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground" title="Held out of Follow Up and Ghosted until then">
                 Follow up {formatDate(row.original.follow_up_on)}
@@ -200,7 +207,7 @@ export default function JobsList() {
   // Title groups and stars come from the Segments page, so the columns and filters read the same groups.
   const { data: stars = [] } = useStarredGroups();
   const factCtx = useFactContext(jobs);
-  const columns = useMemo(() => buildColumns(view === "expanded", logHistory, factCtx), [view, logHistory, factCtx]);
+  const columns = useMemo(() => buildColumns(view === "expanded", logHistory, factCtx, profile?.salary_target ?? null), [view, logHistory, factCtx, profile?.salary_target]);
 
   // Cmd/Ctrl+F from another page lands here with the request in navigation state.
   useEffect(() => {
@@ -496,7 +503,7 @@ export default function JobsList() {
         ))}
         </div>
         <div className="sm:ml-auto">
-          <AddJobDialog />
+          <AddJobButton />
         </div>
       </div>
 

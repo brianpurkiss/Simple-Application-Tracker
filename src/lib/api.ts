@@ -241,6 +241,10 @@ export type Profile = {
   cover_letter: string;
   job_list_view: JobListView;
   hide_financials: boolean;
+  /** What a new job starts with. */
+  favorite_resume_id: number | null;
+  default_work_mode: string;
+  default_applied_via: string;
 };
 
 export const useProfile = () =>

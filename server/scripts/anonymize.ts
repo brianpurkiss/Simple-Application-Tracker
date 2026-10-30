@@ -561,6 +561,10 @@ const profile = [{
   past_package: 450_000,
   past_days_off: 25,
   hide_financials: 0,
+  // New-job defaults: the starred resume's id is already public in the seed; the rest are fixed demo values.
+  favorite_resume_id: realProfile.favorite_resume_id ?? null,
+  default_work_mode: "Remote",
+  default_applied_via: "Direct",
   updated_at: `${demoDay} ${FIXED_TIME}`,
 }];
 

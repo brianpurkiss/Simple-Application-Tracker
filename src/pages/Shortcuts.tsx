@@ -9,7 +9,7 @@ const GROUPS: { title: string; note?: string; items: Item[] }[] = [
     title: "Everywhere",
     items: [
       { keys: [MOD, "K"], alt: [MOD, "P"], label: "Command palette: search actions and jobs" },
-      { keys: ["C"], label: "Add a job" },
+      { keys: ["C"], label: "Quick add a job" },
       { keys: ["/"], label: "Search the jobs list" },
       { keys: ["?"], label: "Keyboard shortcuts" },
       { keys: ["Esc"], label: "Clear search and filters (Jobs, Performance, Activity)" },

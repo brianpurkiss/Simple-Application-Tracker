@@ -6,7 +6,8 @@ import { EventFields, blankEvent, celebrateEvent } from "@/components/EventField
 import { type Job, useAddEvent } from "@/lib/api";
 import { celebrate } from "@/lib/confetti";
 import { toastError, toastSaved } from "@/lib/demo";
-import { needsFollowUp } from "@/lib/jobs";
+import { loggableTypes, needsFollowUp } from "@/lib/jobs";
+import { EVENT_TYPES } from "@/lib/options";
 
 // Jobs list dialog: log a history event without opening the job. Open while `job` is set.
 export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: string; onClose: () => void }) {
@@ -57,7 +58,7 @@ export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: 
           <p className="truncate text-sm text-muted-foreground" title={shown?.title}>{shown?.title}</p>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
-          <EventFields value={draft} onChange={setDraft} onSubmit={submit} />
+          <EventFields value={draft} onChange={setDraft} onSubmit={submit} types={loggableTypes(EVENT_TYPES, !!shown?.applied_date)} />
           <Button ref={addButton} type="submit" disabled={add.isPending}>Add</Button>
         </form>
       </DialogContent>

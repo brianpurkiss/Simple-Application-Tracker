@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode, StrictMode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import {
   Activity as ActivityIcon, BellRing, BriefcaseBusiness, CalendarDays, ChartNoAxesCombined, ChartPie, CircleUser, Menu, Search, X,
   type LucideIcon,
@@ -13,6 +13,7 @@ import { DEMO_NOW } from "../demo/config.ts";
 import { formatDate } from "@/lib/format";
 import { GlobalHotkeys } from "@/components/GlobalHotkeys";
 import { ConfirmHost } from "@/components/ConfirmDialog";
+import { QuickAddJobDialog } from "@/components/QuickAddJobDialog";
 import { InterviewCallout } from "@/components/InterviewCallout";
 import { PaletteProvider, usePalette } from "@/components/CommandPalette";
 import { FOLLOW_UP, MOD } from "@/lib/shortcuts";
@@ -20,6 +21,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Home from "@/pages/Home";
 import JobsList from "@/pages/JobsList";
 import JobDetail from "@/pages/JobDetail";
+import NewJob from "@/pages/NewJob";
 import User from "@/pages/User";
 import Resumes from "@/pages/Resumes";
 import ResumeDetail from "@/pages/ResumeDetail";
@@ -228,10 +230,9 @@ function UserLink() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+function App() {
+  return (
+    <>
         <PaletteProvider>
         <ScrollToTop />
         <GlobalHotkeys />
@@ -250,6 +251,7 @@ createRoot(document.getElementById("root")!).render(
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/jobs" element={<JobsList />} />
+            <Route path="/jobs/new" element={<NewJob />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
             <Route path="/user" element={<User />} />
             <Route path="/resumes" element={<Resumes />} />
@@ -288,10 +290,21 @@ createRoot(document.getElementById("root")!).render(
           </div>
         </footer>
         </div>
+        <QuickAddJobDialog />
         <ConfirmHost />
         <Toaster position="bottom-right" />
         </PaletteProvider>
-      </BrowserRouter>
+    </>
+  );
+}
+
+// A data router (rather than <BrowserRouter>) so pages can block navigation with useBlocker.
+const router = createBrowserRouter([{ path: "*", element: <App /> }], { basename: import.meta.env.BASE_URL.replace(/\/$/, "") });
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   </StrictMode>,
 );

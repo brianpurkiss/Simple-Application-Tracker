@@ -5,6 +5,9 @@ import { daysSince, isOnHold } from "./format";
 // Saved postings weren't applied to, so they stay out of activity, performance and the pipeline.
 export const isApplication = (job: Job) => !job.saved;
 
+// A job has one Applied event, so once it has one, Applied isn't offered when logging history.
+export const loggableTypes = (types: readonly string[], hasApplied: boolean) => (hasApplied ? types.filter((t) => t !== "Applied") : types);
+
 export const isActive = (job: Job) => isApplication(job) && !CLOSED_STATUSES.has(job.status);
 
 // Jobs that got to an interview at some point, including ones that ended after it.

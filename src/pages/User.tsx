@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MarkdownField, TextField } from "@/components/fields";
+import { MarkdownField, SelectField, TextField } from "@/components/fields";
 import SalaryTarget, { ProfileNumber } from "@/components/stats/SalaryTarget";
-import { useProfile, useResumes, useUpdateProfile } from "@/lib/api";
+import { type Profile, useProfile, useResumes, useUpdateProfile } from "@/lib/api";
 import { isEditable, useHotkey } from "@/hooks/hotkeys";
-import { splitResumes } from "@/lib/options";
+import { APPLIED_VIA, WORK_MODES, splitResumes } from "@/lib/options";
 import { toastError, toastSaved } from "@/lib/demo";
 
 function Section({ title, children, action, className = "space-y-3" }: { title: string; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
@@ -30,7 +30,7 @@ export default function User() {
   useEffect(() => setName(profile?.your_name ?? ""), [profile?.your_name]);
   useEffect(() => setCoverLetter(profile?.cover_letter ?? ""), [profile?.cover_letter]);
 
-  const save = (patch: { your_name?: string; cover_letter?: string; hide_financials?: boolean }) =>
+  const save = (patch: Partial<Pick<Profile, "your_name" | "cover_letter" | "hide_financials" | "default_work_mode" | "default_applied_via">>) =>
     update.mutate(patch, { onSuccess: () => toastSaved("Saved"), onError: (err) => toastError(err) });
   const saveName = () => name.trim() !== (profile?.your_name ?? "") && save({ your_name: name });
   const saveCoverLetter = () => coverLetter !== (profile?.cover_letter ?? "") && save({ cover_letter: coverLetter });
@@ -47,6 +47,7 @@ export default function User() {
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
 
   const { active: latest } = splitResumes(resumes);
+  const favorite = resumes.find((r) => r.id === profile?.favorite_resume_id);
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -84,6 +85,19 @@ export default function User() {
           <ProfileNumber field="past_package" label="Annual Package" />
           <ProfileNumber field="past_days_off" label="Paid Days Off" money={false} placeholder="Days a year" />
         </div>
+      </Section>
+
+      <Section title="New Job Defaults" className="space-y-4">
+        <p className="text-xs text-muted-foreground">Filled in when you add a job, on Quick Add and the full Add Job page. Applied always starts as today.</p>
+        <div className="grid max-w-md grid-cols-2 gap-4">
+          <SelectField label="Work Mode" value={profile?.default_work_mode ?? ""} onChange={(v) => save({ default_work_mode: v })} options={WORK_MODES} />
+          <SelectField label="Applied Via" value={profile?.default_applied_via ?? ""} onChange={(v) => save({ default_applied_via: v })} options={APPLIED_VIA} />
+        </div>
+        <p className="text-sm">
+          <span className="text-muted-foreground">Resume Version: </span>
+          {favorite ? <Link to={`/resumes/${favorite.id}`} className="font-medium hover:underline">{favorite.version}</Link> : <span className="text-muted-foreground">none starred</span>}
+          <span className="block text-xs text-muted-foreground">Star a resume on the <Link to="/resumes" className="underline underline-offset-4">Resumes</Link> page to change it.</span>
+        </p>
       </Section>
 
       <Section

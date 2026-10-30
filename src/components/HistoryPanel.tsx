@@ -6,17 +6,23 @@ import { Button } from "@/components/ui/button";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
 import { burstFrom } from "@/lib/confetti";
 import { type EventInput, type JobEvent, useAddEvent, useDeleteEvent, useUpdateEvent } from "@/lib/api";
-import { formatDate, formatTime } from "@/lib/format";
+import { daysSince, formatDate, formatTime } from "@/lib/format";
 import { EVENT_COLORS } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/demo";
 import { EVENT_TYPES } from "@/lib/options";
+import { loggableTypes } from "@/lib/jobs";
 
 const HISTORY_SIZE = 5;
 // Notes live in the Notes card, dated alongside screens and interviews, so History leaves them out.
-const HISTORY_TYPES = EVENT_TYPES.filter((t) => t !== "Note");
+export const HISTORY_TYPES = EVENT_TYPES.filter((t) => t !== "Note");
 
-function EventRow({ event }: { event: JobEvent }) {
+const appliedAgo = (date: string) => {
+  const days = daysSince(date) ?? 0;
+  return days <= 0 ? "today" : `${days} ${days === 1 ? "day" : "days"} ago`;
+};
+
+function EventRow({ event, types }: { event: JobEvent; types: readonly string[] }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<EventInput>(event);
   const update = useUpdateEvent();
@@ -30,7 +36,7 @@ function EventRow({ event }: { event: JobEvent }) {
   if (editing) {
     return (
       <li className="flex flex-wrap items-center gap-2 py-2">
-        <EventFields value={draft} onChange={setDraft} onSubmit={save} />
+        <EventFields value={draft} onChange={setDraft} onSubmit={save} types={types} />
         <Button size="icon" onClick={save}>
           <Check />
         </Button>
@@ -48,6 +54,8 @@ function EventRow({ event }: { event: JobEvent }) {
           <Link to={`/calendar?date=${event.date}`} title="View on calendar" className="text-muted-foreground hover:text-foreground hover:underline">
             {formatDate(event.date)}{event.time && ` · ${formatTime(event.time)}`}
           </Link>
+          {/* How long the application has been out; the card header counts from the latest activity instead. */}
+          {event.type === "Applied" && <span className="text-muted-foreground">· {appliedAgo(event.date)}</span>}
         </div>
         {event.description && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{event.description}</p>}
       </div>
@@ -58,7 +66,11 @@ function EventRow({ event }: { event: JobEvent }) {
           variant="ghost"
           className="size-7"
           onClick={async () => {
-            if (await confirmDialog({ message: `Delete this ${event.type} event?`, confirmLabel: "Delete", destructive: true })) remove.mutate(event.id);
+            if (await confirmDialog({
+              message: event.type === "Applied" ? "Delete the Applied event? This also clears the job's applied date." : `Delete this ${event.type} event?`,
+              confirmLabel: "Delete",
+              destructive: true,
+            })) remove.mutate(event.id);
           }}
         >
           <Trash2 />
@@ -75,6 +87,7 @@ export function HistoryPanel({ jobId, events: all, followUpNeeded = false, onFol
   onFollowUpLogged?: () => void;
 }) {
   const events = all.filter((e) => e.type !== "Note");
+  const hasApplied = events.some((e) => e.type === "Applied");
   const [draft, setDraft] = useState(blankEvent);
   // The add form stays folded behind a button so the list reads first.
   const [adding, setAdding] = useState(false);
@@ -105,7 +118,7 @@ export function HistoryPanel({ jobId, events: all, followUpNeeded = false, onFol
     <div className="space-y-3">
       {adding ? (
         <form onSubmit={submit} className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
-          <EventFields value={draft} onChange={setDraft} onSubmit={submit} types={HISTORY_TYPES} />
+          <EventFields value={draft} onChange={setDraft} onSubmit={submit} types={loggableTypes(HISTORY_TYPES, hasApplied)} />
           <Button ref={addButton} type="submit" disabled={add.isPending}>Add</Button>
           <Button type="button" variant="ghost" size="icon" title="Cancel" onClick={() => { setDraft(blankEvent()); setAdding(false); }}><X /></Button>
         </form>
@@ -117,7 +130,7 @@ export function HistoryPanel({ jobId, events: all, followUpNeeded = false, onFol
       {events.length ? (
         <>
           <ul className="divide-y">
-            {(showAll ? events : events.slice(0, HISTORY_SIZE)).map((e) => <EventRow key={e.id} event={e} />)}
+            {(showAll ? events : events.slice(0, HISTORY_SIZE)).map((e) => <EventRow key={e.id} event={e} types={loggableTypes(EVENT_TYPES, hasApplied && e.type !== "Applied")} />)}
           </ul>
           {hidden > 0 && (
             <div className="flex justify-center border-t pt-2.5">

@@ -5,21 +5,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { MarkdownField } from "@/components/fields";
 import { EventNotes } from "@/components/EventNotes";
-import { type JobEvent, useAddEvent } from "@/lib/api";
+import { type EventInput, type JobEvent, useAddEvent } from "@/lib/api";
 import { today } from "@/lib/format";
 import { TIMED_EVENT_TYPES } from "@/lib/options";
 import { toastError } from "@/lib/demo";
 
 type NotesProps = { jobId: number; notes: string; onNotesChange: (v: string) => void; events: JobEvent[] };
 
-// A dated note being written. Saved as a Note event; nothing is stored until Save.
-function NewNote({ jobId, rows, onDone }: { jobId: number; rows: number; onDone: () => void }) {
+// A dated note being written, handed to `onSave` as a Note event; nothing is stored until Save.
+export function NoteForm({ rows, onSave, onDone, pending = false }: { rows: number; onSave: (note: EventInput) => void; onDone: () => void; pending?: boolean }) {
   const [date, setDate] = useState(today);
   const [text, setText] = useState("");
-  const add = useAddEvent(jobId);
   const submit = () => {
-    if (!text.trim()) return;
-    add.mutate({ type: "Note", date, description: text, notes: "", time: null }, { onSuccess: onDone, onError: (e) => toastError(e) });
+    if (text.trim()) onSave({ type: "Note", date, description: text, notes: "", time: null });
   };
   return (
     <div
@@ -35,10 +33,16 @@ function NewNote({ jobId, rows, onDone }: { jobId: number; rows: number; onDone:
       <MarkdownField label="" value={text} onChange={setText} rows={rows} autoFocus placeholder="Anything worth remembering…" />
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
-        <Button size="sm" onClick={submit} disabled={!text.trim() || add.isPending}>Save</Button>
+        <Button size="sm" onClick={submit} disabled={!text.trim() || pending}>Save</Button>
       </div>
     </div>
   );
+}
+
+// A new note on a saved job.
+function NewNote({ jobId, rows, onDone }: { jobId: number; rows: number; onDone: () => void }) {
+  const add = useAddEvent(jobId);
+  return <NoteForm rows={rows} onDone={onDone} pending={add.isPending} onSave={(note) => add.mutate(note, { onSuccess: onDone, onError: (e) => toastError(e) })} />;
 }
 
 // Every note for a job: the general notes, then dated notes, screens and interviews, newest first, all edited

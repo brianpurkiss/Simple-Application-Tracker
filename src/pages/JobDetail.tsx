@@ -1,49 +1,39 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { confirmDialog, DISCARD } from "@/components/ConfirmDialog";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BellRing, CalendarClock, ChevronRight, ExternalLink, Info, Mail, Maximize2, Pencil, Phone, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, BellRing, ChevronRight, ExternalLink, Info, Mail, Maximize2, Pencil, Phone, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ComboField, CompanyTypeField, InlineFields, JobTypesField, MarkdownField, MarkdownText, SelectField, TextField } from "@/components/fields";
-import { COMP_KEYS, CompensationCard, CompensationDetails, CompensationSummary, compToPatch, isCompKey } from "@/components/CompensationCard";
+import { InlineFields, MarkdownText } from "@/components/fields";
+import { type Draft, EDITABLE, JobFormCards, toDraft, toPatch } from "@/components/JobFormCards";
+import { COMP_KEYS, CompensationDetails, CompensationSummary } from "@/components/CompensationCard";
 import { Collapsible } from "@/components/Collapsible";
-import { formatSalary, salaryRangeInvalid, toSalary } from "@/lib/salary";
+import { salaryRangeInvalid } from "@/lib/salary";
+import { FollowUpButton } from "@/components/FollowUpButton";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { AllNotesDialog, JobNotes } from "@/components/AllNotesDialog";
 import { Keys } from "@/components/Keys";
 import { EVENT_COLORS } from "@/lib/colors";
 import { StatusBadge } from "@/components/StatusBadge";
-import { type Job, type JobEvent, type JobInput, useApplyJob, useDeleteJob, useJob, useJobs, useRestoreJob, useSuggestions, useUpdateJob } from "@/lib/api";
-import { factHints, typeNames } from "@/lib/jobFacts";
+import { type Job, type JobEvent, useApplyJob, useDeleteJob, useJob, useJobs, useRestoreJob, useUpdateJob } from "@/lib/api";
+import { factHints } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { daysSince, formatDate, today } from "@/lib/format";
-import { addDays, weekStart } from "@/lib/activity";
 import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { useDraftForm } from "@/hooks/useDraftForm";
+import { useLeaveGuard } from "@/hooks/useLeaveGuard";
 import { useStickyTop } from "@/hooks/useStickyTop";
 import { loadOrder, saveSelected } from "@/lib/listOrder";
 import { jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { MOD } from "@/lib/shortcuts";
-import { APPLIED_VIA, FITS, GHOSTED_DAYS, RESUME_VERSIONS, WORK_MODES, sortResumeVersions } from "@/lib/options";
+import { GHOSTED_DAYS } from "@/lib/options";
 import { needsFollowUp } from "@/lib/jobs";
 import { toastError, toastSaved } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 // An event type name in its History color.
 const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}</span>;
-
-const EDITABLE = [
-  "title", "normalized_title", "company", "company_type", "fit", "salary_min", "salary_max", "job_types", "resume_version", "work_mode", "applied_date",
-  "follow_up_on", "jd_link", "applied_via", "agency_name", "contact_name", "contact_email", "contact_phone", "contact_linkedin", "offer_info", "notes",
-  "job_description", "cover_letter", ...COMP_KEYS,
-] as const satisfies readonly (keyof JobInput)[];
-
-type Draft = Record<(typeof EDITABLE)[number], string>;
-
-// Every draft value is a string; Job Types are held as JSON so a change in the list counts as an edit.
-const toDraft = (job: Job): Draft =>
-  Object.fromEntries(EDITABLE.map((k) => [k, k === "job_types" ? JSON.stringify(job.job_types ?? []) : String(job[k] ?? "")])) as Draft;
 
 const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
@@ -59,16 +49,18 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   // Bumped on save and discard so edited fields go back to plain text.
   const [epoch, setEpoch] = useState(0);
   // The role's details read as a dossier until Edit; History, Notes and the follow-up date stay editable either way.
-  const [editing, setEditing] = useState(false);
+  const location = useLocation();
+  // Quick Add lands here with { edit: true } so the rest of the details can be filled straight away.
+  const [editing, setEditing] = useState(!!(location.state as { edit?: boolean } | null)?.edit);
   const update = useUpdateJob(job.id);
   const deleteJob = useDeleteJob();
   const restoreJob = useRestoreJob();
   const applyJob = useApplyJob(job.id);
   const navigate = useNavigate();
-  const location = useLocation();
-  const titles = useSuggestions("title", []);
-  const resumeVersions = sortResumeVersions(useSuggestions("resume_version", RESUME_VERSIONS));
-  const agencyNames = useSuggestions("agency_name", []);
+  // Drop the request once it's used, so a reload opens the job read-only.
+  useEffect(() => {
+    if ((location.state as { edit?: boolean } | null)?.edit) navigate(location.pathname, { replace: true, state: null });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // The automatic Job Type and Company Type come from every job, so this page reads the same model as the lists.
   const { data: allJobs = [] } = useJobs();
   const factCtx = useFactContext(allJobs);
@@ -79,12 +71,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const { draft, setDraft, saved, setSaved, set, changed, canSave, save } = useDraftForm(EDITABLE, toDraft(job), {
     update,
     valid: (d) => !!d.title.trim() && !salaryRangeInvalid(d.salary_min, d.salary_max),
-    toPatch: (k, v) =>
-      k === "applied_date" || k === "follow_up_on" ? v || null
-        : k === "salary_min" || k === "salary_max" ? toSalary(v)
-        : k === "job_types" ? JSON.parse(v)
-        : isCompKey(k) ? compToPatch(k, v)
-        : v,
+    toPatch,
     onSaved: () => { setEpoch((n) => n + 1); setEditing(false); },
     // Escape while editing drops back to reading. Otherwise step back when we came from the list so its filters (kept in the URL) survive.
     onLeave: () =>
@@ -92,6 +79,14 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
         : (location.state as { fromList?: boolean } | null)?.fromList ? navigate(-1)
         : navigate("/jobs"),
   });
+  useLeaveGuard(changed.length > 0);
+  // History can move or remove the Applied event, which moves the job's applied date with it. Pick that up,
+  // leaving an unsaved edit to the Applied field alone.
+  const appliedOn = job.applied_date ?? "";
+  useEffect(() => {
+    setDraft((d) => (d.applied_date === saved.applied_date ? { ...d, applied_date: appliedOn } : d));
+    setSaved((d) => ({ ...d, applied_date: appliedOn }));
+  }, [appliedOn]); // eslint-disable-line react-hooks/exhaustive-deps
   const badRange = salaryRangeInvalid(draft.salary_min, draft.salary_max);
   // Worked out from the draft, so the hints follow the title, company and description as they're edited.
   const hints = factHints({ id: job.id, title: draft.title, normalized_title: draft.normalized_title, company: draft.company, company_type: "", job_types: [], job_description: draft.job_description }, factCtx);
@@ -116,8 +111,8 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const at = order.indexOf(job.id);
   const nextId = at >= 0 ? order[at + 1] : undefined;
   const prevId = at > 0 ? order[at - 1] : undefined;
-  const step = async (id: number | undefined) => {
-    if (id === undefined || (changed.length > 0 && !(await confirmDialog(DISCARD)))) return;
+  const step = (id: number | undefined) => {
+    if (id === undefined) return;
     saveSelected(id);
     navigate(`/jobs/${id}`, { replace: true, state: location.state });
   };
@@ -172,83 +167,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
 
   // The dossier side reads from what's saved; the edit side writes the draft.
   const dossier = editing ? (
-    <>
-      <Card className="order-1 lg:order-none">
-        <CardHeader><CardTitle>Job</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <ComboField label="Job Title" value={draft.title} onChange={set("title")} options={titles} />
-          <TextField label="Company" value={draft.company} onChange={set("company")} />
-          <TextField
-            label="Normalized Title (for title analysis only)"
-            value={draft.normalized_title}
-            onChange={set("normalized_title")}
-            placeholder="Optional. e.g. Senior Software Engineer"
-            className="sm:col-span-2"
-          />
-          <JobTypesField
-            value={JSON.parse(draft.job_types) as string[]}
-            onChange={(v) => set("job_types")(JSON.stringify(v))}
-            options={typeNames(factCtx, "job")}
-            auto={hints.jobTypes}
-            className="sm:col-span-2"
-          />
-          <CompanyTypeField value={draft.company_type} onChange={set("company_type")} options={typeNames(factCtx, "company")} auto={hints.companyType} />
-          <SelectField label="Fit" value={draft.fit} onChange={set("fit")} options={FITS} />
-          <SelectField label="Work Mode" value={draft.work_mode} onChange={set("work_mode")} options={WORK_MODES} />
-          <TextField label="Job Description Link" value={draft.jd_link} onChange={set("jd_link")} />
-        </CardContent>
-      </Card>
-
-      <Card className="order-3 lg:order-none">
-        <CardHeader><CardTitle>Application</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <TextField label="Applied" type="date" value={draft.applied_date} onChange={set("applied_date")} />
-          <ComboField label="Resume Version" value={draft.resume_version} onChange={set("resume_version")} options={resumeVersions} placeholder="General 1.0" />
-          <SelectField label="Applied Via" value={draft.applied_via} onChange={set("applied_via")} options={APPLIED_VIA} />
-          <ComboField label="Agency Name" value={draft.agency_name} onChange={set("agency_name")} options={agencyNames} />
-        </CardContent>
-      </Card>
-
-      <Card className="order-3 lg:order-none">
-        <CardHeader><CardTitle>Point of Contact</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <TextField label="Name" value={draft.contact_name} onChange={set("contact_name")} />
-          <TextField label="Email" type="email" value={draft.contact_email} onChange={set("contact_email")} />
-          <TextField label="Phone" type="tel" value={draft.contact_phone} onChange={set("contact_phone")} />
-          <TextField label="LinkedIn URL" value={draft.contact_linkedin} onChange={set("contact_linkedin")} placeholder="https://linkedin.com/in/…" />
-        </CardContent>
-      </Card>
-
-      <div className="order-3 lg:order-none">
-        <CompensationCard draft={draft} set={set} badRange={badRange} />
-      </div>
-
-      <Card className="order-3 lg:order-none">
-        <CardHeader><CardTitle>Job Description</CardTitle></CardHeader>
-        <CardContent>
-          <MarkdownField
-            label="Paste the full job description here so you have a copy if the posting comes down."
-            value={draft.job_description}
-            onChange={set("job_description")}
-            rows={18}
-            textareaClassName="max-h-[500px] overflow-y-auto"
-          />
-        </CardContent>
-      </Card>
-
-      <Card className="order-3 lg:order-none">
-        <CardHeader><CardTitle>Cover Letter</CardTitle></CardHeader>
-        <CardContent>
-          <MarkdownField
-            label="The cover letter you sent for this role."
-            value={draft.cover_letter}
-            onChange={set("cover_letter")}
-            rows={14}
-            textareaClassName="max-h-[500px] overflow-y-auto"
-          />
-        </CardContent>
-      </Card>
-    </>
+    <JobFormCards draft={draft} set={set} badRange={badRange} hints={hints} factCtx={factCtx} />
   ) : (
     <>
       <OverviewCard job={saved} hints={hints} className="order-1 lg:order-none" />
@@ -337,38 +256,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                   </p>
                 )}
               </div>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">
-                    <CalendarClock />
-                    {draft.follow_up_on ? `Follow up ${formatDate(draft.follow_up_on)}` : "Schedule follow up"}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-sm">
-                  <DialogHeader><DialogTitle>Scheduled Follow Up</DialogTitle></DialogHeader>
-                  <div className="space-y-2">
-                    <TextField label="Follow Up On" type="date" value={draft.follow_up_on} onChange={set("follow_up_on")} />
-                    <div className="flex flex-wrap gap-1.5">
-                      {[
-                        ["Tomorrow", addDays(today(), 1)],
-                        ["In 3 Days", addDays(today(), 3)],
-                        ["Next Monday", addDays(weekStart(today()), 7)],
-                      ].map(([label, date]) => (
-                        <Button key={label} variant={draft.follow_up_on === date ? "secondary" : "outline"} size="sm" className="h-7 text-xs" onClick={() => set("follow_up_on")(date)}>
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-                    {draft.follow_up_on > today() && (
-                      <p className="text-xs text-muted-foreground">Held out of Follow Up and Ghosted until {formatDate(draft.follow_up_on)}.</p>
-                    )}
-                  </div>
-                  <DialogFooter>
-                    {draft.follow_up_on && <Button variant="outline" onClick={() => set("follow_up_on")("")}>Clear</Button>}
-                    <DialogClose asChild><Button>Done</Button></DialogClose>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <FollowUpButton value={draft.follow_up_on} onChange={set("follow_up_on")} />
             </CardHeader>
             <CardContent className="space-y-4">
               {!job.deleted_at && followUpNeeded && (
@@ -421,46 +309,52 @@ function Fact({ label, children, className }: { label: string; children: React.R
   );
 }
 
-// The role at a glance: what it is, how you applied and who to talk to.
+// The role at a glance, in the same sections and order as the Job card in Edit. Applied lives in History and
+// pay in Compensation, so neither repeats here; a section with nothing in it is left out.
 function OverviewCard({ job, hints, className }: { job: Draft; hints: ReturnType<typeof factHints>; className?: string }) {
   const manualTypes = JSON.parse(job.job_types) as string[];
   const types = manualTypes.length ? manualTypes : hints.jobTypes.values;
   const companyType = job.company_type || hints.companyType.values[0];
-  const ago = daysSince(job.applied_date);
   const via = [job.applied_via, job.agency_name].filter(Boolean).join(" · ");
   const hasContact = job.contact_name || job.contact_email || job.contact_phone || job.contact_linkedin;
-  const salary = formatSalary(toSalary(job.salary_min), toSalary(job.salary_max));
   const auto = <span className="ml-1 text-xs text-muted-foreground">auto</span>;
 
   return (
     <Card className={className}>
       <CardHeader><CardTitle>Overview</CardTitle></CardHeader>
-      <CardContent className="space-y-5">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-          <Fact label="Work Mode">{job.work_mode}</Fact>
-          <Fact label="Fit">{job.fit}</Fact>
-          <Fact label="Base Salary">{salary}</Fact>
-          <Fact label="Applied">
-            {job.applied_date && <>{formatDate(job.applied_date)}{ago !== null && <span className="text-muted-foreground"> · {ago === 0 ? "today" : `${ago}d ago`}</span>}</>}
-          </Fact>
-          <Fact label="Applied Via">{via}</Fact>
-          <Fact label="Resume">{job.resume_version}</Fact>
-          <Fact label="Company Type">{companyType && <>{companyType}{!job.company_type && auto}</>}</Fact>
-          <Fact label="Normalized Title">{job.normalized_title}</Fact>
-          <Fact label="Job Type" className="col-span-2 sm:col-span-3">
-            {types.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
-                {types.map((t) => (
-                  <span key={t} className={cn("rounded-full border px-2.5 py-0.5", manualTypes.length ? "border-transparent bg-secondary" : "border-dashed")}>{t}</span>
-                ))}
-                {!manualTypes.length && auto}
-              </div>
-            )}
-          </Fact>
-        </dl>
+      <CardContent className="space-y-4 [&>*+*]:border-t [&>*+*]:pt-4">
+        {(job.work_mode || companyType || types.length > 0) && (
+          <OverviewSection title="Role">
+            <Fact label="Work Mode">{job.work_mode}</Fact>
+            <Fact label="Company Type">{companyType && <>{companyType}{!job.company_type && auto}</>}</Fact>
+            <Fact label="Job Type" className="col-span-2 sm:col-span-1">
+              {types.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
+                  {types.map((t) => (
+                    <span key={t} className={cn("rounded-full border px-2.5 py-0.5", manualTypes.length ? "border-transparent bg-secondary" : "border-dashed")}>{t}</span>
+                  ))}
+                  {!manualTypes.length && auto}
+                </div>
+              )}
+            </Fact>
+          </OverviewSection>
+        )}
 
-        <div className="border-t pt-4">
-          <p className="mb-1.5 text-xs text-muted-foreground">Point of Contact</p>
+        {(job.resume_version || via) && (
+          <OverviewSection title="Application">
+            <Fact label="Resume">{job.resume_version}</Fact>
+            <Fact label="Applied Via">{via}</Fact>
+          </OverviewSection>
+        )}
+
+        {job.fit && (
+          <OverviewSection title="Your Take">
+            <Fact label="Fit">{job.fit}</Fact>
+          </OverviewSection>
+        )}
+
+        <section className="space-y-2">
+          <SectionHeading>Point of Contact</SectionHeading>
           {hasContact ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
               {job.contact_name && <span className="font-medium">{job.contact_name}</span>}
@@ -471,9 +365,26 @@ function OverviewCard({ job, hints, className }: { job: Draft; hints: ReturnType
           ) : (
             <p className="text-sm text-muted-foreground">No contact yet.</p>
           )}
-        </div>
+        </section>
+
+        {job.normalized_title && <p className="text-xs text-muted-foreground">Title analysis: {job.normalized_title}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+// Matches the section headings in the Job card's Edit view.
+const SectionHeading = ({ children }: { children: React.ReactNode }) => (
+  <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{children}</h3>
+);
+
+function OverviewSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <SectionHeading>{title}</SectionHeading>
+      {/* Three across on wider screens, so short values don't leave gaps and the columns line up between sections. */}
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">{children}</dl>
+    </section>
   );
 }
 

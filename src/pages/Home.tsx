@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { AddJobDialog } from "@/components/AddJobDialog";
+import { AddJobButton } from "@/components/AddJobButton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useEvents, useJobs, useProfile, type ActivityEvent, type Job } from "@/lib/api";
 import { addDays, weekStart } from "@/lib/activity";
@@ -243,7 +243,7 @@ export default function Home() {
         <title>Home | Application Tracker</title>
         <h1 className="text-xl font-semibold">Track your first application</h1>
         <p className="text-sm text-muted-foreground">Add a job and your follow-ups, streak, and weekly pace will show up here.</p>
-        <AddJobDialog />
+        <AddJobButton />
       </div>
     );
   }
@@ -254,7 +254,7 @@ export default function Home() {
       <title>Home | Application Tracker</title>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{name ? `Welcome back, ${name}` : "Home"}</h1>
-        <AddJobDialog />
+        <AddJobButton />
       </div>
 
       <UpcomingInterviews events={upcoming} />

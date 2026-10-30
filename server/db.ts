@@ -114,6 +114,10 @@ db.exec(`
     past_base_salary INTEGER,
     past_package INTEGER,
     past_days_off INTEGER,
+    -- What a new job starts with.
+    favorite_resume_id INTEGER,
+    default_work_mode TEXT NOT NULL DEFAULT 'Remote',
+    default_applied_via TEXT NOT NULL DEFAULT 'Direct',
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   INSERT OR IGNORE INTO profile (id) VALUES (1);
@@ -315,6 +319,16 @@ if (!profileColumns.has("hide_financials")) {
 // The last job's compensation, for comparing new roles against.
 for (const col of ["past_base_salary", "past_package", "past_days_off"]) {
   if (!profileColumns.has(col)) db.exec(`ALTER TABLE profile ADD COLUMN ${col} INTEGER`);
+}
+// What a new job starts with: the starred resume, and the usual work mode and application route.
+if (!profileColumns.has("favorite_resume_id")) {
+  db.exec("ALTER TABLE profile ADD COLUMN favorite_resume_id INTEGER");
+}
+if (!profileColumns.has("default_work_mode")) {
+  db.exec("ALTER TABLE profile ADD COLUMN default_work_mode TEXT NOT NULL DEFAULT 'Remote'");
+}
+if (!profileColumns.has("default_applied_via")) {
+  db.exec("ALTER TABLE profile ADD COLUMN default_applied_via TEXT NOT NULL DEFAULT 'Direct'");
 }
 const resumeColumns = new Set((db.pragma("table_info(resumes)") as { name: string }[]).map((c) => c.name));
 if (!resumeColumns.has("active")) {

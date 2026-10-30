@@ -8,7 +8,7 @@ import { QuickAddEvent } from "@/components/QuickAddEvent";
 import { type Job, useAddEventTo, useJobs, useResumes } from "@/lib/api";
 import { celebrate } from "@/lib/confetti";
 import { toastError, toastSaved } from "@/lib/demo";
-import { needsFollowUp } from "@/lib/jobs";
+import { loggableTypes, needsFollowUp } from "@/lib/jobs";
 import { useAddJob, useFocusSearch } from "@/hooks/appActions";
 import { formatDate, today } from "@/lib/format";
 import { addDays } from "@/lib/activity";
@@ -61,7 +61,7 @@ function logActions(job: Job, { logHistory, quickLog }: Pick<Palette, "logHistor
     : [];
   return [
     ...generic,
-    ...EVENT_TYPES.map((t) => ({
+    ...loggableTypes(EVENT_TYPES, !!job.applied_date).map((t) => ({
       id: `log-${t}`, label: `Quick Log History: ${t}`, group, keywords: "history add event log", run: () => quickLog(job, t),
     })),
     ...["Screen", "Interview"].map((t) => ({
@@ -194,7 +194,8 @@ function CommandPalette({ open, onOpenChange, registry }: { open: boolean; onOpe
       ...GO_TO.map((g) => ({
         id: `go-${g.key}`, label: `Go to ${g.label}`, group: "Go to", keys: ["G", g.key.toUpperCase()], sep: "then", run: () => navigate(g.to),
       })),
-      { id: "add-job", label: "Add a job", group: "Actions", keys: ["C"], keywords: "new create", run: addJob },
+      { id: "add-job", label: "Quick add a job", group: "Actions", keys: ["C"], keywords: "new create", run: addJob },
+      { id: "add-job-full", label: "Add a job (full form)", group: "Actions", keywords: "new create page", run: () => navigate("/jobs/new") },
       { id: "search", label: "Search the jobs list", group: "Actions", keys: ["/"], keywords: "find filter", run: focusSearch },
       { id: "shortcuts", label: "Keyboard shortcuts", group: "Actions", keys: ["?"], keywords: "help keys", run: () => navigate("/shortcuts") },
       { id: "trash", label: "Go to Trash", group: "Go to", keywords: "deleted", run: () => navigate("/trash") },

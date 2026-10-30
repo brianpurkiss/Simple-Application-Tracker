@@ -1,10 +1,35 @@
 import { useNavigate } from "react-router-dom";
+import { Star } from "lucide-react";
 import { rowLink } from "@/lib/rowLink";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddResumeDialog } from "@/components/AddResumeDialog";
-import { type Resume, useResumes } from "@/lib/api";
+import { type Resume, useProfile, useResumes, useUpdateProfile } from "@/lib/api";
+import { toastError } from "@/lib/demo";
+import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { splitResumes } from "@/lib/options";
+
+// The starred resume is the one new jobs start with. One at a time; starring another moves it.
+function FavoriteStar({ resume }: { resume: Resume }) {
+  const { data: profile } = useProfile();
+  const update = useUpdateProfile();
+  const starred = profile?.favorite_resume_id === resume.id;
+  return (
+    <button
+      type="button"
+      title={starred ? "Default for new jobs. Click to unstar" : "Use for new jobs"}
+      aria-label={`${starred ? "Unstar" : "Star"} ${resume.version}`}
+      aria-pressed={starred}
+      onClick={(e) => {
+        e.stopPropagation();
+        update.mutate({ favorite_resume_id: starred ? null : resume.id }, { onError: (err) => toastError(err) });
+      }}
+      className="mr-1.5 rounded p-0.5 align-[-3px] text-muted-foreground hover:text-foreground"
+    >
+      <Star className={cn("size-4", starred && "fill-amber-400 text-amber-400")} />
+    </button>
+  );
+}
 
 function ResumeTable({ title, resumes, empty, muted }: { title: string; resumes: Resume[]; empty: string; muted?: boolean }) {
   const navigate = useNavigate();
@@ -26,7 +51,7 @@ function ResumeTable({ title, resumes, empty, muted }: { title: string; resumes:
           <TableBody>
             {resumes.map((r) => (
               <TableRow key={r.id} className={`cursor-pointer ${muted ? "text-muted-foreground" : ""}`} {...rowLink(navigate, `/resumes/${r.id}`)}>
-                <TableCell className="font-medium">{r.version}</TableCell>
+                <TableCell className="font-medium">{!muted && <FavoriteStar resume={r} />}{r.version}</TableCell>
                 <TableCell className="max-w-[20rem] truncate" title={r.pdf_name ?? ""}>{r.has_pdf ? r.pdf_name : "—"}</TableCell>
                 <TableCell>{r.job_count}</TableCell>
                 <TableCell>{r.interview_company_count}</TableCell>

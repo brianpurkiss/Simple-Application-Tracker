@@ -5,7 +5,7 @@ import { z } from "zod";
 import { backupsDir, db } from "./db.ts";
 import { daysSince, isOnHold } from "../src/lib/format.ts";
 import { nowTime, today } from "../src/lib/clock.ts";
-import { GHOSTED_DAYS, STATUS_FOR_EVENT, TIMED_EVENT_TYPES, UPDATE_EVENT_TYPES } from "../src/lib/options.ts";
+import { APPLIED_VIA, GHOSTED_DAYS, STATUS_FOR_EVENT, TIMED_EVENT_TYPES, UPDATE_EVENT_TYPES, WORK_MODES } from "../src/lib/options.ts";
 
 // Builds INSERT / UPDATE statements from the keys of a validated body, using named parameters.
 const insertSql = (table: string, cols: string[]) =>
@@ -146,7 +146,7 @@ const getJob = (id: number) => {
 };
 
 const getProfile = () => {
-  const row = db.prepare("SELECT salary_target, past_base_salary, past_package, past_days_off, your_name, cover_letter, job_list_view, hide_financials FROM profile WHERE id = 1").get() as any;
+  const row = db.prepare("SELECT salary_target, past_base_salary, past_package, past_days_off, your_name, cover_letter, job_list_view, hide_financials, favorite_resume_id, default_work_mode, default_applied_via FROM profile WHERE id = 1").get() as any;
   return { ...row, hide_financials: !!row.hide_financials };
 };
 
@@ -154,7 +154,7 @@ app.get("/api/profile", (_req, res) => {
   res.json(getProfile());
 });
 
-const profileSchema = z.object({ salary_target: salary, past_base_salary: money, past_package: money, past_days_off: count, your_name: text, cover_letter: z.string(), job_list_view: z.enum(["compact", "expanded"]), hide_financials: z.boolean().transform(Number) }).partial();
+const profileSchema = z.object({ salary_target: salary, past_base_salary: money, past_package: money, past_days_off: count, your_name: text, cover_letter: z.string(), job_list_view: z.enum(["compact", "expanded"]), hide_financials: z.boolean().transform(Number), favorite_resume_id: z.number().int().nullable(), default_work_mode: z.enum(WORK_MODES as [string, ...string[]]), default_applied_via: z.enum(APPLIED_VIA as [string, ...string[]]) }).partial();
 app.patch("/api/profile", (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid profile" });
@@ -224,10 +224,12 @@ app.patch("/api/jobs/:id", (req, res) => {
   if (badRange) return res.status(400).json({ error: badRange });
   if (body.applied_date) body.saved = 0;
   const cols = Object.keys(body);
-  if (cols.length) {
-    db.prepare(updateSql("jobs", cols, true)).run({ ...body, id: Number(req.params.id) });
-  }
-  res.json(getJob(Number(req.params.id)));
+  const id = Number(req.params.id);
+  db.transaction(() => {
+    if (cols.length) db.prepare(updateSql("jobs", cols, true)).run({ ...body, id });
+    if (body.applied_date !== undefined) syncAppliedEvent(id, body.applied_date);
+  })();
+  res.json(getJob(id));
 });
 
 // Deleting moves a job to the trash; it can be restored or deleted for good from there.
@@ -246,13 +248,36 @@ app.delete("/api/trash/:id", (req, res) => {
   res.status(204).end();
 });
 
+// A job has at most one Applied event, and its date is the job's applied date: changing either changes the other.
+const appliedEventId = (jobId: number | string) =>
+  (db.prepare("SELECT id FROM events WHERE job_id = ? AND type = 'Applied' ORDER BY date, id LIMIT 1").get(jobId) as { id: number } | undefined)?.id;
+const ONE_APPLIED = "This job already has an Applied event. Change its date instead.";
+
+// Brings the Applied event in line with the job's applied date: moved, added, or removed when the date is cleared.
+function syncAppliedEvent(jobId: number, appliedOn: string | null) {
+  const eventId = appliedEventId(jobId);
+  if (appliedOn === null) {
+    db.prepare("DELETE FROM events WHERE job_id = ? AND type = 'Applied'").run(jobId);
+  } else if (eventId) {
+    db.prepare("UPDATE events SET date = ? WHERE id = ?").run(appliedOn, eventId);
+  } else {
+    db.prepare("INSERT INTO events (job_id, date, type) VALUES (?, ?, 'Applied')").run(jobId, appliedOn);
+  }
+}
+
 app.post("/api/jobs/:id/events", (req, res) => {
   const body = eventSchema.parse(req.body);
-  const { lastInsertRowid } = db
-    .prepare("INSERT INTO events (job_id, date, type, description, notes, time) VALUES (?, @date, @type, @description, @notes, @time)")
-    .run(req.params.id, { ...body, time: TIMED_EVENT_TYPES.has(body.type) ? body.time : null });
-  db.prepare(`UPDATE jobs SET updated_at = datetime('now')${body.type === "Applied" ? ", saved = 0" : ""} WHERE id = ?`).run(req.params.id);
-  res.status(201).json(getEvent(lastInsertRowid as number));
+  const applied = body.type === "Applied";
+  if (applied && appliedEventId(req.params.id)) return res.status(409).json({ error: ONE_APPLIED });
+  const insert = db.transaction(() => {
+    const { lastInsertRowid } = db
+      .prepare("INSERT INTO events (job_id, date, type, description, notes, time) VALUES (?, @date, @type, @description, @notes, @time)")
+      .run(req.params.id, { ...body, time: TIMED_EVENT_TYPES.has(body.type) ? body.time : null });
+    db.prepare(`UPDATE jobs SET updated_at = datetime('now')${applied ? ", saved = 0, applied_date = @date" : ""} WHERE id = @id`)
+      .run({ id: req.params.id, ...(applied && { date: body.date }) });
+    return lastInsertRowid as number;
+  });
+  res.status(201).json(getEvent(insert()));
 });
 
 // Turns a saved posting into an application: the applied date and its Applied event, like adding a job applied to.
@@ -261,23 +286,38 @@ app.post("/api/jobs/:id/apply", (req, res) => {
   const id = Number(req.params.id);
   db.transaction(() => {
     db.prepare("UPDATE jobs SET saved = 0, applied_date = ?, updated_at = datetime('now') WHERE id = ?").run(appliedOn, id);
-    db.prepare("INSERT INTO events (job_id, date, type) VALUES (?, ?, 'Applied')").run(id, appliedOn);
+    syncAppliedEvent(id, appliedOn);
   })();
   res.json(getJob(id));
 });
 
 app.patch("/api/events/:id", (req, res) => {
   const body = eventSchema.partial().parse(req.body);
+  const before = getEvent(req.params.id) as { job_id: number; type: string } | undefined;
+  if (!before) return res.status(404).json({ error: "Event not found" });
+  if (body.type === "Applied" && before.type !== "Applied" && appliedEventId(before.job_id)) return res.status(409).json({ error: ONE_APPLIED });
   if (body.type && !TIMED_EVENT_TYPES.has(body.type)) body.time = null;
   const cols = Object.keys(body);
-  if (cols.length) {
-    db.prepare(updateSql("events", cols, false)).run({ ...body, id: Number(req.params.id) });
-  }
+  db.transaction(() => {
+    if (cols.length) db.prepare(updateSql("events", cols, false)).run({ ...body, id: Number(req.params.id) });
+    // Keep the job's applied date on the Applied event: it follows the event's date, and clears if the event stops being Applied.
+    const after = getEvent(req.params.id) as { type: string; date: string };
+    if (after.type === "Applied") {
+      db.prepare("UPDATE jobs SET applied_date = ?, saved = 0 WHERE id = ?").run(after.date, before.job_id);
+    } else if (before.type === "Applied") {
+      db.prepare("UPDATE jobs SET applied_date = NULL WHERE id = ?").run(before.job_id);
+    }
+  })();
   res.json(getEvent(req.params.id));
 });
 
 app.delete("/api/events/:id", (req, res) => {
-  db.prepare("DELETE FROM events WHERE id = ?").run(req.params.id);
+  const event = getEvent(req.params.id) as { job_id: number; type: string } | undefined;
+  db.transaction(() => {
+    db.prepare("DELETE FROM events WHERE id = ?").run(req.params.id);
+    // Without its Applied event the job has no applied date either.
+    if (event?.type === "Applied") db.prepare("UPDATE jobs SET applied_date = NULL WHERE id = ?").run(event.job_id);
+  })();
   res.status(204).end();
 });
 

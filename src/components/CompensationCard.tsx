@@ -192,7 +192,7 @@ export function CompensationCard({ draft, set, badRange }: { draft: Draft; set: 
 
   return (
     <Card>
-      <CardHeader><CardTitle>Compensation <span className="text-sm font-normal text-muted-foreground">(WIP)</span></CardTitle></CardHeader>
+      <CardHeader><CardTitle>Compensation <span className="text-sm font-normal text-muted-foreground">(WIP - Compensation comparison to be added)</span></CardTitle></CardHeader>
       <CardContent className="grid gap-5">
         <CompensationSummary
           draft={draft}

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 export const SEARCH_INPUT_ID = "job-search";
 
 // Set on navigation state so the page that owns the control can act once it has mounted.
-export type HotkeyAction = { hotkey?: "add" | "search" };
+export type HotkeyAction = { hotkey?: "search" };
 
 // Focuses the job search, first navigating to the jobs list when elsewhere.
 export function useFocusSearch() {
@@ -20,12 +20,13 @@ export function useFocusSearch() {
   };
 }
 
-// Opens the add-job dialog, which Home and the jobs list mount. Stays on those pages; otherwise goes to the list.
+// Opens the Quick Add dialog, which the app mounts once, so it works from any page without navigating
+// (a navigation would trip a page's unsaved-changes guard and drop its location state).
+const QUICK_ADD = "app:quick-add";
 export function useAddJob() {
-  const { pathname, search } = useLocation();
-  const navigate = useNavigate();
-  return () => {
-    const here = pathname === "/" || pathname === "/jobs";
-    navigate(here ? pathname + search : "/jobs", { replace: here, state: { hotkey: "add" } satisfies HotkeyAction });
-  };
+  return () => window.dispatchEvent(new Event(QUICK_ADD));
+}
+export function onQuickAdd(open: () => void) {
+  window.addEventListener(QUICK_ADD, open);
+  return () => window.removeEventListener(QUICK_ADD, open);
 }
