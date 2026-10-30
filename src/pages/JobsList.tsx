@@ -10,7 +10,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ChevronDown, DollarSign, ListFilter, Plus, Rows2, Rows4, Search, Target, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, DollarSign, ListFilter, Pin, PinOff, Plus, Rows2, Rows4, Search, Target, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,6 +27,7 @@ import { type HotkeyAction, SEARCH_INPUT_ID } from "@/hooks/appActions";
 import { type Job, type JobListView, type Profile, type StarKind, useJobs, useProfile, useResumes, useStarredGroups, useUpdateJob, useUpdateProfile } from "@/lib/api";
 import { resolveCompanyType, resolveJobTypes, typeNames, type FactContext } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
+import { usePinnedJobs } from "@/lib/pins";
 import { COMPANY_TYPE_PARAM, STAR_FILTERS, STAR_PARAMS } from "@/lib/jobFilters";
 import { jobGroupKeys } from "@/lib/titles/starred";
 import type { TitleInfo } from "@/lib/titles/types";
@@ -372,7 +373,7 @@ const OFFER_EMPTY: Record<string, (j: Job, profile: ListProfile) => boolean> = {
   parental: (j) => j.parental_leave_weeks == null,
 };
 
-const buildColumns = (view: JobListView, onQuickAdd: (job: Job) => void, ctx: FactContext, profile: ListProfile): ColumnDef<Job>[] => [
+const buildColumns = (view: JobListView, onQuickAdd: (job: Job) => void, ctx: FactContext, profile: ListProfile, pins: ReturnType<typeof usePinnedJobs>): ColumnDef<Job>[] => [
   {
     id: "actions",
     header: "",
@@ -394,6 +395,24 @@ const buildColumns = (view: JobListView, onQuickAdd: (job: Job) => void, ctx: Fa
         daysSinceColumn,
         progressColumn(view === "expanded"),
       ]),
+  {
+    id: "pin",
+    enableSorting: false,
+    header: () => pins.pinned.size > 0 && (
+      <Button size="icon" variant="ghost" className="size-7 cursor-pointer text-muted-foreground hover:text-foreground" title={`Unpin all ${pins.pinned.size} pinned`} aria-label="Unpin all jobs" onClick={(e) => { e.stopPropagation(); pins.clear(); }}>
+        <PinOff />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const on = pins.pinned.has(row.original.id);
+      return (
+        // The cell around it is the click target (see the table body), so the hover and the pointer cover all of it.
+        <Button size="icon" variant="ghost" className={cn("size-7 cursor-pointer group-hover/pin:bg-accent group-hover/pin:text-foreground dark:group-hover/pin:bg-accent/50", on ? "text-primary" : "text-muted-foreground")} title={on ? "Unpin (P)" : "Pin to keep it in the list (P)"} aria-label={`${on ? "Unpin" : "Pin"} ${row.original.title}`} aria-pressed={on}>
+          <Pin className={on ? "fill-current" : ""} />
+        </Button>
+      );
+    },
+  },
 ];
 
 // Each view's sort when the URL names none, or names a column the view doesn't have.
@@ -448,7 +467,8 @@ export default function JobsList() {
     past_package: profile?.past_package ?? null,
     past_days_off: profile?.past_days_off ?? null,
   }), [profile?.salary_target, profile?.past_base_salary, profile?.past_package, profile?.past_days_off]);
-  const columns = useMemo(() => buildColumns(view, logHistory, factCtx, listProfile), [view, logHistory, factCtx, listProfile]);
+  const pins = usePinnedJobs();
+  const columns = useMemo(() => buildColumns(view, logHistory, factCtx, listProfile, pins), [view, logHistory, factCtx, listProfile, pins]);
 
   // Cmd/Ctrl+F from another page lands here with the request in navigation state.
   useEffect(() => {
@@ -547,8 +567,14 @@ export default function JobsList() {
     [jobs, statusFilter, fitFilter, companyTypeFilter, resumeFilter, missing, jobKeys, factCtx, starPicked.join("|")],
   );
   // The Offers view lists only jobs with pay figures to compare.
-  const filtered = useMemo(() => (view === "offers" ? matched.filter(hasPayData) : matched), [view, matched]);
-  const noPayHidden = matched.length - filtered.length;
+  // Pinned jobs show whatever the filters say, until something is searched for.
+  const filtered = useMemo(() => {
+    const base = view === "offers" ? matched.filter(hasPayData) : matched;
+    if (search || !pins.pinned.size) return base;
+    const shown = new Set(base.map((j) => j.id));
+    return [...base, ...jobs.filter((j) => pins.pinned.has(j.id) && !shown.has(j.id))];
+  }, [view, matched, search, jobs, pins.pinned]);
+  const noPayHidden = view === "offers" ? matched.filter((j) => !hasPayData(j) && (search || !pins.pinned.has(j.id))).length : 0;
   // Offers columns with nothing to show for any listed job are hidden.
   const columnVisibility = useMemo(
     () => view === "offers"
@@ -597,14 +623,16 @@ export default function JobsList() {
   const allRows = table.getRowModel().rows;
   // In the Follow Up view, jobs with a future follow-up date sit in their own group at the end.
   const splitScheduled = statusFilter === "followup";
-  const rows = splitScheduled
+  const grouped = splitScheduled
     ? [
         ...allRows.filter((r) => isScheduledDue(r.original)),
         ...allRows.filter((r) => !isOnHold(r.original) && !isScheduledDue(r.original)),
         ...allRows.filter((r) => isOnHold(r.original)),
       ]
     : allRows;
-  const firstScheduled = splitScheduled ? rows.findIndex((r) => isOnHold(r.original)) : -1;
+  // Pinned jobs lead the list, in the same order the sort gives them.
+  const rows = pins.pinned.size ? [...grouped.filter((r) => pins.pinned.has(r.original.id)), ...grouped.filter((r) => !pins.pinned.has(r.original.id))] : grouped;
+  const firstScheduled = splitScheduled ? rows.findIndex((r) => isOnHold(r.original) && !pins.pinned.has(r.original.id)) : -1;
   // Rows remount (replaying the enter animation) when filters or sort change; search changes keep
   // existing rows in place so only newly matching rows animate in.
   const viewKey = [statusFilter, fitFilter, companyTypeFilter, resumeFilter, missing?.key, sortParam, ...starPicked].join("|");
@@ -632,6 +660,9 @@ export default function JobsList() {
         if (at < 0 || (e.key === "Enter" && !(e.target === document.body || (e.target as HTMLElement).tagName === "TR"))) return;
         e.preventDefault();
         navigate(`/jobs/${selectedId}`, { state: { fromList: true } });
+      } else if (key === "p" && !e.repeat && at >= 0) {
+        e.preventDefault();
+        pins.toggle(rows[at].original.id);
       } else if (key === "l" && !e.repeat && at >= 0) {
         e.preventDefault();
         logHistory(rows[at].original);
@@ -639,7 +670,7 @@ export default function JobsList() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [rows, selectedId, logHistory]);
+  }, [rows, selectedId, logHistory, pins.toggle]);
 
   const selected = rows.find((r) => r.original.id === selectedId)?.original;
   const updateSelected = useUpdateJob(selected?.id ?? 0);
@@ -899,7 +930,11 @@ export default function JobsList() {
                     <TableHead
                       key={header.id}
                       onClick={header.column.getToggleSortingHandler()}
-                      className={cn("cursor-pointer select-none whitespace-nowrap", shrink && idx < hg.headers.length - 1 && "w-px")}
+                      className={cn(
+                        "cursor-pointer select-none whitespace-nowrap",
+                        shrink && idx < hg.headers.length - 2 && "w-px",
+                        header.column.id === "pin" && "w-px bg-muted md:sticky md:right-0 md:shadow-[-1px_0_0_var(--border)]",
+                      )}
                     >
                       <span className="inline-flex items-center gap-1">
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -925,28 +960,32 @@ export default function JobsList() {
               <TableRow
                 data-job-id={row.original.id}
                 data-selected={row.original.id === selectedId || undefined}
+                data-late={needsFollowUp(row.original) || undefined}
                 style={{ animationDelay: `${Math.min(i * 25, 400)}ms` }}
                 {...rowLink(navigate, `/jobs/${row.original.id}`, { fromList: true }, () => setSelectedId(row.original.id))}
                 className={cn(
-                  "row-in cursor-pointer data-[selected]:bg-accent data-[selected]:outline data-[selected]:-outline-offset-1 data-[selected]:outline-ring",
+                  "group/row row-in cursor-pointer data-[selected]:bg-accent data-[selected]:outline data-[selected]:-outline-offset-1 data-[selected]:outline-ring",
                   needsFollowUp(row.original) && "bg-amber-500/10 hover:bg-amber-500/15 data-[selected]:bg-amber-500/25",
                 )}
                 title={needsFollowUp(row.original) ? `No activity in ${STALE_DAYS}+ days` : undefined}
               >
                 {row.getVisibleCells().map((cell, idx, cells) =>
-                  cell.column.id === "actions" ? (
+                  cell.column.id === "actions" || cell.column.id === "pin" ? (
                     // The dialog is portaled but its events still bubble through React to the row link.
                     <TableCell
                       key={cell.id}
-                      className="w-px"
-                      onClick={(e) => e.stopPropagation()}
+                      className={cn("w-px", cell.column.id === "pin" && "group/pin cursor-pointer bg-card md:sticky md:right-0 md:shadow-[-1px_0_0_var(--border)] group-hover/row:bg-[color-mix(in_oklab,var(--card),var(--muted)_50%)] group-data-[late]/row:bg-[color-mix(in_oklab,var(--card),oklch(0.769_0.188_70)_10%)] group-data-[selected]/row:bg-accent")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (cell.column.id === "pin") pins.toggle(row.original.id);
+                      }}
                       onMouseDown={(e) => e.stopPropagation()}
                       onAuxClick={(e) => e.stopPropagation()}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ) : (
-                    <TableCell key={cell.id} className={cn(shrink && idx < cells.length - 1 && "w-px")}>
+                    <TableCell key={cell.id} className={cn(shrink && idx < cells.length - 2 && "w-px")}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ),
