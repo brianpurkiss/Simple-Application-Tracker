@@ -129,6 +129,7 @@ export function JobFormCards({ draft, set, badRange, hints, factCtx, applied = t
             label="Paste the full job description here so you have a copy if the posting comes down."
             value={draft.job_description}
             onChange={set("job_description")}
+            autoFormat
             rows={18}
             textareaClassName="max-h-[500px] overflow-y-auto"
           />

@@ -2,12 +2,16 @@ import { createContext, useContext, useId, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import { WandSparkles } from "lucide-react";
+import { toast } from "sonner";
 import TurndownService from "turndown";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { autoMarkdown } from "@/lib/autoMarkdown";
 import { cn } from "@/lib/utils";
 
 type Base = { label: string; value: string; onChange: (value: string) => void; className?: string };
@@ -34,10 +38,19 @@ function useInline(flush = true): { plain: string | undefined; touch: () => void
   return { plain: cn(flush && FLUSH, touchedAt !== ctx.epoch && PLAIN), touch: () => setTouchedAt(ctx.epoch) };
 }
 
-function Field({ label, id, className, children }: { label: string; id: string; className?: string; children: React.ReactNode }) {
+function Field({ label, id, className, action, children }: {
+  label: string; id: string; className?: string; action?: React.ReactNode; children: React.ReactNode;
+}) {
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+      {action ? (
+        <div className="flex items-end justify-between gap-2">
+          <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+          {action}
+        </div>
+      ) : (
+        <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+      )}
       {children}
     </div>
   );
@@ -105,9 +118,10 @@ export const MarkdownText = ({ value, className }: { value: string; className?: 
 );
 
 // Long text held as markdown: shown rendered until focused, then edited raw. Pasting rich text (a job
-// posting, a Google Doc) converts it to markdown instead of flattening it.
-export function MarkdownField({ label, value, onChange, className, rows = 4, textareaClassName, placeholder, onBlur, autoFocus }: Base & {
-  rows?: number; textareaClassName?: string; placeholder?: string; onBlur?: () => void; autoFocus?: boolean;
+// posting, a Google Doc) converts it to markdown instead of flattening it. `autoFormat` adds a button
+// that gives flat plain text (one line per paragraph) headings and bullets.
+export function MarkdownField({ label, value, onChange, className, rows = 4, textareaClassName, placeholder, onBlur, autoFocus, autoFormat }: Base & {
+  rows?: number; textareaClassName?: string; placeholder?: string; onBlur?: () => void; autoFocus?: boolean; autoFormat?: boolean;
 }) {
   const id = useId();
   const { plain, touch } = useInline();
@@ -125,8 +139,23 @@ export function MarkdownField({ label, value, onChange, className, rows = 4, tex
     change(el.value);
   };
 
+  const format = () => {
+    const prev = value;
+    const next = autoMarkdown(prev);
+    if (next === prev) { toast("Already formatted"); return; }
+    change(next);
+    toast("Formatted as markdown", { action: { label: "Undo", onClick: () => change(prev) } });
+  };
+
+  const action = autoFormat && value.trim() ? (
+    // preventDefault on mousedown keeps the textarea focused, so editing doesn't close.
+    <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onMouseDown={(e) => e.preventDefault()} onClick={format}>
+      <WandSparkles /> Auto Markdown
+    </Button>
+  ) : undefined;
+
   return (
-    <Field label={label} id={id} className={className}>
+    <Field label={label} id={id} className={className} action={action}>
       {!editing && value.trim() ? (
         <div
           id={id}
