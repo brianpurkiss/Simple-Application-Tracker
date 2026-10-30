@@ -28,7 +28,7 @@ import { loadOrder, saveSelected } from "@/lib/listOrder";
 import { jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { MOD } from "@/lib/shortcuts";
 import { GHOSTED_DAYS } from "@/lib/options";
-import { needsFollowUp } from "@/lib/jobs";
+import { needsFollowUp, progressParts } from "@/lib/jobs";
 import { toastError, toastSaved } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
@@ -159,6 +159,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
   const markApplied = () => applyJob.mutate(today(), { onSuccess: () => toastSaved("Marked as applied"), onError: (e) => toastError(e) });
 
   const quiet = daysSince(job.last_activity ?? job.applied_date);
+  const progress = progressParts(job);
 
   // Whichever column is shorter sticks while the other scrolls; leave room for the save bar when it's up.
   const barGap = editing || changed.length > 0 ? 80 : 16;
@@ -250,9 +251,10 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                   History
                   <HistoryTerms />
                 </CardTitle>
-                {quiet !== null && (
+                {(quiet !== null || progress.length > 0) && (
                   <p className="text-xs text-muted-foreground">
-                    {quiet === 0 ? "Active today" : `${quiet} ${quiet === 1 ? "day" : "days"} since last activity`}
+                    {[...progress, quiet !== null && (quiet === 0 ? "Active today" : `${quiet} ${quiet === 1 ? "day" : "days"} since last activity`)]
+                      .filter(Boolean).join(" · ")}
                   </p>
                 )}
               </div>

@@ -13,6 +13,12 @@ export const isActive = (job: Job) => isApplication(job) && !CLOSED_STATUSES.has
 // Jobs that got to an interview at some point, including ones that ended after it.
 export const reachedInterview = (job: Job) => job.interview_count + job.screen_count > 0;
 
+// How far a job got: "2 interviews", "1 screen". Empty when it has neither.
+export const progressParts = (job: Pick<Job, "interview_count" | "screen_count">) => [
+  job.interview_count ? `${job.interview_count} ${job.interview_count === 1 ? "interview" : "interviews"}` : "",
+  job.screen_count ? `${job.screen_count} ${job.screen_count === 1 ? "screen" : "screens"}` : "",
+].filter(Boolean);
+
 function ordinal(n: number) {
   const tens = n % 100;
   const suffix = tens >= 11 && tens <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";

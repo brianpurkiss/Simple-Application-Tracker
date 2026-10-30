@@ -59,7 +59,7 @@ function Section({ title, filled, children }: { title: string; filled: boolean; 
   );
 }
 
-const FIT_TEXT: Record<TargetFit["kind"], { label: string; detail: (pct: number) => string }> = {
+export const FIT_TEXT: Record<TargetFit["kind"], { label: string; detail: (pct: number) => string }> = {
   within: { label: "In range", detail: (pct) => `Your target sits ${pct}% of the way up the range.` },
   above: { label: "Below your target", detail: (pct) => `The range tops out ${pct}% under your target.` },
   below: { label: "A step up", detail: (pct) => `The range starts ${pct}% above your target.` },
@@ -67,17 +67,17 @@ const FIT_TEXT: Record<TargetFit["kind"], { label: string; detail: (pct: number)
 
 // Green when the target is in the lower half of the range (room to grow), the Applied amber in the upper half,
 // blue when the whole range is above it, rose when the range tops out under it.
-const fitDot = (fit: TargetFit) =>
+export const fitDot = (fit: TargetFit) =>
   fit.kind === "below" ? "bg-blue-500"
     : fit.kind === "above" ? "bg-rose-500"
     : fit.pct <= 50 ? "bg-emerald-500"
     : STATUS_COLORS.Applied.dot;
 
 // The base range as a bar with the Base Salary Target as a dot, colored by fitDot: inside the bar when it's in range, past an end when not.
-function TargetBar({ fit }: { fit: TargetFit }) {
+export function TargetBar({ fit, className = "w-40" }: { fit: TargetFit; className?: string }) {
   const left = fit.kind === "within" ? 15 + fit.pct * 0.7 : fit.kind === "above" ? 95 : 5;
   return (
-    <div className="relative h-3 w-40" aria-hidden>
+    <div className={cn("relative h-3", className)} aria-hidden>
       <div className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-muted-foreground/30" style={{ left: "15%", right: "15%" }} />
       <div className={`absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card ${fitDot(fit)}`} style={{ left: `${left}%` }} />
     </div>

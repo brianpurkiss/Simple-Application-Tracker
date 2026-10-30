@@ -230,7 +230,7 @@ export const useUpdateEvent = () =>
 export const useDeleteEvent = () =>
   useInvalidatingMutation((id: number) => request<void>("DELETE", `/api/events/${id}`));
 
-type JobListView = "compact" | "expanded";
+export type JobListView = "compact" | "expanded" | "offers";
 export type Profile = {
   salary_target: number | null;
   /** The last job's base salary, annual package and paid days off, for comparison. */

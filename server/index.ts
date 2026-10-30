@@ -154,7 +154,7 @@ app.get("/api/profile", (_req, res) => {
   res.json(getProfile());
 });
 
-const profileSchema = z.object({ salary_target: salary, past_base_salary: money, past_package: money, past_days_off: count, your_name: text, cover_letter: z.string(), job_list_view: z.enum(["compact", "expanded"]), hide_financials: z.boolean().transform(Number), favorite_resume_id: z.number().int().nullable(), default_work_mode: z.enum(WORK_MODES as [string, ...string[]]), default_applied_via: z.enum(APPLIED_VIA as [string, ...string[]]) }).partial();
+const profileSchema = z.object({ salary_target: salary, past_base_salary: money, past_package: money, past_days_off: count, your_name: text, cover_letter: z.string(), job_list_view: z.enum(["compact", "expanded", "offers"]), hide_financials: z.boolean().transform(Number), favorite_resume_id: z.number().int().nullable(), default_work_mode: z.enum(WORK_MODES as [string, ...string[]]), default_applied_via: z.enum(APPLIED_VIA as [string, ...string[]]) }).partial();
 app.patch("/api/profile", (req, res) => {
   const parsed = profileSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid profile" });

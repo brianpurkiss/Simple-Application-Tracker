@@ -39,6 +39,12 @@ const packageOn = (j: Comp, base: number) =>
 export const hasExtras = (j: Comp) =>
   [j.bonus_pct, j.bonus_amount, j.equity_annual, j.hsa_employer, j.stipends_annual].some((v) => v != null && v > 0) || matchOn(j, 1) > 0;
 
+// True when a job has any pay figure to compare: a base salary or something that adds to the package.
+export const hasPayData = (j: Comp) => j.salary_min != null || j.salary_max != null || hasExtras(j);
+
+// One number per job for sorting by base: the top of the range, or its one listed end.
+export const baseSortValue = (j: Pick<Job, "salary_min" | "salary_max">) => j.salary_max ?? j.salary_min ?? undefined;
+
 // The estimated annual package at each end of the salary range, null where that end isn't listed.
 // Null altogether when no base salary is listed, since bonus and match depend on it.
 export function annualPackage(j: Comp): { min: number | null; max: number | null } | null {
