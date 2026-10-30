@@ -4,6 +4,8 @@ import { Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddJobButton } from "@/components/AddJobButton";
 import { StatusBadge } from "@/components/StatusBadge";
+import { StreakTile } from "@/components/StreakTile";
+import { WeekProgress } from "@/components/WeekProgress";
 import { useEvents, useJobs, useProfile, type ActivityEvent, type Job } from "@/lib/api";
 import { addDays, weekStart } from "@/lib/activity";
 import { daysSince, formatDate, formatTime, relativeDay, today } from "@/lib/format";
@@ -36,88 +38,6 @@ function Card({ title, count, to, titleTo, children }: { title: string; count?: 
       </div>
       {children}
     </section>
-  );
-}
-
-// Applications so far this week against the usual weekly pace, as a bar along the bottom of the card.
-const KEEP_GOING = [
-  (n: number) => `Nice momentum. ${n} more to match your average. Keep at it!`,
-  (n: number) => `You're on the board! ${n} more to match your average.`,
-  (n: number) => `Every application counts. ${n} more to match your average.`,
-  (n: number) => `Keep it rolling: ${n} more to match your average.`,
-  (n: number) => `Progress is progress. ${n} more to match your average. Keep at it!`,
-  (n: number) => `You're building something. ${n} more to match your average.`,
-];
-
-function weekMessage(done: number, target: number, previousBest: number, seed: number) {
-  const left = target - done;
-  if (done > 0 && done >= previousBest && previousBest > 0) return "Your best week yet! 🎉";
-  if (done >= target) return "Target beaten. Everything now is a bonus.";
-  if (done === 0) return "Fresh week, fresh start. Just one application gets you moving.";
-  if (left === 1) return "So close! Just 1 more to match your average.";
-  return KEEP_GOING[seed % KEEP_GOING.length](left);
-}
-
-function WeekProgress({ done, target, previousBest, average }: { done: number; target: number; previousBest: number; average: number | null }) {
-  const reached = done >= target;
-  // Stable while the page is open; shifts as the week and your count change.
-  const seed = Math.floor(Date.parse(weekStart(today())) / 604_800_000) + done;
-  const message = weekMessage(done, target, previousBest, seed);
-  return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <div className="flex items-center gap-4 px-4 py-3">
-        <div className="shrink-0 text-3xl font-semibold whitespace-nowrap tabular-nums">{done}<span className="text-xl text-muted-foreground"> / {target}</span></div>
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Applied This Week</div>
-          <div className="text-sm text-muted-foreground">{message}</div>
-        </div>
-      </div>
-      <div
-        role="progressbar"
-        aria-label="Applications this week"
-        aria-valuemin={0}
-        aria-valuemax={target}
-        aria-valuenow={Math.min(done, target)}
-        title={average ? `Average ${Number.isInteger(average) ? average : average.toFixed(1)} a week` : undefined}
-        className="h-1.5 bg-muted"
-      >
-        <div className={cn("h-full transition-[width] duration-500", reached ? "bg-emerald-500" : "bg-primary")} style={{ width: `${Math.min(100, (done / target) * 100)}%` }} />
-      </div>
-    </div>
-  );
-}
-
-const MILESTONES = [3, 7, 14, 30, 60, 100];
-
-// The last two weeks as dots, so a streak looks like something you can keep building.
-function StreakTile({ current, best, days }: { current: number; best: number; days: { date: string; n: number }[] }) {
-  const todayIso = today();
-  const next = MILESTONES.find((n) => n > current);
-  const hint = !current
-    ? "Apply today to start one."
-    : next ? `${plural(next - current, "more day")} to a ${next}-day streak.` : "Legendary streak!";
-  return (
-    <div className="rounded-lg border bg-card px-4 py-3">
-      <div className="flex items-center gap-4">
-        <div className="text-3xl font-semibold tabular-nums">{plural(current, "day")}</div>
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Streak <span className="font-normal text-muted-foreground">· Best {best}</span></div>
-          <div className="text-sm text-muted-foreground">{hint}</div>
-        </div>
-      </div>
-      <div className="mt-3 flex gap-1.5" aria-label="Applications over the last 14 days">
-        {days.map((d) => (
-          <div
-            key={d.date}
-            title={`${formatDate(d.date)}: ${plural(d.n, "application")}`}
-            className={cn(
-              "h-2.5 flex-1 rounded-full",
-              d.n ? "bg-primary" : d.date === todayIso ? "border border-dashed border-primary bg-transparent" : "bg-muted",
-            )}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 

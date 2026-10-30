@@ -8,8 +8,10 @@ import { EVENT_TYPES, TIMED_EVENT_TYPES } from "@/lib/options";
 import { cn } from "@/lib/utils";
 
 // Confetti for the events worth celebrating; `anchor` is where the smaller burst comes from.
-export function celebrateEvent(type: string, anchor: HTMLElement | null) {
+// `repliedToFollowUp`: the event answers a Follow-Up, which earns a full celebration whatever its type.
+export function celebrateEvent(type: string, anchor: HTMLElement | null, repliedToFollowUp = false) {
   if (type === "Offer" || type === "Accepted") celebrate();
+  else if (repliedToFollowUp) celebrate(500);
   else if ((type === "Screen" || type === "Interview") && anchor) burstFrom(anchor, 135);
 }
 

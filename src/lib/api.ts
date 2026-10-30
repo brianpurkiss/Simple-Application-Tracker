@@ -132,6 +132,14 @@ export const useJob = (id: number) =>
     queryFn: () => request<Job & { events: JobEvent[] }>("GET", `/api/jobs/${id}`),
   });
 
+// Fetches the job's events fresh, for checks that must see the history as it was before a mutation.
+export function useJobEvents() {
+  const qc = useQueryClient();
+  return (id: number) =>
+    qc.fetchQuery({ queryKey: ["jobs", id], queryFn: () => request<Job & { events: JobEvent[] }>("GET", `/api/jobs/${id}`), staleTime: 0 })
+      .then((j) => j.events, () => [] as JobEvent[]);
+}
+
 function useInvalidatingMutation<V, R>(fn: (vars: V) => Promise<R>) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }) });

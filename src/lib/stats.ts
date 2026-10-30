@@ -46,7 +46,7 @@ export function salaryQuartiles(jobs: Job[]): SalaryQuartiles | null {
   return { p25: quantile(mids, 0.25), p50: quantile(mids, 0.5), p75: quantile(mids, 0.75), n: mids.length };
 }
 
-const hasOffer = (j: Job) => j.status === "Offer" || j.status === "Accepted";
+export const hasOffer = (j: Job) => j.status === "Offer" || j.status === "Accepted";
 export const interviewed = (j: Job) => reachedInterview(j) || hasOffer(j);
 const multipleInterviews = (j: Job) => j.interview_count >= 2 || hasOffer(j);
 export const heardBack = (j: Job) => Boolean(j.first_contact || j.rejected_date) || interviewed(j);

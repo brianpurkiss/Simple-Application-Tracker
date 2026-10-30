@@ -1,34 +1,77 @@
-import type { Momentum as MomentumStats } from "@/lib/insights";
-import { Kpi } from "@/components/stats/KpiRow";
-import { plural } from "@/lib/text";
+import type { FollowUps as FollowUpStats, Momentum as MomentumStats, Wins as WinsStats } from "@/lib/insights";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { StreakTile } from "@/components/StreakTile";
+import { WeekProgress } from "@/components/WeekProgress";
+import { cn } from "@/lib/utils";
+import { pct } from "@/lib/stats";
 
-const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+// Proactive effort that paid off: a follow-up you sent that got a reply other than a rejection.
+function FollowUpWins({ f }: { f: FollowUpStats }) {
+  return (
+    <div className="rounded-lg border bg-card p-4 sm:p-5">
+      <h3 className="font-medium">Follow-Ups That Got a Reply</h3>
+      <div className="mt-2 text-3xl font-semibold tabular-nums">
+        {f.replied} <span className="text-xl text-muted-foreground">of {f.followedUp}</span>
+      </div>
+      <div className="mt-1 text-sm text-muted-foreground">
+        {f.followedUp ? `${pct(f.replied, f.followedUp)}% · reply within 14 days` : "Follow up on a quiet application to start"}
+      </div>
+    </div>
+  );
+}
 
-export default function Momentum({ m }: { m: MomentumStats }) {
-  const { thisWeek, average, streak } = m;
-  const bestShare = m.best.applications ? Math.round((thisWeek.applications / m.best.applications) * 100) : null;
-  const toGo = average ? Math.ceil(average.applications) - thisWeek.applications : 0;
+function Wins({ wins }: { wins: WinsStats }) {
+  return (
+    <div className="space-y-3 rounded-lg border bg-card p-4 sm:p-5">
+      <Dialog>
+        <DialogTrigger asChild>
+          <button type="button" className="font-medium hover:underline" title="See all wins">Wins So Far</button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Wins</DialogTitle></DialogHeader>
+          <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
+            {wins.groups.map((g) => (
+              <section key={g.title} className="space-y-2">
+                <h3 className="text-sm font-semibold">{g.title}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {g.items.map((i) => (
+                    <span
+                      key={i.label}
+                      className={cn("rounded-full border px-3 py-1 text-sm", i.earned ? "bg-muted/50 font-medium" : "border-dashed text-muted-foreground opacity-60")}
+                    >
+                      {i.earned && "🏆 "}{i.label}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <div className="flex flex-wrap gap-2">
+        {wins.badges.map((b) => (
+          <span key={b} className="rounded-full border bg-muted/50 px-3 py-1 text-sm font-medium">🏆 {b}</span>
+        ))}
+        {!wins.badges.length && <span className="text-sm text-muted-foreground">Your first win is a few applications away.</span>}
+      </div>
+      {wins.next && <div className="text-sm text-muted-foreground">Next up: {wins.next}</div>}
+    </div>
+  );
+}
+
+export default function Momentum({ m, wins, followUps }: { m: MomentumStats; wins: WinsStats; followUps: FollowUpStats }) {
+  const { thisWeek } = m;
 
   return (
-    <div className="grid gap-4 max-sm:contents sm:grid-cols-2 lg:grid-cols-4">
-      <Kpi label="Application Streak" value={plural(streak.current, "day")}>
-        {streak.current ? "Days in a row with an application" : "Apply today to start a new one"} · Best {streak.best}
-        {m.weeksOnPace > 1 && <div>{m.weeksOnPace} weeks in a row at {m.paceTarget}+ a week</div>}
-      </Kpi>
-      <Kpi label="Applications This Week" value={String(thisWeek.applications)}>
-        {average ? (toGo > 0 ? `${toGo} more to match your ${fmt(average.applications)}/week average` : `Ahead of your ${fmt(average.applications)}/week average`) : "Your first week"}
-        <div>
-          {plural(thisWeek.interviews, "interview")}
-          {average && ` (average ${fmt(average.interviews)})`}
-        </div>
-      </Kpi>
-      <Kpi label="Active Pipeline" value={String(m.pipeline.active)}>
-        Still in play · {m.pipeline.interviewing} interviewing
-      </Kpi>
-      <Kpi label="Best Week" value={plural(m.best.applications, "application")} className="max-sm:col-span-2">
-        {plural(m.best.interviews, "interview")} in your best interview week
-        {bestShare !== null && <div>This week is {bestShare}% of your best</div>}
-      </Kpi>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <WeekProgress done={thisWeek.applications} target={m.paceTarget} previousBest={m.previousBest} average={m.average?.applications ?? null} />
+        <StreakTile current={m.streak.current} best={m.streak.best} days={m.recentDays}>
+          {m.weeksOnPace > 1 ? `${m.weeksOnPace} weeks in a row at ${m.paceTarget}+ a week` : null}
+        </StreakTile>
+        <FollowUpWins f={followUps} />
+        <Wins wins={wins} />
+      </div>
     </div>
   );
 }

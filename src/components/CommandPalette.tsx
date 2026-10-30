@@ -5,10 +5,10 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Keys } from "@/components/Keys";
 import { blankEvent, celebrateEvent } from "@/components/EventFields";
 import { QuickAddEvent } from "@/components/QuickAddEvent";
-import { type Job, useAddEventTo, useJobs, useResumes } from "@/lib/api";
+import { type Job, useAddEventTo, useJobEvents, useJobs, useResumes } from "@/lib/api";
 import { celebrate } from "@/lib/confetti";
 import { toastError, toastSaved } from "@/lib/demo";
-import { loggableTypes, needsFollowUp } from "@/lib/jobs";
+import { answersFollowUp, loggableTypes, needsFollowUp } from "@/lib/jobs";
 import { useAddJob, useFocusSearch } from "@/hooks/appActions";
 import { formatDate, today } from "@/lib/format";
 import { addDays } from "@/lib/activity";
@@ -129,14 +129,17 @@ export function PaletteProvider({ children }: { children: ReactNode }) {
   const [quick, setQuick] = useState<{ job: Job; type?: string } | null>(null);
   const registry = useRef(new Map<string, () => PaletteAction[]>());
   const addEvent = useAddEventTo();
+  const fetchEvents = useJobEvents();
   const onJobsList = useLocation().pathname === "/jobs";
   const quickLogRef = useRef<Palette["quickLog"]>(() => {});
-  quickLogRef.current = (job, type) => {
+  quickLogRef.current = async (job, type) => {
     // Checked before the mutation, since logging the follow-up drops the job off the Follow Up list.
     const clearedFollowUp = onJobsList && type === "Follow-Up" && needsFollowUp(job);
-    addEvent.mutate({ ...blankEvent(), type, jobId: job.id }, {
+    const event = { ...blankEvent(), type, jobId: job.id };
+    const repliedToFollowUp = answersFollowUp(await fetchEvents(job.id), type, event.date);
+    addEvent.mutate(event, {
       onSuccess: () => {
-        celebrateEvent(type, null);
+        celebrateEvent(type, null, repliedToFollowUp);
         if (clearedFollowUp) celebrate(500);
         toastSaved(`${type} added to ${job.title}`);
       },

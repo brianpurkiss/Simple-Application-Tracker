@@ -28,9 +28,10 @@ import {
   type Category,
   weeklySeries,
 } from "@/lib/activity";
-import { today } from "@/lib/format";
-import { extras, momentum, rollingAverage } from "@/lib/insights";
+import { formatDate, today } from "@/lib/format";
+import { extras, momentum, followUps, rollingAverage, searchSpan, wins } from "@/lib/insights";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
+import { plural } from "@/lib/text";
 import { jobGroupKeys } from "@/lib/titles/starred";
 import { perfDimValues } from "@/lib/titles/perfDims";
 
@@ -53,6 +54,18 @@ const shortDate = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
+
+function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 function AreaView({ events }: { events: ActivityEvent[] }) {
   // Rejections start hidden so the applications and interviews trend reads first.
@@ -234,6 +247,9 @@ export default function Activity() {
   const todayIso = today();
   const stats = useMemo(() => kpis(filteredJobs, filteredEvents, todayIso), [filteredJobs, filteredEvents, todayIso]);
   const momentumStats = useMemo(() => momentum(filteredJobs, filteredEvents, todayIso), [filteredJobs, filteredEvents, todayIso]);
+  const winStats = useMemo(() => wins(filteredJobs, filteredEvents, momentumStats), [filteredJobs, filteredEvents, momentumStats]);
+  const followUpStats = useMemo(() => followUps(filteredEvents), [filteredEvents]);
+  const span = useMemo(() => searchSpan(filteredJobs, filteredEvents, todayIso), [filteredJobs, filteredEvents, todayIso]);
   const segmentValues = useMemo(() => perfDimValues(stars, factCtx), [stars, factCtx]);
   const trivia = useMemo(() => extras(filteredJobs, filteredEvents, todayIso, segmentValues, boards), [filteredJobs, filteredEvents, todayIso, segmentValues, boards]);
   if (loadingEvents || loadingJobs) return <p className="text-muted-foreground">Loading…</p>;
@@ -246,23 +262,33 @@ export default function Activity() {
         <h1 className="text-xl font-semibold">Activity</h1>
         <FilterToggle open={filtersOpen} onToggle={() => setFiltersOpen((o) => !o)} active={filtersActive} />
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:block sm:space-y-4">
-        <KpiRow k={stats} />
-        <Momentum m={momentumStats} />
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Funnel steps={funnel(filteredJobs)} />
-        <OutcomeBar outcomes={outcomes(filteredJobs)} />
-      </div>
-      <FlowSankey {...flow(filteredJobs)} />
-      <div className="space-y-4">
-        <h2 className="font-medium">Timeline</h2>
+      <Section title="Momentum" subtitle="Keep it going. Every application counts.">
+        <Momentum m={momentumStats} wins={winStats} followUps={followUpStats} />
+      </Section>
+      <Section title="Your Search So Far" subtitle="The big numbers and how they have moved.">
+        <div className="grid grid-cols-2 gap-3 sm:block sm:space-y-4">
+          <KpiRow k={stats} />
+        </div>
+        {span && (
+          <p className="text-sm text-muted-foreground">
+            Searching for {plural(span.days, "day")} (since {formatDate(span.since)}) · {plural(span.logged, "event")} logged
+          </p>
+        )}
         <AreaView events={filteredEvents} />
+      </Section>
+      <Section title="Where Things Stand" subtitle="Where your applications ended up and how they got there.">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Funnel steps={funnel(filteredJobs)} />
+          <OutcomeBar outcomes={outcomes(filteredJobs)} />
+        </div>
+        <FlowSankey {...flow(filteredJobs)} />
+      </Section>
+      <Section title="Patterns" subtitle="When you apply, how long replies take, and what the pay looks like.">
         <WeekdayInsights events={filteredEvents} />
-      </div>
-      <Timing data={timing(filteredJobs)} afterInterview={interviewToRejection(filteredJobs)} />
-      <CohortTable cohorts={weeklyCohorts(filteredJobs)} />
-      <SalaryDistribution jobs={filteredJobs} />
+        <Timing data={timing(filteredJobs)} afterInterview={interviewToRejection(filteredJobs)} />
+        <CohortTable cohorts={weeklyCohorts(filteredJobs)} />
+        <SalaryDistribution jobs={filteredJobs} />
+      </Section>
       <Extras items={trivia} />
     </div>
       <FilterPanel open={filtersOpen}>

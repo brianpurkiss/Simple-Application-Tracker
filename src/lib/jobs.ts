@@ -1,6 +1,6 @@
 import { CLOSED_STATUSES, GHOSTED_DAYS, INTERVIEWING_STATUSES, STALE_DAYS } from "./options";
 import type { Job } from "./api";
-import { daysSince, isOnHold } from "./format";
+import { daysBetween, daysSince, isOnHold, today } from "./format";
 
 // Saved postings weren't applied to, so they stay out of activity, performance and the pipeline.
 export const isApplication = (job: Job) => !job.saved;
@@ -62,6 +62,15 @@ export function isRecentlyUpdated(job: Job) {
 
 // Interviewing jobs (or auto-ghosted ones that got to an interview) that have gone quiet — worth a follow-up. Logging a
 // follow-up counts as activity, so it drops off for a while. Logging Ghosted closes it out. Held jobs are skipped; a scheduled date that has arrived brings the job back.
+// A positive reply (contact, screen, interview, offer) logged within two weeks of a Follow-Up that hasn't been answered yet.
+const POSITIVE_REPLIES = new Set(["Contact", "Screen", "Interview", "Offer", "Accepted"]);
+export function answersFollowUp(events: { type: string; date: string }[], type: string, date = today()) {
+  if (!POSITIVE_REPLIES.has(type)) return false;
+  const followUp = events.filter((e) => e.type === "Follow-Up" && e.date <= date).map((e) => e.date).sort().pop();
+  if (!followUp) return false;
+  return daysBetween(followUp, date) <= 14 && !events.some((e) => POSITIVE_REPLIES.has(e.type) && e.date >= followUp && e.date <= date);
+}
+
 export function needsFollowUp(job: Job) {
   if (isOnHold(job)) return false;
   // A scheduled follow-up date that has arrived puts the job back in Follow Up, whatever its status or quiet time —

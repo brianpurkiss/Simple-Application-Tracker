@@ -2,15 +2,12 @@ import type { ActivityEvent, Job, JobBoard } from "./api";
 import { boardCounts } from "./boards";
 import { addDays, categoryOf, weekStart } from "./activity";
 import { daysBetween, formatDate } from "./format";
-import { isActive, isApplication, isInterviewing, reachedInterview } from "./jobs";
+import { reachedInterview } from "./jobs";
 import { k } from "./salary";
 import { plural } from "./text";
-import { type DimValues, MIN_AGE_DAYS, MIN_SAMPLE, heardBack, median, pct } from "./stats";
+import { type DimValues, MIN_AGE_DAYS, MIN_SAMPLE, hasOffer, heardBack, median, pct } from "./stats";
 
 const count = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
-
-// First day anyone replied: the earlier of a contact and a rejection.
-const replyDate = (j: Job) => [j.first_contact, j.rejected_date].filter(Boolean).sort()[0] ?? null;
 
 // Every Monday from `from` through `to`.
 function weeksBetween(from: string, to: string) {
@@ -33,8 +30,6 @@ export type Momentum = {
   paceTarget: number;
   thisWeek: { applications: number; interviews: number };
   average: { applications: number; interviews: number } | null; // trailing full weeks
-  pipeline: { active: number; interviewing: number };
-  best: { applications: number; interviews: number };
   previousBest: number; // most applications in any week before this one
 };
 
@@ -91,19 +86,63 @@ export function momentum(jobs: Job[], events: ActivityEvent[], todayIso: string)
     paceTarget,
     thisWeek,
     average,
-    pipeline: {
-      active: jobs.filter(isActive).length,
-      interviewing: jobs.filter((j) => isApplication(j) && isInterviewing(j)).length,
-    },
     previousBest: Math.max(0, ...[...appsByWeek].filter(([w]) => w !== thisMonday).map(([, n]) => n)),
-    best: {
-      applications: Math.max(0, ...appsByWeek.values()),
-      interviews: Math.max(0, ...interviewsByWeek.values()),
-    },
   };
 }
 
-export const EXTRA_GROUPS = ["Responses", "Interviews", "Activity", "Segments", "Salary"] as const;
+export type WinGroup = { title: string; items: { label: string; earned: boolean }[] };
+export type Wins = { badges: string[]; groups: WinGroup[]; next: string | null };
+
+const APPLICATION_MILESTONES = [10, 25, 50, 100, 150, 200, 300, 500, 750, 1000];
+const INTERVIEW_MILESTONES = [1, 5, 10, 25, 50];
+const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100];
+
+// Every milestone with whether it is reached yet. The badges are the highest one reached in each group.
+export function wins(jobs: Job[], events: ActivityEvent[], m: Momentum): Wins {
+  const interviews = events.filter((e) => categoryOf(e) === "interview").length;
+  const groups: WinGroup[] = [
+    { title: "Applications", items: APPLICATION_MILESTONES.map((n) => ({ label: `${n} applications`, earned: jobs.length >= n })) },
+    { title: "Replies", items: [{ label: "First reply", earned: jobs.some(heardBack) }] },
+    { title: "Interviews", items: INTERVIEW_MILESTONES.map((n) => ({ label: n === 1 ? "First interview" : `${n} interviews`, earned: interviews >= n })) },
+    { title: "Offers", items: [{ label: "First offer", earned: jobs.some(hasOffer) }] },
+    { title: "Streaks", items: STREAK_MILESTONES.map((n) => ({ label: `${n}-day streak`, earned: m.streak.best >= n })) },
+  ];
+  if (m.weeksOnPace > 1) groups.push({ title: "Pace", items: [{ label: `${m.weeksOnPace} weeks on pace`, earned: true }] });
+  const badges = groups.flatMap((g) => g.items.filter((i) => i.earned).slice(-1).map((i) => i.label));
+  const goal = APPLICATION_MILESTONES.find((n) => n > jobs.length);
+  return { badges, groups, next: goal ? `${plural(goal - jobs.length, "application")} to reach ${goal}` : null };
+}
+
+export type FollowUps = { followedUp: number; replied: number; interviews: number };
+
+// A follow-up worked when the company came back with something other than a rejection soon after.
+const FOLLOW_UP_WINDOW_DAYS = 14;
+const FOLLOW_UP_REPLIES = new Set(["Contact", "Screen", "Interview", "Offer", "Accepted"]);
+const FOLLOW_UP_INTERVIEWS = new Set(["Screen", "Interview", "Offer", "Accepted"]);
+
+export function followUps(events: ActivityEvent[]): FollowUps {
+  const byJob = new Map<number, ActivityEvent[]>();
+  for (const e of events) if (e.job_id) byJob.set(e.job_id, [...(byJob.get(e.job_id) ?? []), e]);
+  const out = { followedUp: 0, replied: 0, interviews: 0 };
+  for (const list of byJob.values()) {
+    const sent = list.filter((e) => e.type === "Follow-Up");
+    if (!sent.length) continue;
+    out.followedUp++;
+    const answers = list.filter((e) => FOLLOW_UP_REPLIES.has(e.type) && sent.some((f) => e.date > f.date && daysBetween(f.date, e.date) <= FOLLOW_UP_WINDOW_DAYS));
+    if (answers.length) out.replied++;
+    if (answers.some((e) => FOLLOW_UP_INTERVIEWS.has(e.type))) out.interviews++;
+  }
+  return out;
+}
+
+// How long the search has run, for the line under the headline numbers.
+export function searchSpan(jobs: Job[], events: ActivityEvent[], todayIso: string) {
+  const first = jobs.map((j) => j.applied_date).filter(Boolean).sort()[0];
+  if (!first) return null;
+  return { days: daysBetween(first, todayIso), since: first, logged: events.filter((e) => e.job_id).length };
+}
+
+export const EXTRA_GROUPS = ["Highlights", "Responses", "Segments", "Salary"] as const;
 type ExtraGroup = (typeof EXTRA_GROUPS)[number];
 export type Extra = { group: ExtraGroup; label: string; value: string; detail?: string; jobId?: number };
 
@@ -137,13 +176,6 @@ function segmentExtras(jobs: Job[], segments: DimValues): Extra[] {
   const winner = [...interviews].sort((a, b) => b[1] - a[1] || (appliedTo.get(a[0]) ?? 0) - (appliedTo.get(b[0]) ?? 0))[0];
   if (winner) out.push({ group: "Segments", label: "Best-Performing Title", value: winner[0], detail: `${plural(winner[1], "job")} reached an interview of ${appliedTo.get(winner[0]) ?? 0} applied` });
 
-  const titles = tally("title", applied);
-  if (titles.size > 1) {
-    const topThree = [...titles.values()].sort((a, b) => b - a).slice(0, 3).reduce((n, c) => n + c, 0);
-    const total = [...titles.values()].reduce((n, c) => n + c, 0);
-    out.push({ group: "Segments", label: "Title Spread", value: plural(titles.size, "title"), detail: `Top three hold ${pct(topThree, total)}% of applications` });
-  }
-
   const unsegmented = jobs.filter((j) => dims.every(({ dim }) => !segments(j, dim).length)).length;
   if (unsegmented) out.push({ group: "Segments", label: "Outside Every Segment", value: String(unsegmented), detail: "Not in any starred group" });
   return out;
@@ -154,31 +186,29 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string, s
   const out: Extra[] = [];
   const applied = jobs.filter((j) => j.applied_date);
 
-  const replies = applied
-    .map((j) => ({ j, days: replyDate(j) ? daysBetween(j.applied_date!, replyDate(j)!) : null }))
-    .filter((r): r is { j: Job; days: number } => r.days !== null);
-  if (replies.length) {
-    const fast = replies.reduce((a, b) => (b.days < a.days ? b : a));
-    const slow = replies.reduce((a, b) => (b.days > a.days ? b : a));
-    out.push({ group: "Responses", label: "Fastest Reply", value: plural(fast.days, "day"), detail: label(fast.j), jobId: fast.j.id });
-    out.push({ group: "Responses", label: "Slowest Reply", value: plural(slow.days, "day"), detail: label(slow.j), jobId: slow.j.id });
-  }
-
-  const rejections = applied.filter((j) => j.rejected_date).map((j) => ({ j, days: daysBetween(j.applied_date!, j.rejected_date!) }));
-  if (rejections.length) {
-    const quick = rejections.reduce((a, b) => (b.days < a.days ? b : a));
-    const slow = rejections.reduce((a, b) => (b.days > a.days ? b : a));
-    out.push({ group: "Responses", label: "Quickest Rejection", value: plural(quick.days, "day"), detail: label(quick.j), jobId: quick.j.id });
-    out.push({ group: "Responses", label: "Slowest Rejection", value: plural(slow.days, "day"), detail: label(slow.j), jobId: slow.j.id });
-  }
-
   const byCompany = new Map<string, number>();
   for (const j of jobs) {
     const rounds = j.interview_count + j.screen_count;
     if (rounds && j.company) byCompany.set(j.company, (byCompany.get(j.company) ?? 0) + rounds);
   }
   const topCompany = [...byCompany].sort((a, b) => b[1] - a[1])[0];
-  if (topCompany) out.push({ group: "Interviews", label: "Most Interviews at One Company", value: String(topCompany[1]), detail: topCompany[0] });
+  if (topCompany) out.push({ group: "Highlights", label: "Most Interviews at One Company", value: String(topCompany[1]), detail: topCompany[0] });
+
+  const longest = jobs.reduce<Job | null>((best, j) => (j.interview_count + j.screen_count > (best ? best.interview_count + best.screen_count : 1) ? j : best), null);
+  if (longest) out.push({ group: "Highlights", label: "Longest Interview Process", value: plural(longest.interview_count + longest.screen_count, "round"), detail: label(longest), jobId: longest.id });
+
+  const offers = jobs.filter(hasOffer);
+  if (offers.length) out.push({ group: "Highlights", label: "Offers", value: String(offers.length), detail: `${pct(offers.length, jobs.length)}% of applications` });
+  // Days from applying to the first offer, for jobs where both dates are known.
+  const firstOffer = new Map<number, string>();
+  for (const e of events) if (e.type === "Offer" && !firstOffer.has(e.job_id)) firstOffer.set(e.job_id, e.date);
+  const toOffer = applied.filter((j) => firstOffer.has(j.id)).map((j) => daysBetween(j.applied_date!, firstOffer.get(j.id)!));
+  if (toOffer.length) out.push({ group: "Highlights", label: "Time to Offer", value: plural(median(toOffer)!, "day"), detail: "Median from applying to first offer" });
+
+  const interviewsByWeek = new Map<string, number>();
+  for (const e of events) if (categoryOf(e) === "interview") count(interviewsByWeek, weekStart(e.date));
+  const busyInterviewWeek = [...interviewsByWeek].sort((a, b) => b[1] - a[1])[0];
+  if (busyInterviewWeek) out.push({ group: "Highlights", label: "Most Interviews in a Week", value: String(busyInterviewWeek[1]), detail: `Week of ${formatDate(busyInterviewWeek[0])}` });
 
   const byDay = new Map<string, number>();
   const byWeek = new Map<string, number>();
@@ -188,35 +218,34 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string, s
   }
   const busyDay = [...byDay].sort((a, b) => b[1] - a[1])[0];
   const busyWeek = [...byWeek].sort((a, b) => b[1] - a[1])[0];
-  if (busyDay) out.push({ group: "Activity", label: "Busiest Day", value: plural(busyDay[1], "application"), detail: formatDate(busyDay[0]) });
-  if (busyWeek) out.push({ group: "Activity", label: "Busiest Week", value: plural(busyWeek[1], "application"), detail: `Week of ${formatDate(busyWeek[0])}` });
-  if (byDay.size) out.push({ group: "Activity", label: "Applications per Active Day", value: (applied.length / byDay.size).toFixed(1), detail: `across ${plural(byDay.size, "day")} with at least one` });
+  if (busyDay) out.push({ group: "Highlights", label: "Busiest Day", value: plural(busyDay[1], "application"), detail: formatDate(busyDay[0]) });
+  if (busyWeek) out.push({ group: "Highlights", label: "Busiest Week", value: plural(busyWeek[1], "application"), detail: `Week of ${formatDate(busyWeek[0])}` });
+  if (byDay.size) out.push({ group: "Highlights", label: "Applications per Active Day", value: (applied.length / byDay.size).toFixed(1), detail: `across ${plural(byDay.size, "day")} with at least one` });
 
   // The saved board whose site most job links point to; ties go to the one listed first.
   const topBoard = [...boardCounts(boards, jobs)].reduce<[number, number] | null>((best, c) => (c[1] > (best?.[1] ?? 0) ? c : best), null);
-  if (topBoard) out.push({ group: "Activity", label: "Most Used Job Board", value: boards.find((b) => b.id === topBoard[0])!.name, detail: `${plural(topBoard[1], "job")}, ${pct(topBoard[1], jobs.length)}% of jobs` });
+  if (topBoard) out.push({ group: "Highlights", label: "Most Used Job Board", value: boards.find((b) => b.id === topBoard[0])!.name, detail: `${plural(topBoard[1], "job")}, ${pct(topBoard[1], jobs.length)}% of jobs` });
 
   const lucky = new Map<string, number>();
   for (const j of jobs) if (j.resume_version && reachedInterview(j)) lucky.set(j.resume_version, (lucky.get(j.resume_version) ?? 0) + 1);
   const topResume = [...lucky].sort((a, b) => b[1] - a[1])[0];
-  if (topResume) out.push({ group: "Interviews", label: "Lucky Resume", value: topResume[0], detail: `${plural(topResume[1], "job")} reached an interview` });
-
-  const firstApplied = applied.map((j) => j.applied_date!).sort()[0];
-  if (firstApplied) out.push({ group: "Activity", label: "Days Searching", value: String(daysBetween(firstApplied, todayIso)), detail: `since ${formatDate(firstApplied)}` });
-  const logged = events.filter((e) => e.job_id).length;
-  if (logged) out.push({ group: "Activity", label: "Events Logged", value: String(logged) });
+  if (topResume) out.push({ group: "Highlights", label: "Lucky Resume", value: topResume[0], detail: `${plural(topResume[1], "job")} reached an interview` });
 
   const ghosted = jobs.filter((j) => j.status === "Ghosted").length;
   if (ghosted) out.push({ group: "Responses", label: "Ghosted", value: String(ghosted), detail: `${pct(ghosted, jobs.length)}% of applications` });
 
-  // Day-of-week reply rates, only for applications old enough to have heard back and groups big enough to mean something.
-  const rateFor = (dow: number) => {
-    const group = applied.filter((j) => new Date(Date.parse(j.applied_date!)).getUTCDay() === dow && daysBetween(j.applied_date!, todayIso) >= MIN_AGE_DAYS);
-    return group.length >= MIN_SAMPLE ? pct(group.filter(heardBack).length, group.length) : null;
-  };
-  const mon = rateFor(1);
-  const fri = rateFor(5);
-  if (mon !== null && fri !== null) out.push({ group: "Responses", label: "Mondays vs. Fridays", value: `${mon}% vs. ${fri}%`, detail: "Reply rate by the day you applied" });
+  // Reply rate by how you applied, over applications old enough to have heard back and channels big enough to mean something.
+  const settled = applied.filter((j) => j.applied_via && daysBetween(j.applied_date!, todayIso) >= MIN_AGE_DAYS);
+  const channels = new Map<string, Job[]>();
+  for (const j of settled) channels.set(j.applied_via, [...(channels.get(j.applied_via) ?? []), j]);
+  const rates = [...channels].filter(([, list]) => list.length >= MIN_SAMPLE).map(([via, list]) => ({ via, n: list.length, rate: pct(list.filter(heardBack).length, list.length) ?? 0 }));
+  if (rates.length > 1) {
+    const top = rates.sort((x, y) => y.rate - x.rate || y.n - x.n)[0];
+    out.push({ group: "Responses", label: "Best Way In", value: top.via, detail: `${top.rate}% replied, from ${plural(top.n, "application")}` });
+  }
+  const referral = rates.find((r) => r.via === "Referral");
+  const direct = rates.find((r) => r.via === "Direct");
+  if (referral && direct) out.push({ group: "Responses", label: "Referral Reply Rate", value: `${referral.rate}%`, detail: `vs. ${direct.rate}% when applying directly` });
 
   if (segments) out.push(...segmentExtras(jobs, segments));
 

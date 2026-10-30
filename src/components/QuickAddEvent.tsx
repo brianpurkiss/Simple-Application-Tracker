@@ -3,10 +3,10 @@ import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
-import { type Job, useAddEvent } from "@/lib/api";
+import { type Job, useAddEvent, useJobEvents } from "@/lib/api";
 import { celebrate } from "@/lib/confetti";
 import { toastError, toastSaved } from "@/lib/demo";
-import { loggableTypes, needsFollowUp } from "@/lib/jobs";
+import { answersFollowUp, loggableTypes, needsFollowUp } from "@/lib/jobs";
 import { EVENT_TYPES } from "@/lib/options";
 
 // Jobs list dialog: log a history event without opening the job. Open while `job` is set.
@@ -18,6 +18,7 @@ export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: 
 
   const [draft, setDraft] = useState(blankEvent);
   const add = useAddEvent(shown?.id ?? 0);
+  const fetchEvents = useJobEvents();
   const onJobsList = useLocation().pathname === "/jobs";
   const addButton = useRef<HTMLButtonElement>(null);
 
@@ -25,17 +26,18 @@ export function QuickAddEvent({ job, type, onClose }: { job: Job | null; type?: 
     if (job) setDraft({ ...blankEvent(), ...(type && { type }) });
   }, [job, type]);
 
-  const submit = (e?: React.FormEvent) => {
+  const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!shown) return;
     (document.activeElement as HTMLElement | null)?.blur();
     const { type } = draft;
     // Checked before the mutation, since logging the follow-up drops the job off the Follow Up list.
     const clearedFollowUp = onJobsList && type === "Follow-Up" && needsFollowUp(shown);
+    const repliedToFollowUp = answersFollowUp(await fetchEvents(shown.id), type, draft.date);
     add.mutate(draft, {
       onSuccess: () => {
         onClose();
-        celebrateEvent(type, addButton.current);
+        celebrateEvent(type, addButton.current, repliedToFollowUp);
         if (clearedFollowUp) celebrate(500);
         toastSaved(`${type} added to ${shown.title}`);
       },

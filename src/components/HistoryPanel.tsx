@@ -11,7 +11,7 @@ import { EVENT_COLORS } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/demo";
 import { EVENT_TYPES } from "@/lib/options";
-import { loggableTypes } from "@/lib/jobs";
+import { answersFollowUp, loggableTypes } from "@/lib/jobs";
 
 const HISTORY_SIZE = 5;
 // Notes live in the Notes card, dated alongside screens and interviews, so History leaves them out.
@@ -100,10 +100,11 @@ export function HistoryPanel({ jobId, events: all, followUpNeeded = false, onFol
     e?.preventDefault();
     (document.activeElement as HTMLElement | null)?.blur();
     const { type } = draft;
+    const repliedToFollowUp = answersFollowUp(all, type, draft.date);
     add.mutate(draft, {
       onSuccess: () => {
         setDraft(blankEvent());
-        celebrateEvent(type, addButton.current);
+        celebrateEvent(type, addButton.current, repliedToFollowUp);
         if (type === "Follow-Up" && followUpNeeded) {
           if (addButton.current) burstFrom(addButton.current, 135);
           onFollowUpLogged?.();

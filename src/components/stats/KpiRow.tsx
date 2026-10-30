@@ -38,7 +38,7 @@ export default function KpiRow({ k }: { k: Kpis }) {
       </Kpi>
       <Kpi label="Response Rate" value={fmtPct(k.responseRate)}>Heard anything back</Kpi>
       <Kpi label="Interview Rate" value={fmtPct(k.interviewRate)}>Reached a screen or interview</Kpi>
-      <Kpi label="Typical Wait" value={days(k.medianResponseDays)}>
+      <Kpi label="Typical Wait" value={days(k.medianResponseDays)} className="max-sm:col-span-2">
         Median to first reply · {days(k.medianRejectionDays)} to rejection
       </Kpi>
     </div>
