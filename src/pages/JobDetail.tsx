@@ -18,6 +18,7 @@ import { type Job, type JobEvent, type JobInput, useApplyJob, useDeleteJob, useJ
 import { factHints, typeNames } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
 import { daysSince, formatDate, today } from "@/lib/format";
+import { addDays, weekStart } from "@/lib/activity";
 import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { useDraftForm } from "@/hooks/useDraftForm";
 import { useStickyTop } from "@/hooks/useStickyTop";
@@ -347,11 +348,20 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                   <DialogHeader><DialogTitle>Scheduled Follow Up</DialogTitle></DialogHeader>
                   <div className="space-y-2">
                     <TextField label="Follow Up On" type="date" value={draft.follow_up_on} onChange={set("follow_up_on")} />
-                    <p className="text-xs text-muted-foreground">
-                      {draft.follow_up_on > today()
-                        ? `Held out of Follow Up and Ghosted until ${formatDate(draft.follow_up_on)}.`
-                        : "Pick a date to keep this job out of Follow Up and Ghosted until then."}
-                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        ["Tomorrow", addDays(today(), 1)],
+                        ["In 3 Days", addDays(today(), 3)],
+                        ["Next Monday", addDays(weekStart(today()), 7)],
+                      ].map(([label, date]) => (
+                        <Button key={label} variant={draft.follow_up_on === date ? "secondary" : "outline"} size="sm" className="h-7 text-xs" onClick={() => set("follow_up_on")(date)}>
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                    {draft.follow_up_on > today() && (
+                      <p className="text-xs text-muted-foreground">Held out of Follow Up and Ghosted until {formatDate(draft.follow_up_on)}.</p>
+                    )}
                   </div>
                   <DialogFooter>
                     {draft.follow_up_on && <Button variant="outline" onClick={() => set("follow_up_on")("")}>Clear</Button>}
