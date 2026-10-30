@@ -104,6 +104,10 @@ One known soft spot: replaced words that also appear in `anonymize.ts` or `serve
 9. **No contacts in the demo**, made-up or otherwise.
 10. **Don't commit, push or rewrite history unless the maintainer asks.** Older commits on `main` contain some identifying data from before this process existed. Rewriting history is the maintainer's call.
 
+## Job boards
+
+`job_boards` (the Boards page links) and `board_dismissed` (sites turned down as suggestions) are optional portable tables: exported and imported, but **never written to the seed**. The anonymizer doesn't read them, and `import-json.ts` leaves a table alone when the file doesn't have it, so the demo build shows only the generic starter boards from `src/lib/boards.ts`. Real board links and dismissed domains can name an employer, so keep them out of the seed.
+
 ## Known residual signals (accepted, but don't make them worse)
 
 - Job and event ids keep their real values, and the number of jobs per company is preserved. Together these reveal volume and ordering, but not identity.

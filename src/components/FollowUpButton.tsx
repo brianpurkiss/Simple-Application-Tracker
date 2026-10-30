@@ -6,7 +6,8 @@ import { addDays, weekStart } from "@/lib/activity";
 import { formatDate, today } from "@/lib/format";
 
 // The History card's "Schedule follow up" button and its date picker. `value` is a date string, "" for none.
-export function FollowUpButton({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+// `onDone`, when given, runs as Done closes the picker, so a saved job can store the date without a separate Save.
+export function FollowUpButton({ value, onChange, onDone }: { value: string; onChange: (value: string) => void; onDone?: (value: string) => void }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -36,7 +37,7 @@ export function FollowUpButton({ value, onChange }: { value: string; onChange: (
         </div>
         <DialogFooter>
           {value && <Button variant="outline" onClick={() => onChange("")}>Clear</Button>}
-          <DialogClose asChild><Button>Done</Button></DialogClose>
+          <DialogClose asChild><Button onClick={() => onDone?.(value)}>Done</Button></DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

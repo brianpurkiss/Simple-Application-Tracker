@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddJobButton } from "@/components/AddJobButton";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -257,7 +258,12 @@ export default function Home() {
       <title>Home | Application Tracker</title>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{name ? `Welcome back, ${name}` : "Home"}</h1>
-        <AddJobButton />
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" title="Your job board links (G then B)">
+            <Link to="/boards"><Globe /> Job Boards</Link>
+          </Button>
+          <AddJobButton />
+        </div>
       </div>
 
       <UpcomingInterviews events={upcoming} />
@@ -269,10 +275,10 @@ export default function Home() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Follow Up" titleTo={FOLLOW_UP} count={followUp.length}>
-          <JobRows jobs={followUp} detail={(j) => (isScheduledDue(j) ? `Scheduled ${formatDate(j.follow_up_on)}` : `${quietDays(j)} days quiet`)} empty="Nothing is waiting on a follow-up." />
+          <JobRows jobs={followUp} detail={(j) => (isScheduledDue(j) ? `Scheduled ${formatDate(j.follow_up_on)}` : `${quietDays(j)} days quiet`)} empty="🎉 Nothing is waiting on a follow-up." />
         </Card>
         <Card title="Interviewing" titleTo="/jobs?status=interviewing" count={interviewing.length}>
-          <JobRows jobs={interviewing} detail={(j) => `${quietDays(j)} days quiet`} empty="No active interviews right now." />
+          <JobRows jobs={interviewing} detail={(j) => `${quietDays(j)} days quiet`} empty={`No active interviews yet${name ? `, ${name}` : ""}. Reach out to a few of your leads to get conversations started.`} />
         </Card>
       </div>
 
@@ -281,7 +287,7 @@ export default function Home() {
           <JobRows jobs={warm} detail={(j) => `${quietDays(j)} days quiet`} empty="No referrals or recruiter leads in play." />
         </Card>
         <Card title="Going Cold" titleTo="/jobs?status=cold" count={cold.length}>
-          <JobRows jobs={cold} detail={(j) => `${quietDays(j)} days quiet`} empty="Nothing is waiting on a reply." />
+          <JobRows jobs={cold} detail={(j) => `${quietDays(j)} days quiet`} empty="🎉 Nothing is waiting on a reply." />
         </Card>
       </div>
 

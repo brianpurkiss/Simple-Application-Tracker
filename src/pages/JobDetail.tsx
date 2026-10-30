@@ -247,7 +247,11 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
                   </p>
                 )}
               </div>
-              <FollowUpButton value={draft.follow_up_on} onChange={set("follow_up_on")} />
+              <FollowUpButton
+                value={draft.follow_up_on}
+                onChange={set("follow_up_on")}
+                onDone={(value) => { if (value !== saved.follow_up_on) setFollowUp(value || null); }}
+              />
             </CardHeader>
             <CardContent className="space-y-4">
               {!job.deleted_at && followUpNeeded && (

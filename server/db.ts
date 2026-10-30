@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { STARTER_BOARDS } from "../src/lib/boards.ts";
 import { STATUS_FOR_EVENT } from "../src/lib/options.ts";
 import { parseSalary } from "./salary.ts";
 import { legacyCleanup } from "./legacyCleanup.ts";
@@ -238,6 +239,31 @@ db.exec(`
 if (!(db.pragma("table_info(starred_groups)") as { name: string }[]).some((c) => c.name === "label")) {
   db.exec("ALTER TABLE starred_groups ADD COLUMN label TEXT NOT NULL DEFAULT ''");
 }
+
+// Job board links for the Boards page. `last_opened_on` is the day the link was last clicked. A new table starts with
+// the generic boards in src/lib/boards.ts; after that it's the user's, so deleting them all never brings them back.
+const boardsExisted = !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'job_boards'").get();
+db.exec(`
+  CREATE TABLE IF NOT EXISTS job_boards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    last_opened_on TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+if (!boardsExisted) {
+  const insert = db.prepare("INSERT INTO job_boards (name, url) VALUES (?, ?)");
+  db.transaction(() => STARTER_BOARDS.forEach((b) => insert.run(b.name, b.url)))();
+}
+
+// Sites the user turned down as suggested boards (see suggestBoards in src/lib/boards.ts), by registrable domain.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS board_dismissed (
+    domain TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
 
 // A small starter set that fits any field: spelled-out term first, abbreviation after. Added once
 // (tracked by user_version), so deleting one never brings it back and existing sets are untouched.

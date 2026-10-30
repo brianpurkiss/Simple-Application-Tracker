@@ -5,6 +5,7 @@ import { z } from "zod";
 import { backupsDir, db } from "./db.ts";
 import { daysSince, isOnHold } from "../src/lib/format.ts";
 import { nowTime, today } from "../src/lib/clock.ts";
+import { normalizeUrl } from "../src/lib/boards.ts";
 import { APPLIED_VIA, GHOSTED_DAYS, STATUS_FOR_EVENT, TIMED_EVENT_TYPES, UPDATE_EVENT_TYPES, WORK_MODES } from "../src/lib/options.ts";
 
 // Builds INSERT / UPDATE statements from the keys of a validated body, using named parameters.
@@ -448,6 +449,51 @@ app.put("/api/starred-groups", (req, res) => {
   if (starred) db.prepare("INSERT INTO starred_groups (kind, key, label) VALUES (?, ?, ?) ON CONFLICT (kind, key) DO UPDATE SET label = excluded.label").run(kind, key, label);
   else db.prepare("DELETE FROM starred_groups WHERE kind = ? AND key = ?").run(kind, key);
   res.json(getStars());
+});
+
+const boardSchema = z.object({
+  name: text.min(1, "Give the board a name"),
+  url: z.string().transform(normalizeUrl).refine((u): u is string => u !== null, "Enter a valid web address"),
+});
+
+const getBoards = () => db.prepare("SELECT id, name, url, last_opened_on FROM job_boards ORDER BY id").all();
+
+app.get("/api/boards", (_req, res) => res.json(getBoards()));
+
+app.post("/api/boards", (req, res) => {
+  const parsed = boardSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  db.prepare("INSERT INTO job_boards (name, url) VALUES (@name, @url)").run(parsed.data);
+  res.status(201).json(getBoards());
+});
+
+app.patch("/api/boards/:id", (req, res) => {
+  const parsed = boardSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  // A new address starts over, since the day on record was for the old one.
+  db.prepare("UPDATE job_boards SET name = @name, last_opened_on = CASE WHEN url = @url THEN last_opened_on END, url = @url WHERE id = @id").run({ ...parsed.data, id: req.params.id });
+  res.json(getBoards());
+});
+
+app.post("/api/boards/:id/open", (req, res) => {
+  db.prepare("UPDATE job_boards SET last_opened_on = ? WHERE id = ?").run(today(), req.params.id);
+  res.json(getBoards());
+});
+
+app.delete("/api/boards/:id", (req, res) => {
+  db.prepare("DELETE FROM job_boards WHERE id = ?").run(req.params.id);
+  res.json(getBoards());
+});
+
+const getDismissed = () => (db.prepare("SELECT domain FROM board_dismissed ORDER BY domain").all() as { domain: string }[]).map((r) => r.domain);
+
+app.get("/api/board-suggestions/dismissed", (_req, res) => res.json(getDismissed()));
+
+app.post("/api/board-suggestions/dismissed", (req, res) => {
+  const parsed = z.object({ domain: text.min(1) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  db.prepare("INSERT OR IGNORE INTO board_dismissed (domain) VALUES (?)").run(parsed.data.domain.toLowerCase());
+  res.status(201).json(getDismissed());
 });
 
 const resumeSchema = z.object({

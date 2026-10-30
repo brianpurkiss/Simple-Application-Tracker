@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FactKind, FactType } from "./jobFacts.ts";
+import { today } from "./clock.ts";
 import { DEMO, demoGet, demoWrite } from "./demo.ts";
 
 export type Job = {
@@ -256,6 +257,44 @@ export function useUpdateProfile() {
     mutationFn: (p: Partial<Profile>) =>
       DEMO ? Promise.resolve({ ...qc.getQueryData<Profile>(["profile"])!, ...p }) : request<Profile>("PATCH", "/api/profile", p),
     onSuccess: (data) => qc.setQueryData(["profile"], data),
+  });
+}
+
+export type JobBoard = { id: number; name: string; url: string; last_opened_on: string | null };
+export type JobBoardInput = Pick<JobBoard, "name" | "url">;
+
+export const useBoards = () =>
+  useQuery({ queryKey: ["boards"], queryFn: () => request<JobBoard[]>("GET", "/api/boards") });
+
+// Every board call answers with the whole list. The demo saves nothing, so its answers (the request echoed back)
+// are ignored, apart from opening a board, which stays in this tab like stars do.
+function useBoardMutation<V>(fn: (vars: V, cached: JobBoard[]) => Promise<JobBoard[]>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: V) => fn(vars, qc.getQueryData<JobBoard[]>(["boards"]) ?? []),
+    onSuccess: (data) => qc.setQueryData(["boards"], data),
+  });
+}
+const keepIfDemo = (cached: JobBoard[]) => (written: unknown) => (DEMO ? cached : (written as JobBoard[]));
+export const useAddBoard = () =>
+  useBoardMutation((b: JobBoardInput, cached) => request<JobBoard[]>("POST", "/api/boards", b).then(keepIfDemo(cached)));
+export const useUpdateBoard = () =>
+  useBoardMutation(({ id, ...b }: JobBoardInput & { id: number }, cached) => request<JobBoard[]>("PATCH", `/api/boards/${id}`, b).then(keepIfDemo(cached)));
+export const useDeleteBoard = () =>
+  useBoardMutation((id: number, cached) => request<JobBoard[]>("DELETE", `/api/boards/${id}`).then(keepIfDemo(cached)));
+export const useOpenBoard = () =>
+  useBoardMutation((id: number, cached) =>
+    DEMO ? Promise.resolve(cached.map((b) => (b.id === id ? { ...b, last_opened_on: today() } : b))) : request<JobBoard[]>("POST", `/api/boards/${id}/open`));
+
+export const useDismissedBoardDomains = () =>
+  useQuery({ queryKey: ["board-dismissed"], queryFn: () => request<string[]>("GET", "/api/board-suggestions/dismissed") });
+// In the demo the dismissal stays in this tab, like stars.
+export function useDismissBoardDomain() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (domain: string) =>
+      DEMO ? Promise.resolve([...(qc.getQueryData<string[]>(["board-dismissed"]) ?? []), domain]) : request<string[]>("POST", "/api/board-suggestions/dismissed", { domain }),
+    onSuccess: (data) => qc.setQueryData(["board-dismissed"], data),
   });
 }
 

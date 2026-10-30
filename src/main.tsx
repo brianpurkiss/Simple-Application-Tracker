@@ -30,6 +30,7 @@ import Activity from "@/pages/Activity";
 import Calendar from "@/pages/Calendar";
 import Segments from "@/pages/Segments";
 import Backups from "@/pages/Backups";
+import Boards from "@/pages/Boards";
 import Trash from "@/pages/Trash";
 import Shortcuts from "@/pages/Shortcuts";
 import Terminology from "@/pages/Terminology";
@@ -263,6 +264,7 @@ function App() {
             <Route path="/titles" element={<Navigate to="/segments" replace />} />
             <Route path="/stats" element={<Navigate to="/activity" replace />} />
             {!DEMO && <Route path="/backups" element={<Backups />} />}
+            <Route path="/boards" element={<Boards />} />
             <Route path="/trash" element={<Trash />} />
             <Route path="/shortcuts" element={<Shortcuts />} />
             <Route path="/terminology" element={<Terminology />} />

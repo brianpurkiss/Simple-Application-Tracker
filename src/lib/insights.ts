@@ -1,4 +1,5 @@
-import type { ActivityEvent, Job } from "./api";
+import type { ActivityEvent, Job, JobBoard } from "./api";
+import { boardCounts } from "./boards";
 import { addDays, categoryOf, weekStart } from "./activity";
 import { daysBetween, formatDate } from "./format";
 import { isActive, isApplication, isInterviewing, reachedInterview } from "./jobs";
@@ -149,7 +150,7 @@ function segmentExtras(jobs: Job[], segments: DimValues): Extra[] {
 }
 
 // Trivia for the end of the page. Anything without enough data is left out rather than shown as zero.
-export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string, segments?: DimValues): Extra[] {
+export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string, segments?: DimValues, boards: JobBoard[] = []): Extra[] {
   const out: Extra[] = [];
   const applied = jobs.filter((j) => j.applied_date);
 
@@ -190,6 +191,10 @@ export function extras(jobs: Job[], events: ActivityEvent[], todayIso: string, s
   if (busyDay) out.push({ group: "Activity", label: "Busiest Day", value: plural(busyDay[1], "application"), detail: formatDate(busyDay[0]) });
   if (busyWeek) out.push({ group: "Activity", label: "Busiest Week", value: plural(busyWeek[1], "application"), detail: `Week of ${formatDate(busyWeek[0])}` });
   if (byDay.size) out.push({ group: "Activity", label: "Applications per Active Day", value: (applied.length / byDay.size).toFixed(1), detail: `across ${plural(byDay.size, "day")} with at least one` });
+
+  // The saved board whose site most job links point to; ties go to the one listed first.
+  const topBoard = [...boardCounts(boards, jobs)].reduce<[number, number] | null>((best, c) => (c[1] > (best?.[1] ?? 0) ? c : best), null);
+  if (topBoard) out.push({ group: "Activity", label: "Most Used Job Board", value: boards.find((b) => b.id === topBoard[0])!.name, detail: `${plural(topBoard[1], "job")}, ${pct(topBoard[1], jobs.length)}% of jobs` });
 
   const lucky = new Map<string, number>();
   for (const j of jobs) if (j.resume_version && reachedInterview(j)) lucky.set(j.resume_version, (lucky.get(j.resume_version) ?? 0) + 1);

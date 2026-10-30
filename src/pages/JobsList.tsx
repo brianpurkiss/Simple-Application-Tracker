@@ -458,6 +458,16 @@ export default function JobsList() {
   }, [location, navigate]);
 
   const search = params.get("q") ?? "";
+  // The box keeps its own text and writes it to ?q=. The router applies URL changes in a transition, so a box fed
+  // straight from the URL snaps back between keystrokes while a slow render (like the first search) is pending.
+  const [searchText, setSearchText] = useState(search);
+  const sentSearch = useRef(search);
+  // Adopt URL changes the box didn't make (clearing filters, Esc).
+  useEffect(() => {
+    if (search === sentSearch.current) return;
+    sentSearch.current = search;
+    setSearchText(search);
+  }, [search]);
   const statusFilter = params.get("status") ?? "active";
   const fitFilter = params.get("fit") ?? "all";
   const companyTypeFilter = params.get(COMPANY_TYPE_PARAM) ?? "all";
@@ -731,6 +741,20 @@ export default function JobsList() {
     </>
   );
 
+  const changeSearch = (value: string) => {
+    const starting = !sentSearch.current && value;
+    setSearchText(value);
+    sentSearch.current = value;
+    // Starting a search resets the view to "All" with no other filters.
+    updateParams((p) => {
+      if (starting) {
+        FILTER_KEYS.forEach((k) => p.delete(k));
+        p.set("status", "all");
+      }
+      p.set("q", value);
+    });
+  };
+
   return (
     <div className="space-y-4">
       <title>{`${statusFilter === "followup" ? "Follow Up" : "Jobs"} | Application Tracker`}</title>
@@ -739,20 +763,24 @@ export default function JobsList() {
           <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
           <Input
             id={SEARCH_INPUT_ID}
-            value={search}
-            onChange={(e) => {
-              const value = e.target.value;
-              // Starting a search resets the view to "All" with no other filters.
-              updateParams((p) => {
-                if (!search && value) {
-                  p.set("status", "all");
-                }
-                p.set("q", value);
-              });
-            }}
+            value={searchText}
+            onChange={(e) => changeSearch(e.target.value)}
             placeholder="Search title, company, notes…"
-            className="bg-card pl-8"
+            className="bg-card pl-8 pr-8"
           />
+          {searchText && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => {
+                changeSearch("");
+                document.getElementById(SEARCH_INPUT_ID)?.focus();
+              }}
+              className="absolute top-2.5 right-2.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          )}
         </div>
         <div className="contents max-sm:hidden">
         {chips.map(([key, label]) => (

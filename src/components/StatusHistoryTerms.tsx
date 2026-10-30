@@ -3,7 +3,7 @@ import { CircleHelp, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { EVENT_COLORS, STATUS_COLORS } from "@/lib/colors";
-import { GHOSTED_DAYS } from "@/lib/options";
+import { GHOSTED_DAYS, STALE_DAYS } from "@/lib/options";
 import { cn } from "@/lib/utils";
 
 // The one place job statuses and history events are explained to users. Shared by the job page and the Jobs list;
@@ -42,6 +42,12 @@ function Terms() {
         <p>{status("Ghosted")} they stopped responding, logged by you or set automatically after {GHOSTED_DAYS}+ days of silence.</p>
         <p>{status("Scam")} the job turned out to be fake or fraudulent.</p>
         <p><strong className="font-medium text-foreground">Closed</strong> means Accepted, Rejected, Withdrew, Ghosted or Scam. <strong className="font-medium text-foreground">Active</strong> is everything else.</p>
+      </Section>
+      <Section title="Smart Filters">
+        <p>Extra options in the Jobs list status dropdown, below the core ones.</p>
+        <p><strong className="font-medium text-foreground">Going Cold</strong> applied {STALE_DAYS}+ days ago with no reply yet, but not long enough to count as ghosted (under {GHOSTED_DAYS} days). Jobs with a contact, rejection, screen or interview don't count.</p>
+        <p><strong className="font-medium text-foreground">Warm Leads</strong> active jobs that came through a person: a Referral or an Inbound Recruiter.</p>
+        <p><strong className="font-medium text-foreground">Recently Updated</strong> active jobs with something logged in the last {STALE_DAYS} days.</p>
       </Section>
       <Section title="History Events">
         <p>{term("Applied")}: you sent the application. Sets the status to Applied.</p>

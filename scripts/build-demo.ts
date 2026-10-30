@@ -44,7 +44,7 @@ try {
   };
 
   const snapshot: Record<string, unknown> = {};
-  for (const url of ["/api/jobs", "/api/events", "/api/trash", "/api/profile", "/api/resumes", "/api/starred-groups", "/api/title-synonyms", "/api/fact-types"]) {
+  for (const url of ["/api/jobs", "/api/events", "/api/trash", "/api/profile", "/api/resumes", "/api/starred-groups", "/api/title-synonyms", "/api/fact-types", "/api/boards", "/api/board-suggestions/dismissed"]) {
     snapshot[url] = await get(url);
   }
   // Every job page, trashed ones included (they open with a Restore button), and every resume page.

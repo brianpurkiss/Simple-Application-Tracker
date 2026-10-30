@@ -17,7 +17,7 @@ import OutcomeBar from "@/components/stats/OutcomeBar";
 import SalaryDistribution from "@/components/stats/SalaryDistribution";
 import Timing from "@/components/stats/Timing";
 import WeekdayInsights from "@/components/stats/WeekdayInsights";
-import { type ActivityEvent, type Job, useEvents, useJobs, useResumes, useStarredGroups } from "@/lib/api";
+import { type ActivityEvent, type Job, useBoards, useEvents, useJobs, useResumes, useStarredGroups } from "@/lib/api";
 import { isApplication } from "@/lib/jobs";
 import { resolveCompanyType, resolveJobTypes, type FactContext } from "@/lib/jobFacts";
 import { useFactContext } from "@/hooks/useFactContext";
@@ -157,6 +157,7 @@ export default function Activity() {
   const updateParams = useParamUpdater();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { data: stars = [] } = useStarredGroups();
+  const { data: boards = [] } = useBoards();
   const factCtx = useFactContext(allJobs);
   const grouped = params.get("versions") === "grouped";
   const selected = FILTERS.map((f) => params.getAll(f.param).map((v) => (f.field === "resume_version" && grouped ? resumeFamily(v) : v)));
@@ -234,7 +235,7 @@ export default function Activity() {
   const stats = useMemo(() => kpis(filteredJobs, filteredEvents, todayIso), [filteredJobs, filteredEvents, todayIso]);
   const momentumStats = useMemo(() => momentum(filteredJobs, filteredEvents, todayIso), [filteredJobs, filteredEvents, todayIso]);
   const segmentValues = useMemo(() => perfDimValues(stars, factCtx), [stars, factCtx]);
-  const trivia = useMemo(() => extras(filteredJobs, filteredEvents, todayIso, segmentValues), [filteredJobs, filteredEvents, todayIso, segmentValues]);
+  const trivia = useMemo(() => extras(filteredJobs, filteredEvents, todayIso, segmentValues, boards), [filteredJobs, filteredEvents, todayIso, segmentValues, boards]);
   if (loadingEvents || loadingJobs) return <p className="text-muted-foreground">Loading…</p>;
 
   return (

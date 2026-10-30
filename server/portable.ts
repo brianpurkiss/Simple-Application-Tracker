@@ -5,19 +5,22 @@ import type Database from "better-sqlite3";
 
 export const PORTABLE_TABLES = ["profile", "fact_types", "title_synonyms", "starred_groups", "resumes", "jobs", "events"] as const;
 export type PortableTable = (typeof PORTABLE_TABLES)[number];
+// Exported and imported like the rest, but left out of the demo seed, so files without them leave them alone.
+export const OPTIONAL_TABLES = ["job_boards", "board_dismissed"] as const;
+export type OptionalTable = (typeof OPTIONAL_TABLES)[number];
 export type Row = Record<string, unknown>;
 
 export type PortableData = {
   schema_version: number;
   exported_at: string;
-  tables: Record<PortableTable, Row[]>;
+  tables: Record<PortableTable, Row[]> & Partial<Record<OptionalTable, Row[]>>;
 };
 
 export function readPortable(db: Database.Database, { pdfs = true } = {}): PortableData {
   const data: PortableData = {
     schema_version: db.pragma("user_version", { simple: true }) as number,
     exported_at: new Date().toISOString(),
-    tables: Object.fromEntries(PORTABLE_TABLES.map((t) => [t, db.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all()])) as PortableData["tables"],
+    tables: Object.fromEntries([...PORTABLE_TABLES, ...OPTIONAL_TABLES].map((t) => [t, db.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all()])) as PortableData["tables"],
   };
   for (const job of data.tables.jobs) job.job_types = JSON.parse(String(job.job_types || "[]"));
   for (const s of data.tables.title_synonyms) s.terms = JSON.parse(String(s.terms));

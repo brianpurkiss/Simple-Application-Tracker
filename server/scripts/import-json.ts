@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { shown } from "./shown.ts";
-import { PORTABLE_TABLES, type PortableData, type Row } from "../portable.ts";
+import { OPTIONAL_TABLES, PORTABLE_TABLES, type PortableData, type Row } from "../portable.ts";
 
 const args = process.argv.slice(2);
 const file = args.find((a) => !a.startsWith("--"));
@@ -42,8 +42,10 @@ const prepare = (row: Row, table: string) => {
 
 db.transaction(() => {
   // Children first, so foreign keys don't get in the way.
-  for (const t of [...PORTABLE_TABLES].reverse()) if (t !== "profile") db.exec(`DELETE FROM ${t}`);
-  for (const table of PORTABLE_TABLES) {
+  // Optional tables are only replaced when the file has them (the demo seed and older exports don't).
+  const tables = [...PORTABLE_TABLES, ...OPTIONAL_TABLES.filter((t) => data.tables[t])];
+  for (const t of [...tables].reverse()) if (t !== "profile") db.exec(`DELETE FROM ${t}`);
+  for (const table of tables) {
     const known = new Set((db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name));
     for (const row of data.tables[table] ?? []) {
       const r = prepare(row, table);
