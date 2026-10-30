@@ -1,25 +1,24 @@
 import { useRef, useState } from "react";
 import { confirmDialog } from "@/components/ConfirmDialog";
-import { Check, NotebookPen, Pencil, Trash2, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { EventFields, blankEvent, celebrateEvent } from "@/components/EventFields";
 import { burstFrom } from "@/lib/confetti";
 import { type EventInput, type JobEvent, useAddEvent, useDeleteEvent, useUpdateEvent } from "@/lib/api";
-import { EventNotes } from "@/components/EventNotes";
 import { formatDate, formatTime } from "@/lib/format";
-import { TIMED_EVENT_TYPES } from "@/lib/options";
 import { EVENT_COLORS } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/demo";
+import { EVENT_TYPES } from "@/lib/options";
 
 const HISTORY_SIZE = 5;
+// Notes live in the Notes card, dated alongside screens and interviews, so History leaves them out.
+const HISTORY_TYPES = EVENT_TYPES.filter((t) => t !== "Note");
 
 function EventRow({ event }: { event: JobEvent }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<EventInput>(event);
-  const [notesOpen, setNotesOpen] = useState(false);
-  const notable = TIMED_EVENT_TYPES.has(event.type);
   const update = useUpdateEvent();
   const remove = useDeleteEvent();
 
@@ -51,21 +50,6 @@ function EventRow({ event }: { event: JobEvent }) {
           </Link>
         </div>
         {event.description && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{event.description}</p>}
-        {notable && (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-2 h-auto px-2 py-0.5 text-xs text-muted-foreground"
-              aria-expanded={notesOpen}
-              onClick={() => setNotesOpen((o) => !o)}
-            >
-              <NotebookPen />
-              {notesOpen ? "Hide Notes" : event.notes ? "Notes" : "Add Notes"}
-            </Button>
-            {notesOpen && <div className="mt-1"><EventNotes event={event} autoFocus={!event.notes} /></div>}
-          </>
-        )}
       </div>
       <div className="flex opacity-0 transition-opacity group-hover:opacity-100">
         <Button size="icon" variant="ghost" className="size-7" onClick={() => { setDraft(event); setEditing(true); }}><Pencil /></Button>
@@ -84,13 +68,16 @@ function EventRow({ event }: { event: JobEvent }) {
   );
 }
 
-export function HistoryPanel({ jobId, events, followUpNeeded = false, onFollowUpLogged }: {
+export function HistoryPanel({ jobId, events: all, followUpNeeded = false, onFollowUpLogged }: {
   jobId: number;
   events: JobEvent[];
   followUpNeeded?: boolean;
   onFollowUpLogged?: () => void;
 }) {
+  const events = all.filter((e) => e.type !== "Note");
   const [draft, setDraft] = useState(blankEvent);
+  // The add form stays folded behind a button so the list reads first.
+  const [adding, setAdding] = useState(false);
   const add = useAddEvent(jobId);
   const addButton = useRef<HTMLButtonElement>(null);
   const [showAll, setShowAll] = useState(false);
@@ -108,6 +95,7 @@ export function HistoryPanel({ jobId, events, followUpNeeded = false, onFollowUp
           if (addButton.current) burstFrom(addButton.current, 135);
           onFollowUpLogged?.();
         }
+        setAdding(false);
       },
       onError: (err) => toastError(err),
     });
@@ -115,10 +103,17 @@ export function HistoryPanel({ jobId, events, followUpNeeded = false, onFollowUp
 
   return (
     <div className="space-y-3">
-      <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
-        <EventFields value={draft} onChange={setDraft} onSubmit={submit} />
-        <Button ref={addButton} type="submit" disabled={add.isPending}>Add</Button>
-      </form>
+      {adding ? (
+        <form onSubmit={submit} className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+          <EventFields value={draft} onChange={setDraft} onSubmit={submit} types={HISTORY_TYPES} />
+          <Button ref={addButton} type="submit" disabled={add.isPending}>Add</Button>
+          <Button type="button" variant="ghost" size="icon" title="Cancel" onClick={() => { setDraft(blankEvent()); setAdding(false); }}><X /></Button>
+        </form>
+      ) : (
+        <Button variant="outline" size="sm" className="w-full border-dashed text-muted-foreground" onClick={() => setAdding(true)}>
+          <Plus /> Log event
+        </Button>
+      )}
       {events.length ? (
         <>
           <ul className="divide-y">

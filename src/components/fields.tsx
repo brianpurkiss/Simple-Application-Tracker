@@ -97,9 +97,18 @@ const MARKDOWN_COMPONENTS: Components = {
   a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
 };
 
+// Markdown rendered read-only, styled like a MarkdownField that isn't being edited.
+export const MarkdownText = ({ value, className }: { value: string; className?: string }) => (
+  <div className={cn("markdown text-sm", className)}>
+    <Markdown remarkPlugins={MARKDOWN_PLUGINS} components={MARKDOWN_COMPONENTS}>{value}</Markdown>
+  </div>
+);
+
 // Long text held as markdown: shown rendered until focused, then edited raw. Pasting rich text (a job
 // posting, a Google Doc) converts it to markdown instead of flattening it.
-export function MarkdownField({ label, value, onChange, className, rows = 4, textareaClassName }: Base & { rows?: number; textareaClassName?: string }) {
+export function MarkdownField({ label, value, onChange, className, rows = 4, textareaClassName, placeholder, onBlur, autoFocus }: Base & {
+  rows?: number; textareaClassName?: string; placeholder?: string; onBlur?: () => void; autoFocus?: boolean;
+}) {
   const id = useId();
   const { plain, touch } = useInline();
   const [editing, setEditing] = useState(false);
@@ -138,11 +147,12 @@ export function MarkdownField({ label, value, onChange, className, rows = 4, tex
           id={id}
           value={value}
           rows={rows}
-          autoFocus={editing}
+          autoFocus={editing || autoFocus}
+          placeholder={placeholder}
           className={cn(plain, textareaClassName)}
           onChange={(e) => change(e.target.value)}
           onPaste={onPaste}
-          onBlur={() => setEditing(false)}
+          onBlur={() => { setEditing(false); onBlur?.(); }}
         />
       )}
     </Field>

@@ -15,13 +15,15 @@ export function celebrateEvent(type: string, anchor: HTMLElement | null) {
 
 export const blankEvent = (): EventInput => ({ date: today(), type: "Follow-Up", description: "", notes: "", time: null });
 
-export function EventFields({ value, onChange, onSubmit }: { value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void }) {
+export function EventFields({ value, onChange, onSubmit, types = EVENT_TYPES }: {
+  value: EventInput; onChange: (v: EventInput) => void; onSubmit: () => void; types?: readonly string[];
+}) {
   return (
     <>
       <Select value={value.type} onValueChange={(type) => onChange({ ...value, type, time: TIMED_EVENT_TYPES.has(type) ? value.time : null })}>
         <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
         <SelectContent>
-          {EVENT_TYPES.map((t) => (
+          {types.map((t) => (
             <SelectItem key={t} value={t}>
               <span className={cn("mr-2 inline-block size-2.5 rounded-full align-middle", EVENT_COLORS[t]?.dot)} />
               {t}

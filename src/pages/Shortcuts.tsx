@@ -70,8 +70,9 @@ const GROUPS: { title: string; note?: string; items: Item[] }[] = [
     items: [
       { keys: ["J"], label: "Next job in the list" },
       { keys: ["K"], label: "Previous job in the list" },
+      { keys: ["E"], label: "Edit the job's details, description and cover letter" },
       { keys: [MOD, "S"], label: "Save changes" },
-      { keys: ["Esc"], label: "Leave the field, then go back" },
+      { keys: ["Esc"], label: "Leave the field, then stop editing or go back" },
     ],
   },
   {

@@ -84,7 +84,9 @@ function TargetBar({ fit }: { fit: TargetFit }) {
   );
 }
 
-export function CompensationCard({ draft, set, badRange }: { draft: Draft; set: (key: keyof Draft) => (value: string) => void; badRange: boolean }) {
+// The worked-out view of a job's compensation: package, base vs. target, vs. past job, days off and benefits.
+// `aside` sits at the end of the top row (the Source picker while editing).
+export function CompensationSummary({ draft, aside }: { draft: Draft; aside?: React.ReactNode }) {
   const comp = fromDraft(draft);
   const pkg = annualPackage(comp);
   const daysOff = paidDaysOff(comp);
@@ -98,6 +100,91 @@ export function CompensationCard({ draft, set, badRange }: { draft: Draft; set: 
     ["package", hasExtras(comp) ? changeFrom(profile?.past_package ?? null, pkg?.min ?? null, pkg?.max ?? null) : null],
     ["days off", daysDiff == null ? null : `${daysDiff > 0 ? "+" : daysDiff < 0 ? "−" : "±"}${Math.abs(daysDiff)}`],
   ].filter((p): p is [string, string] => p[1] != null);
+
+  return (
+    <>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="space-y-0.5">
+          <p className="text-xs text-muted-foreground">Est. annual package</p>
+          <p className="text-lg font-semibold">{pkg ? formatSalary(pkg.min, pkg.max) : "—"}</p>
+          <p className="text-xs text-muted-foreground">
+            {pkg && hasExtras(comp) ? "Base plus bonus, equity, 401k match, HSA and stipends. One-time cash not included." : "Base salary only so far."}
+          </p>
+        </div>
+        {fit && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Base vs. target</p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{FIT_TEXT[fit.kind].label}</span>
+              <TargetBar fit={fit} />
+            </div>
+            <p className="text-xs text-muted-foreground">{FIT_TEXT[fit.kind].detail(fit.pct)}</p>
+          </div>
+        )}
+        {aside}
+      </div>
+      {vsPast.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Vs. past job: {vsPast.map(([what, change]) => `${what} ${change}`).join(" · ")}
+        </p>
+      )}
+      {(daysOff.days != null || daysOff.unlimited || benefits.yes + benefits.no > 0) && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          {(daysOff.days != null || daysOff.unlimited) && (
+            <span>{daysOff.unlimited ? `Unlimited PTO${daysOff.days ? ` + ${daysOff.days} days` : ""}` : `${daysOff.days} paid days off`}</span>
+          )}
+          {benefits.yes + benefits.no > 0 && (
+            <span>Benefits: {benefits.yes} yes · {benefits.no} no{benefits.unknown ? ` · ${benefits.unknown} unknown` : ""}</span>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+const label = (list: readonly { value: string; label: string }[], value: string) => list.find((o) => o.value === value)?.label ?? value;
+
+// Every filled-in compensation field as a label/value list, for reading. Empty fields are left out.
+export function CompensationDetails({ draft }: { draft: Draft }) {
+  const comp = fromDraft(draft);
+  const money = (key: keyof Draft) => (draft[key] ? k(Number(draft[key])) : "");
+  const days = (key: keyof Draft, unit = "days") => (draft[key] ? `${draft[key]} ${unit}` : "");
+  const yes = BENEFITS.filter((b) => draft[b.key] === "1").map((b) => b.label);
+  const no = BENEFITS.filter((b) => draft[b.key] === "0").map((b) => b.label);
+  const rows: [string, string][] = [
+    ["Source", draft.comp_source ? label(COMP_SOURCES, draft.comp_source) : ""],
+    ["Base salary", formatSalary(comp.salary_min, comp.salary_max)],
+    ["Bonus", draft.bonus_amount ? `${money("bonus_amount")} / yr` : draft.bonus_pct ? `${draft.bonus_pct}% of base` : ""],
+    ["Equity", [draft.equity_type && label(EQUITY_TYPES, draft.equity_type), draft.equity_annual && `${money("equity_annual")} / yr`, draft.equity_vest_years && `${draft.equity_vest_years}-yr vest`].filter(Boolean).join(" · ")],
+    ["401k match", draft.match_rate_pct ? `${draft.match_rate_pct}%${draft.match_cap_pct ? ` up to ${draft.match_cap_pct}% of salary` : ""}` : ""],
+    ["Employer HSA", draft.hsa_employer ? `${money("hsa_employer")} / yr` : ""],
+    ["Stipends", draft.stipends_annual ? `${money("stipends_annual")} / yr` : ""],
+    ["Signing bonus", money("signing_bonus")],
+    ["Relocation", money("relocation")],
+    ["Benefits", yes.join(", ")],
+    ["Not offered", no.join(", ")],
+    ["Medical premium paid", draft.medical_premium_pct ? `${draft.medical_premium_pct}%` : ""],
+    ["PTO", draft.pto_unlimited === "true" ? "Unlimited" : days("pto_days")],
+    ["Paid holidays", days("holidays")],
+    ["Sick days", days("sick_days")],
+    ["Parental leave", days("parental_leave_weeks", "weeks")],
+  ];
+  const shown = rows.filter(([, v]) => v);
+  if (!shown.length) return <p className="text-sm text-muted-foreground">Nothing beyond the summary yet.</p>;
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+      {shown.map(([l, v]) => (
+        <div key={l} className="contents">
+          <dt className="text-muted-foreground">{l}</dt>
+          <dd>{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+export function CompensationCard({ draft, set, badRange }: { draft: Draft; set: (key: keyof Draft) => (value: string) => void; badRange: boolean }) {
+  const comp = fromDraft(draft);
   const filled = (...keys: (keyof Draft)[]) => keys.some((key) => draft[key] !== "" && draft[key] !== "false");
   const money = (key: keyof Draft, label: string, unit?: string) => (
     <NumberField label={label} value={draft[key]} onChange={set(key)} money unit={unit} />
@@ -107,48 +194,19 @@ export function CompensationCard({ draft, set, badRange }: { draft: Draft; set: 
     <Card>
       <CardHeader><CardTitle>Compensation <span className="text-sm font-normal text-muted-foreground">(WIP)</span></CardTitle></CardHeader>
       <CardContent className="grid gap-5">
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-          <div className="space-y-0.5">
-            <p className="text-xs text-muted-foreground">Est. annual package</p>
-            <p className="text-lg font-semibold">{pkg ? formatSalary(pkg.min, pkg.max) : "—"}</p>
-            <p className="text-xs text-muted-foreground">
-              {pkg && hasExtras(comp) ? "Base plus bonus, equity, 401k match, HSA and stipends. One-time cash not included." : "Base salary only so far."}
-            </p>
-          </div>
-          {fit && (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Base vs. target</p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{FIT_TEXT[fit.kind].label}</span>
-                <TargetBar fit={fit} />
-              </div>
-              <p className="text-xs text-muted-foreground">{FIT_TEXT[fit.kind].detail(fit.pct)}</p>
-            </div>
-          )}
-          <SelectField
-            label="Source"
-            value={draft.comp_source}
-            onChange={set("comp_source")}
-            options={COMP_SOURCES.map((o) => o.value)}
-            labels={Object.fromEntries(COMP_SOURCES.map((o) => [o.value, o.label]))}
-            className="w-32"
-          />
-        </div>
-        {vsPast.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            Vs. past job: {vsPast.map(([what, change]) => `${what} ${change}`).join(" · ")}
-          </p>
-        )}
-        {(daysOff.days != null || daysOff.unlimited || benefits.yes + benefits.no > 0) && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            {(daysOff.days != null || daysOff.unlimited) && (
-              <span>{daysOff.unlimited ? `Unlimited PTO${daysOff.days ? ` + ${daysOff.days} days` : ""}` : `${daysOff.days} paid days off`}</span>
-            )}
-            {benefits.yes + benefits.no > 0 && (
-              <span>Benefits: {benefits.yes} yes · {benefits.no} no{benefits.unknown ? ` · ${benefits.unknown} unknown` : ""}</span>
-            )}
-          </div>
-        )}
+        <CompensationSummary
+          draft={draft}
+          aside={
+            <SelectField
+              label="Source"
+              value={draft.comp_source}
+              onChange={set("comp_source")}
+              options={COMP_SOURCES.map((o) => o.value)}
+              labels={Object.fromEntries(COMP_SOURCES.map((o) => [o.value, o.label]))}
+              className="w-32"
+            />
+          }
+        />
 
         <Section title="Pay" filled={false}>
           <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />

@@ -1,51 +1,75 @@
+import { useState } from "react";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { MarkdownField } from "@/components/fields";
 import { EventNotes } from "@/components/EventNotes";
-import type { JobEvent } from "@/lib/api";
-import { EVENT_COLORS } from "@/lib/colors";
-import { formatDate, formatTime } from "@/lib/format";
+import { type JobEvent, useAddEvent } from "@/lib/api";
+import { today } from "@/lib/format";
 import { TIMED_EVENT_TYPES } from "@/lib/options";
-import { cn } from "@/lib/utils";
+import { toastError } from "@/lib/demo";
 
-// Every note for a job on one scrollable page: the general notes, then each screen and interview.
-// General notes edit the job's draft, so they save with the page's Save bar.
-export function AllNotesDialog({
-  open,
-  onOpenChange,
-  notes,
-  onNotesChange,
-  events,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  notes: string;
-  onNotesChange: (v: string) => void;
-  events: JobEvent[];
-}) {
-  const interviews = events.filter((e) => TIMED_EVENT_TYPES.has(e.type));
+type NotesProps = { jobId: number; notes: string; onNotesChange: (v: string) => void; events: JobEvent[] };
 
+// A dated note being written. Saved as a Note event; nothing is stored until Save.
+function NewNote({ jobId, rows, onDone }: { jobId: number; rows: number; onDone: () => void }) {
+  const [date, setDate] = useState(today);
+  const [text, setText] = useState("");
+  const add = useAddEvent(jobId);
+  const submit = () => {
+    if (!text.trim()) return;
+    add.mutate({ type: "Note", date, description: text, notes: "", time: null }, { onSuccess: onDone, onError: (e) => toastError(e) });
+  };
+  return (
+    <div
+      className="space-y-2 rounded-lg border bg-muted/30 p-3"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); }
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Note dated</span>
+        <Input type="date" value={date} onChange={(e) => setDate(e.target.value || today())} className="h-8 w-40" aria-label="Note date" />
+      </div>
+      <MarkdownField label="" value={text} onChange={setText} rows={rows} autoFocus placeholder="Anything worth remembering…" />
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={onDone}>Cancel</Button>
+        <Button size="sm" onClick={submit} disabled={!text.trim() || add.isPending}>Save</Button>
+      </div>
+    </div>
+  );
+}
+
+// Every note for a job: the general notes, then dated notes, screens and interviews, newest first, all edited
+// in place. General notes edit the job's draft, so they save with the page's Save bar; the rest save on blur.
+export function JobNotes({ jobId, notes, onNotesChange, events, rows }: NotesProps & { rows: { general: number; event: number } }) {
+  const [adding, setAdding] = useState(false);
+  const dated = events.filter((e) => e.type === "Note" || TIMED_EVENT_TYPES.has(e.type));
+  return (
+    <div className="space-y-5">
+      <MarkdownField label="General" value={notes} onChange={onNotesChange} rows={rows.general} />
+      <div className="space-y-4 border-t pt-4">
+        {adding ? (
+          <NewNote jobId={jobId} rows={rows.event} onDone={() => setAdding(false)} />
+        ) : (
+          <Button variant="outline" size="sm" className="w-full border-dashed text-muted-foreground" onClick={() => setAdding(true)}>
+            <Plus /> Add note
+          </Button>
+        )}
+        {dated.map((e) => <EventNotes key={e.id} event={e} rows={rows.event} />)}
+      </div>
+    </div>
+  );
+}
+
+// The same notes, full screen.
+export function AllNotesDialog({ open, onOpenChange, ...notes }: NotesProps & { open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto sm:max-w-4xl">
-        <DialogHeader><DialogTitle>All Notes</DialogTitle></DialogHeader>
-        <section className="space-y-2">
-          <h3 className="text-sm font-medium">General Notes</h3>
-          <MarkdownField label="Saved with the job's Save button." value={notes} onChange={onNotesChange} rows={10} />
-        </section>
-        {interviews.map((e) => (
-          <section key={e.id} className="space-y-2">
-            <h3 className="flex items-center gap-2 text-sm font-medium">
-              <span className={cn("size-2.5 rounded-full", EVENT_COLORS[e.type]?.dot ?? "bg-neutral-400")} />
-              {e.type}
-              <span className="font-normal text-muted-foreground">
-                {formatDate(e.date)}{e.time && ` · ${formatTime(e.time)}`}
-                {e.description && ` · ${e.description}`}
-              </span>
-            </h3>
-            <EventNotes event={e} rows={12} />
-          </section>
-        ))}
-        {!interviews.length && <p className="text-sm text-muted-foreground">Log a Screen or Interview in History to take notes for it here.</p>}
+        <DialogHeader><DialogTitle>Notes</DialogTitle></DialogHeader>
+        <JobNotes {...notes} rows={{ general: 10, event: 10 }} />
       </DialogContent>
     </Dialog>
   );
