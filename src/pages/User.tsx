@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { TextAreaField, TextField } from "@/components/fields";
+import { MarkdownField, TextField } from "@/components/fields";
 import SalaryTarget, { ProfileNumber } from "@/components/stats/SalaryTarget";
 import { useProfile, useResumes, useUpdateProfile } from "@/lib/api";
 import { isEditable, useHotkey } from "@/hooks/hotkeys";
@@ -105,8 +105,8 @@ export default function User() {
       </Section>
 
       <Section title="Cover Letter">
-        <div onBlur={saveCoverLetter} className="[&_textarea]:max-h-[500px]">
-          <TextAreaField label="Generic cover letter" value={coverLetter} onChange={setCoverLetter} rows={14} />
+        <div onBlur={saveCoverLetter}>
+          <MarkdownField label="Generic cover letter" value={coverLetter} onChange={setCoverLetter} rows={14} textareaClassName="max-h-[500px] overflow-y-auto" />
         </div>
       </Section>
     </div>

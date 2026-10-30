@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import { NumberField, SalaryRangeField, SelectField, TextAreaField, TriStateField } from "@/components/fields";
@@ -41,20 +41,20 @@ const fromDraft = (d: Draft) => ({
   pto_unlimited: d.pto_unlimited === "true",
 });
 
-// A titled group of fields. Groups with nothing filled in start as a single "Add" link, so a posting stays compact.
+// A titled group of fields that expands and collapses. It starts open only when `filled`, so a posting stays compact.
 function Section({ title, filled, children }: { title: string; filled: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(filled);
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1 self-start text-sm text-muted-foreground hover:text-foreground">
-        <Plus className="size-3.5" /> {title}
-      </button>
-    );
-  }
   return (
     <section className="space-y-3">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</h3>
-      {children}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+      >
+        <ChevronRight className={cn("size-3.5 transition-transform", open && "rotate-90")} /> {title}
+      </button>
+      {open && children}
     </section>
   );
 }
@@ -150,7 +150,7 @@ export function CompensationCard({ draft, set, badRange }: { draft: Draft; set: 
           </div>
         )}
 
-        <Section title="Pay" filled>
+        <Section title="Pay" filled={false}>
           <SalaryRangeField min={draft.salary_min} max={draft.salary_max} onMin={set("salary_min")} onMax={set("salary_max")} invalid={badRange} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <NumberField label="Target bonus" value={draft.bonus_pct} onChange={set("bonus_pct")} decimals unit="% of base" />

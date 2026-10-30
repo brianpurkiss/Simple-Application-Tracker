@@ -5,7 +5,7 @@ import { ArrowLeft, BellRing, CalendarClock, ExternalLink, Mail, Maximize2, Phon
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ComboField, CompanyTypeField, InlineFields, JobTypesField, SelectField, TextAreaField, TextField } from "@/components/fields";
+import { ComboField, CompanyTypeField, InlineFields, JobTypesField, MarkdownField, SelectField, TextField } from "@/components/fields";
 import { COMP_KEYS, CompensationCard, compToPatch, isCompKey } from "@/components/CompensationCard";
 import { salaryRangeInvalid, toSalary } from "@/lib/salary";
 import { HistoryPanel } from "@/components/HistoryPanel";
@@ -314,7 +314,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
               </CardAction>
             </CardHeader>
             <CardContent>
-              <TextAreaField label="Notes" value={draft.notes} onChange={set("notes")} rows={8} />
+              <MarkdownField label="Notes" value={draft.notes} onChange={set("notes")} rows={8} />
             </CardContent>
             <AllNotesDialog
               open={notesOpen}
@@ -344,11 +344,12 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
         <Card className="lg:col-span-5">
           <CardHeader><CardTitle>Job Description</CardTitle></CardHeader>
           <CardContent>
-            <TextAreaField
+            <MarkdownField
               label="Paste the full job description here so you have a copy if the posting comes down."
               value={draft.job_description}
               onChange={set("job_description")}
               rows={18}
+              textareaClassName="max-h-[500px] overflow-y-auto"
             />
           </CardContent>
         </Card>
@@ -356,11 +357,12 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
         <Card className="lg:col-span-5">
           <CardHeader><CardTitle>Cover Letter</CardTitle></CardHeader>
           <CardContent>
-            <TextAreaField
+            <MarkdownField
               label="The cover letter you sent for this role."
               value={draft.cover_letter}
               onChange={set("cover_letter")}
               rows={14}
+              textareaClassName="max-h-[500px] overflow-y-auto"
             />
           </CardContent>
         </Card>

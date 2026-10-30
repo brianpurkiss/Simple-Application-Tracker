@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/fields";
 import { EventNotes } from "@/components/EventNotes";
 import type { JobEvent } from "@/lib/api";
 import { EVENT_COLORS } from "@/lib/colors";
@@ -30,8 +30,7 @@ export function AllNotesDialog({
         <DialogHeader><DialogTitle>All Notes</DialogTitle></DialogHeader>
         <section className="space-y-2">
           <h3 className="text-sm font-medium">General Notes</h3>
-          <Textarea value={notes} rows={10} aria-label="General notes" onChange={(e) => onNotesChange(e.target.value)} />
-          <p className="text-xs text-muted-foreground">Saved with the job's Save button.</p>
+          <MarkdownField label="Saved with the job's Save button." value={notes} onChange={onNotesChange} rows={10} />
         </section>
         {interviews.map((e) => (
           <section key={e.id} className="space-y-2">

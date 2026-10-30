@@ -1,4 +1,8 @@
 import { createContext, useContext, useId, useState } from "react";
+import Markdown, { type Components } from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
+import TurndownService from "turndown";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
@@ -71,12 +75,76 @@ export function SalaryRangeField({ min, max, onMin, onMax, invalid, className }:
   );
 }
 
-export function TextAreaField({ label, value, onChange, className, rows = 4 }: Base & { rows?: number }) {
+export function TextAreaField({ label, value, onChange, className, rows = 4, textareaClassName }: Base & { rows?: number; textareaClassName?: string }) {
   const id = useId();
   const { plain, touch } = useInline();
   return (
     <Field label={label} id={id} className={className}>
-      <Textarea id={id} value={value} rows={rows} className={plain} onChange={(e) => { touch(); onChange(e.target.value); }} />
+      <Textarea id={id} value={value} rows={rows} className={cn(plain, textareaClassName)} onChange={(e) => { touch(); onChange(e.target.value); }} />
+    </Field>
+  );
+}
+
+const turndown = new TurndownService({ headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced" });
+// Google Docs wraps every copy in <b style="font-weight:normal">, which would bold the whole paste.
+turndown.addRule("gdocs-wrapper", {
+  filter: (node) => node.nodeName === "B" && (node as HTMLElement).style.fontWeight === "normal",
+  replacement: (content) => content,
+});
+
+const MARKDOWN_PLUGINS = [remarkGfm, remarkBreaks];
+const MARKDOWN_COMPONENTS: Components = {
+  a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+};
+
+// Long text held as markdown: shown rendered until focused, then edited raw. Pasting rich text (a job
+// posting, a Google Doc) converts it to markdown instead of flattening it.
+export function MarkdownField({ label, value, onChange, className, rows = 4, textareaClassName }: Base & { rows?: number; textareaClassName?: string }) {
+  const id = useId();
+  const { plain, touch } = useInline();
+  const [editing, setEditing] = useState(false);
+  const change = (v: string) => { touch(); onChange(v); };
+
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const html = e.clipboardData.getData("text/html");
+    if (!html) return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    // Turndown pads list markers ("-   item"); tighten them to one space.
+    const md = turndown.turndown(html).replace(/^(\s*)([-*]|\d+\.) +/gm, "$1$2 ");
+    el.setRangeText(md, el.selectionStart, el.selectionEnd, "end");
+    change(el.value);
+  };
+
+  return (
+    <Field label={label} id={id} className={className}>
+      {!editing && value.trim() ? (
+        <div
+          id={id}
+          tabIndex={0}
+          title="Click to edit"
+          // Focus from a link inside shouldn't switch to editing; the link opens instead.
+          onFocus={(e) => e.target === e.currentTarget && setEditing(true)}
+          className={cn(
+            "markdown min-h-16 w-full cursor-text rounded-md border border-input px-3 py-2 text-base shadow-xs md:text-sm dark:bg-input/30",
+            plain,
+            textareaClassName,
+          )}
+        >
+          <Markdown remarkPlugins={MARKDOWN_PLUGINS} components={MARKDOWN_COMPONENTS}>{value}</Markdown>
+        </div>
+      ) : (
+        <Textarea
+          id={id}
+          value={value}
+          rows={rows}
+          autoFocus={editing}
+          className={cn(plain, textareaClassName)}
+          onChange={(e) => change(e.target.value)}
+          onPaste={onPaste}
+          onBlur={() => setEditing(false)}
+        />
+      )}
     </Field>
   );
 }
