@@ -2,21 +2,21 @@ import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 import { PillToggle } from "@/components/ui/pill-toggle";
 import type { Job } from "@/lib/api";
-import { reachedInterview } from "@/lib/jobs";
 import { k, salaryCurve, salaryTickStep } from "@/lib/salary";
+import { interviewed as hasInterviewed } from "@/lib/stats";
 
 const STEP = 5000;
 const SMOOTHING = 10_000; // Gaussian sigma in dollars
 const round = (n: number) => Math.round(n / 1000) * 1000;
 
-// Where salaries cluster. All roles by default; the Interviewed button narrows it to roles that reached an interview.
+// Where salaries cluster. All roles by default; the Interviewed button narrows it to roles that ever interviewed (rejected or ghosted included).
 export default function SalaryDistribution({ jobs }: { jobs: Job[] }) {
   const [interviewed, setInterviewed] = useState(false);
   const [raw, setRaw] = useState(false);
   const key = raw ? "count" : "smooth";
 
   const curve = useMemo(
-    () => salaryCurve(interviewed ? jobs.filter(reachedInterview) : jobs, STEP, 0.05, raw ? 0 : SMOOTHING),
+    () => salaryCurve(interviewed ? jobs.filter(hasInterviewed) : jobs, STEP, 0.05, raw ? 0 : SMOOTHING),
     [jobs, interviewed, raw],
   );
 

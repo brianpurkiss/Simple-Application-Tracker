@@ -13,13 +13,14 @@ import {
 import { ArrowDown, ArrowUp, ChevronDown, DollarSign, ListFilter, Plus, Rows2, Rows4, Search, Target, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Segmented } from "@/components/ui/segmented";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_COLORS } from "@/lib/colors";
 import { AddJobButton } from "@/components/AddJobButton";
 import { MissingDataDialog } from "@/components/MissingDataDialog";
+import { StatusHistoryTermsLink } from "@/components/StatusHistoryTerms";
 import { isMissing, missingField } from "@/lib/missing";
 import { type PaletteAction, jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { type HotkeyAction, SEARCH_INPUT_ID } from "@/hooks/appActions";
@@ -32,8 +33,9 @@ import type { TitleInfo } from "@/lib/titles/types";
 import { loadSelected, saveOrder, saveSelected } from "@/lib/listOrder";
 import { isEditable, overlayOpen, useHotkey } from "@/hooks/hotkeys";
 import { daysSince, formatDate, isOnHold } from "@/lib/format";
-import { isActive, isApplication, isScheduledDue, needsFollowUp, progressParts, reachedInterview } from "@/lib/jobs";
-import { FITS, INTERVIEWING_STATUSES, STALE_DAYS, STATUSES } from "@/lib/options";
+import { isActive, isApplication, isGoingCold, isInterviewing, isRecentlyUpdated, isScheduledDue, isWarmLead, needsFollowUp, progressParts } from "@/lib/jobs";
+import { interviewed } from "@/lib/stats";
+import { FITS, STALE_DAYS, STATUSES } from "@/lib/options";
 import { formatSalary, k } from "@/lib/salary";
 import {
   annualPackage, baseSortValue, BENEFITS, benefitsSummary, bonusOn, changeFrom, EQUITY_TYPES, hasExtras, hasPayData, matchOn, paidDaysOff,
@@ -46,11 +48,22 @@ import { toastError, toastSaved } from "@/lib/demo";
 
 const GROUP_FILTERS: Record<string, (job: Job) => boolean> = {
   active: isActive,
-  // Timed-out (auto-ghosted) jobs that reached an interview still count; a manually logged close-out does not.
-  interviewing: (j) => INTERVIEWING_STATUSES.has(j.status) || (j.auto_ghosted && reachedInterview(j)),
+  interviewing: isInterviewing,
+  // Everything that ever got to an interview, rejected or ghosted included. Unlike the other status options, not a literal status match.
+  Interviewed: (j) => isApplication(j) && interviewed(j),
   followup: needsFollowUp,
   closed: (j) => isApplication(j) && !isActive(j),
+  cold: isGoingCold,
+  warm: isWarmLead,
+  recent: isRecentlyUpdated,
 };
+
+// Smart filters: the dropdown's second group, below the core presets.
+const SMART_FILTERS: [string, string][] = [
+  ["cold", "Going Cold"],
+  ["warm", "Warm Leads"],
+  ["recent", "Recently Updated"],
+];
 
 const Dash = () => <span className="text-muted-foreground">—</span>;
 
@@ -200,11 +213,15 @@ const daysSinceColumn: ColumnDef<Job> = {
   })()}</span>,
 };
 
-// Interviews and screens so far. Stacked on two lines, or on one in Compact so its rows stay single-line.
+// Interviews and screens so far. Stacked on two lines in Expanded and Offers; Compact shows one combined "N interviews" count so its rows stay single-line.
 const progressColumn = (stacked: boolean) => stackedCell(
   "progress", "Progress",
-  (j) => j.interview_count * 1000 + j.screen_count,
-  (j) => (stacked ? progressParts(j)[0] ?? "" : progressParts(j).join(" · ")),
+  (j) => (stacked ? j.interview_count * 1000 + j.screen_count : j.interview_count + j.screen_count),
+  (j) => {
+    if (stacked) return progressParts(j)[0] ?? "";
+    const n = j.interview_count + j.screen_count;
+    return n ? `${n} ${n === 1 ? "interview" : "interviews"}` : "";
+  },
   (j) => (stacked ? progressParts(j)[1] ?? "" : ""),
   "max-w-[9rem] sm:max-w-[200px]",
 );
@@ -534,9 +551,9 @@ export default function JobsList() {
   // Jobs that match the search and every filter except the one being counted. Each dropdown option's count is how many
   // jobs it would show with the other filters applied, so it moves as other filters are picked.
   const facetBase = useMemo(
-    () => Object.fromEntries(facetKeys.map((k) => [k, jobs.filter((j) => matchesSearch(j, search) && passes(j, k))])),
+    () => Object.fromEntries(facetKeys.map((k) => [k, jobs.filter((j) => matchesSearch(j, search) && (view !== "offers" || hasPayData(j)) && passes(j, k))])),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, search, statusFilter, fitFilter, companyTypeFilter, resumeFilter, missing, jobKeys, starPicked.join("|")],
+    [jobs, view, search, statusFilter, fitFilter, companyTypeFilter, resumeFilter, missing, jobKeys, starPicked.join("|")],
   );
   const facetCount = (key: string, value: string) => facetBase[key].filter((j: Job) => facetTest[key](j, value)).length;
 
@@ -555,10 +572,12 @@ export default function JobsList() {
     globalFilterFn: (row, _columnId, value: string) => matchesSearch(row.original, value),
   });
 
+  // Offers lists only jobs with pay figures, so its counts do too.
+  const countable = view === "offers" ? jobs.filter(hasPayData) : jobs;
   const counts = {
-    active: jobs.filter(GROUP_FILTERS.active).length,
-    interviewing: jobs.filter(GROUP_FILTERS.interviewing).length,
-    followup: jobs.filter(GROUP_FILTERS.followup).length,
+    active: countable.filter(GROUP_FILTERS.active).length,
+    interviewing: countable.filter(GROUP_FILTERS.interviewing).length,
+    followup: countable.filter(GROUP_FILTERS.followup).length,
   };
   const chips: [keyof typeof counts, string][] = [
     ["active", "Active"],
@@ -640,12 +659,13 @@ export default function JobsList() {
         }),
       }),
     ] : []),
-    { id: "f-status", label: "Filter by status…", group: "Jobs list", keywords: "show active interviewing follow up closed all", choices: [
+    { id: "f-status", label: "Filter by status…", group: "Jobs list", keywords: "show active interviewing follow up closed all going cold warm leads referral recently updated", choices: [
       { id: "s-all", label: "All", group: "", run: () => setParam("status", "all") },
       { id: "s-active", label: "Active", group: "", run: () => setParam("status", "active") },
       { id: "s-interviewing", label: "Interviewing", group: "", run: () => setParam("status", "interviewing") },
       { id: "s-followup", label: "Follow Up", group: "", run: () => setParam("status", "followup") },
       { id: "s-closed", label: "Closed", group: "", run: () => setParam("status", "closed") },
+      ...SMART_FILTERS.map(([key, label]) => ({ id: `s-${key}`, label, group: "", run: () => setParam("status", key) })),
       ...STATUSES.map((st) => ({ id: `s-${st}`, label: st, group: "", run: () => setParam("status", st) })),
     ] },
     { id: "f-fit", label: "Filter by fit…", group: "Jobs list", choices: choose("fit", FITS, "All fits") },
@@ -763,6 +783,11 @@ export default function JobsList() {
               <SelectItem value="all">All<FacetCount n={facetCount("status", "all")} /></SelectItem>
               {chips.map(([key, label]) => <SelectItem key={key} value={key}>{label}<FacetCount n={facetCount("status", key)} /></SelectItem>)}
               <SelectItem value="closed">Closed<FacetCount n={facetCount("status", "closed")} /></SelectItem>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel>Smart filters</SelectLabel>
+                {SMART_FILTERS.map(([key, label]) => <SelectItem key={key} value={key}>{label}<FacetCount n={facetCount("status", key)} /></SelectItem>)}
+              </SelectGroup>
               <SelectSeparator />
               {STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
@@ -913,7 +938,10 @@ export default function JobsList() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <MissingDataDialog jobs={jobs} factCtx={factCtx} value={missing?.key ?? ""} onPick={showMissing} />
+        <div className="flex items-center gap-4">
+          <MissingDataDialog jobs={jobs} factCtx={factCtx} value={missing?.key ?? ""} onPick={showMissing} />
+          <StatusHistoryTermsLink />
+        </div>
         <Link to="/trash" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <Trash2 className="size-4" /> Trash
         </Link>

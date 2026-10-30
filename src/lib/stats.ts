@@ -170,7 +170,7 @@ export function outcomes(jobs: Job[]): Outcome[] {
   const ghosted = jobs.filter((j) => j.status === "Ghosted");
   const rows: Outcome[] = [
     { key: "waiting", label: "Waiting for Response", color: STATUS_COLORS.Applied.hex, count: jobs.filter((j) => j.status === "Applied").length },
-    { key: "interviewed", label: "Interviewed, Waiting", color: STATUS_COLORS.Interviewed.hex, count: jobs.filter((j) => j.status === "Interviewed" || j.status === "Scheduled").length },
+    { key: "interviewed", label: "Interviewing", color: STATUS_COLORS.Interviewed.hex, count: jobs.filter((j) => j.status === "Interviewed" || j.status === "Scheduled").length },
     { key: "rejected-post", label: "Rejected, Post Interview", color: REJECTED_POST.hex, count: rejected.filter(reachedInterview).length },
     { key: "rejected-pre", label: "Rejected, No Interview", color: REJECTED_PRE.hex, count: rejected.filter((j) => !reachedInterview(j)).length },
     { key: "withdrew", label: "Withdrew", color: STATUS_COLORS.Withdrew.hex, count: jobs.filter((j) => j.status === "Withdrew").length },

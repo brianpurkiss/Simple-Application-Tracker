@@ -1,8 +1,7 @@
 import type { ActivityEvent, Job } from "./api";
 import { addDays, categoryOf, weekStart } from "./activity";
 import { daysBetween, formatDate } from "./format";
-import { isActive, reachedInterview } from "./jobs";
-import { INTERVIEWING_STATUSES } from "./options";
+import { isActive, isApplication, isInterviewing, reachedInterview } from "./jobs";
 import { k } from "./salary";
 import { plural } from "./text";
 import { type DimValues, MIN_AGE_DAYS, MIN_SAMPLE, heardBack, median, pct } from "./stats";
@@ -93,7 +92,7 @@ export function momentum(jobs: Job[], events: ActivityEvent[], todayIso: string)
     average,
     pipeline: {
       active: jobs.filter(isActive).length,
-      interviewing: jobs.filter((j) => INTERVIEWING_STATUSES.has(j.status)).length,
+      interviewing: jobs.filter((j) => isApplication(j) && isInterviewing(j)).length,
     },
     previousBest: Math.max(0, ...[...appsByWeek].filter(([w]) => w !== thisMonday).map(([, n]) => n)),
     best: {

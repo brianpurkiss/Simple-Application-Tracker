@@ -92,5 +92,5 @@ export const TIMED_EVENT_TYPES = new Set<string>(["Screen", "Interview"]);
 // Active jobs with no activity for this many days get highlighted.
 export const STALE_DAYS = 7;
 
-// Applied/interviewing jobs that haven't heard back (no contact or interview) in this many days count as Ghosted.
+// Applied or Interviewed jobs that haven't heard back (no contact or interview) in this many days count as Ghosted.
 export const GHOSTED_DAYS = 21;

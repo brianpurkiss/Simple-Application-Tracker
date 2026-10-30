@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Job } from "@/lib/api";
-import { reachedInterview } from "@/lib/jobs";
+import { interviewed } from "@/lib/stats";
 import { k, salaryTickStep } from "@/lib/salary";
 
 type SalarySeries = { key: string; label: string; jobs: Job[] };
@@ -18,7 +18,7 @@ export default function SalaryCurve({ series, target }: { series: SalarySeries[]
       series
         .map((s) => {
           const paid = s.jobs.filter(hasPay);
-          const got = paid.filter(reachedInterview);
+          const got = paid.filter(interviewed);
           return {
             ...s,
             n: paid.length,

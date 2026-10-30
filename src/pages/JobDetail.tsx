@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { confirmDialog, DISCARD } from "@/components/ConfirmDialog";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BellRing, ChevronRight, ExternalLink, Info, Mail, Maximize2, Pencil, Phone, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, BellRing, ChevronRight, ExternalLink, Mail, Maximize2, Pencil, Phone, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InlineFields, MarkdownText } from "@/components/fields";
 import { type Draft, EDITABLE, JobFormCards, toDraft, toPatch } from "@/components/JobFormCards";
@@ -14,7 +13,7 @@ import { FollowUpButton } from "@/components/FollowUpButton";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { AllNotesDialog, JobNotes } from "@/components/AllNotesDialog";
 import { Keys } from "@/components/Keys";
-import { EVENT_COLORS } from "@/lib/colors";
+import { StatusHistoryTermsIcon } from "@/components/StatusHistoryTerms";
 import { StatusBadge } from "@/components/StatusBadge";
 import { type Job, type JobEvent, useApplyJob, useDeleteJob, useJob, useJobs, useRestoreJob, useUpdateJob } from "@/lib/api";
 import { factHints } from "@/lib/jobFacts";
@@ -27,13 +26,9 @@ import { useStickyTop } from "@/hooks/useStickyTop";
 import { loadOrder, saveSelected } from "@/lib/listOrder";
 import { jobActions, usePalette, usePaletteActions } from "@/components/CommandPalette";
 import { MOD } from "@/lib/shortcuts";
-import { GHOSTED_DAYS } from "@/lib/options";
 import { needsFollowUp, progressParts } from "@/lib/jobs";
 import { toastError, toastSaved } from "@/lib/demo";
 import { cn } from "@/lib/utils";
-
-// An event type name in its History color.
-const term = (type: string) => <span className={EVENT_COLORS[type].text}>{type}</span>;
 
 const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
@@ -243,7 +238,7 @@ function JobEditor({ job }: { job: NonNullable<ReturnType<typeof useJob>["data"]
               <div className="space-y-1.5">
                 <CardTitle className="flex items-center gap-1">
                   History
-                  <HistoryTerms />
+                  <StatusHistoryTermsIcon />
                 </CardTitle>
                 {(quiet !== null || progress.length > 0) && (
                   <p className="text-xs text-muted-foreground">
@@ -466,32 +461,5 @@ function NotesCard({ jobId, notes, onNotesChange, events }: { jobId: number; not
       </CardContent>
       <AllNotesDialog open={open} onOpenChange={setOpen} jobId={jobId} notes={notes} onNotesChange={onNotesChange} events={events} />
     </Card>
-  );
-}
-
-function HistoryTerms() {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-6 text-muted-foreground" title="History terms"><Info className="size-3.5" /></Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>History Terms</DialogTitle></DialogHeader>
-        <div className="space-y-3 text-sm text-muted-foreground">
-          <p>{term("Applied")}: you sent the application. Sets the status to Applied.</p>
-          <p>{term("Contact")}: they reached out to you. Doesn't change the status.</p>
-          <p>{term("Follow-Up")}: a check-in you sent. Doesn't change the status.</p>
-          <p>{term("Screen")}: a recruiter or HR screen. Sets the status to Interviewed, or Scheduled while it is still ahead.</p>
-          <p>{term("Interview")}: an interview with the company. Sets the status to Interviewed, or Scheduled while it is still ahead.</p>
-          <p>{term("Offer")}: they made you an offer.</p>
-          <p>{term("Accepted")}: you accepted it.</p>
-          <p>{term("Rejection")}: they turned you down.</p>
-          <p>{term("Withdrew")}: you pulled out of the process.</p>
-          <p>{term("Ghosted")}: you logged that they stopped responding. The status also changes to Ghosted automatically after {GHOSTED_DAYS}+ days of silence.</p>
-          <p>{term("Scam")}: the job turned out to be a scam. Sets the status to Scam.</p>
-          <p>{term("Note")}: anything else worth remembering. Doesn't change the status.</p>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

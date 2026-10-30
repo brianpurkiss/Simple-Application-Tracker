@@ -7,9 +7,9 @@ import { useEvents, useJobs, useProfile, type ActivityEvent, type Job } from "@/
 import { addDays, weekStart } from "@/lib/activity";
 import { daysSince, formatDate, formatTime, relativeDay, today } from "@/lib/format";
 import { nowTime } from "@/lib/clock";
-import { isActive, isApplication, isScheduledDue, needsFollowUp } from "@/lib/jobs";
+import { isApplication, isGoingCold, isInterviewing, isScheduledDue, isWarmLead, needsFollowUp } from "@/lib/jobs";
 import { momentum } from "@/lib/insights";
-import { INTERVIEWING_STATUSES, TIMED_EVENT_TYPES } from "@/lib/options";
+import { TIMED_EVENT_TYPES } from "@/lib/options";
 import { EVENT_COLORS } from "@/lib/colors";
 import { plural } from "@/lib/text";
 import { cn } from "@/lib/utils";
@@ -219,10 +219,13 @@ export default function Home() {
 
   const data = useMemo(() => {
     const followUp = jobs.filter(needsFollowUp).sort((a, b) => Number(isScheduledDue(b)) - Number(isScheduledDue(a)) || quietDays(b) - quietDays(a));
-    // Same group as the Interviewing KPI; the freshest conversations first.
+    // Same group as the Interviewing KPI and the Jobs list chip; the freshest conversations first.
     const interviewing = jobs
-      .filter((j) => isActive(j) && INTERVIEWING_STATUSES.has(j.status))
+      .filter((j) => isApplication(j) && isInterviewing(j))
       .sort((a, b) => quietDays(a) - quietDays(b));
+    // Warm leads you're still working, quietest first; Going Cold are the oldest unanswered applications.
+    const warm = jobs.filter(isWarmLead).sort((a, b) => quietDays(b) - quietDays(a));
+    const cold = jobs.filter(isGoingCold).sort((a, b) => quietDays(b) - quietDays(a));
     const thisMonday = weekStart(todayIso);
     const weeks = Array.from({ length: WEEKS }, (_, i) =>
       addDays(thisMonday, -(WEEKS - 1 - i) * 7));
@@ -231,7 +234,7 @@ export default function Home() {
     const upcoming = events
       .filter((e) => TIMED_EVENT_TYPES.has(e.type) && (e.date > todayIso || (e.date === todayIso && !!e.time && e.time > time)))
       .sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "99").localeCompare(b.time ?? "99") || a.id - b.id);
-    return { upcoming, followUp, interviewing, weekly, recent, m: momentum(jobs, events, todayIso) };
+    return { upcoming, followUp, interviewing, warm, cold, weekly, recent, m: momentum(jobs, events, todayIso) };
   }, [jobs, events, todayIso, time]);
 
   // Old bookmarks like /?status=followup now live on /jobs.
@@ -248,7 +251,7 @@ export default function Home() {
     );
   }
 
-  const { m, upcoming, followUp, interviewing, weekly, recent } = data;
+  const { m, upcoming, followUp, interviewing, warm, cold, weekly, recent } = data;
   return (
     <div className="space-y-4">
       <title>Home | Application Tracker</title>
@@ -270,6 +273,15 @@ export default function Home() {
         </Card>
         <Card title="Interviewing" titleTo="/jobs?status=interviewing" count={interviewing.length}>
           <JobRows jobs={interviewing} detail={(j) => `${quietDays(j)} days quiet`} empty="No active interviews right now." />
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card title="Warm Leads" titleTo="/jobs?status=warm" count={warm.length}>
+          <JobRows jobs={warm} detail={(j) => `${quietDays(j)} days quiet`} empty="No referrals or recruiter leads in play." />
+        </Card>
+        <Card title="Going Cold" titleTo="/jobs?status=cold" count={cold.length}>
+          <JobRows jobs={cold} detail={(j) => `${quietDays(j)} days quiet`} empty="Nothing is waiting on a reply." />
         </Card>
       </div>
 

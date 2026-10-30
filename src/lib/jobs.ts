@@ -1,4 +1,4 @@
-import { CLOSED_STATUSES, INTERVIEWING_STATUSES, STALE_DAYS } from "./options";
+import { CLOSED_STATUSES, GHOSTED_DAYS, INTERVIEWING_STATUSES, STALE_DAYS } from "./options";
 import type { Job } from "./api";
 import { daysSince, isOnHold } from "./format";
 
@@ -12,6 +12,10 @@ export const isActive = (job: Job) => isApplication(job) && !CLOSED_STATUSES.has
 
 // Jobs that got to an interview at some point, including ones that ended after it.
 export const reachedInterview = (job: Job) => job.interview_count + job.screen_count > 0;
+
+// Interviewed and still in play: an interview is scheduled or under way, or an offer is out. A job that timed out
+// (auto-ghosted) after an interview still counts; one that was rejected or manually Ghosted does not.
+export const isInterviewing = (job: Job) => INTERVIEWING_STATUSES.has(job.status) || (job.auto_ghosted && reachedInterview(job));
 
 // How far a job got: "2 interviews", "1 screen". Empty when it has neither.
 export const progressParts = (job: Pick<Job, "interview_count" | "screen_count">) => [
@@ -39,6 +43,22 @@ export function statusLabel(job: Pick<Job, "status" | "interview_count" | "scree
 // A scheduled follow-up whose day has arrived and hasn't been followed up on yet.
 export const isScheduledDue = (job: Job) =>
   !!job.follow_up_on && isActive(job) && !isOnHold(job) && !(job.last_follow_up && job.last_follow_up >= job.follow_up_on);
+
+// Applied and unanswered for a week or more, but not yet long enough to be written off as ghosted.
+export function isGoingCold(job: Job) {
+  if (job.status !== "Applied" || job.auto_ghosted || job.first_contact || job.rejected_date || reachedInterview(job)) return false;
+  const days = daysSince(job.applied_date);
+  return days !== null && days >= STALE_DAYS && days < GHOSTED_DAYS;
+}
+
+// Active jobs that came through a person rather than a cold application.
+export const isWarmLead = (job: Job) => isActive(job) && (job.applied_via === "Referral" || job.applied_via === "Inbound Recruiter");
+
+// Active jobs with something logged in the last week.
+export function isRecentlyUpdated(job: Job) {
+  const days = daysSince(job.last_activity);
+  return isActive(job) && days !== null && days < STALE_DAYS;
+}
 
 // Interviewing jobs (or auto-ghosted ones that got to an interview) that have gone quiet — worth a follow-up. Logging a
 // follow-up counts as activity, so it drops off for a while. Logging Ghosted closes it out. Held jobs are skipped; a scheduled date that has arrived brings the job back.
