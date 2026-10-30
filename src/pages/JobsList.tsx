@@ -41,7 +41,7 @@ import {
   annualPackage, baseSortValue, BENEFITS, benefitsSummary, bonusOn, changeFrom, EQUITY_TYPES, hasExtras, hasPayData, matchOn, paidDaysOff,
   type TargetFit, targetFit,
 } from "@/lib/compensation";
-import { FIT_TEXT, TargetBar } from "@/components/CompensationCard";
+import { FIT_TEXT, fitShort, TargetBar } from "@/components/CompensationCard";
 import { useParamUpdater } from "@/hooks/useParamUpdater";
 import { cn } from "@/lib/utils";
 import { toastError, toastSaved } from "@/lib/demo";
@@ -116,7 +116,6 @@ const stackedCell = (
 type ListProfile = Pick<Profile, "salary_target" | "past_base_salary" | "past_package" | "past_days_off">;
 
 // Short labels for where the Base Salary Target sits against a job's base range.
-const FIT_SHORT: Record<TargetFit["kind"], string> = { within: "In range", above: "Under target", below: "Above target" };
 // Higher is better pay against the target: ranges starting above it, then ranges it sits low in, then ranges under it.
 const fitScore = (fit: TargetFit) => (fit.kind === "below" ? 200 + fit.pct : fit.kind === "within" ? 200 - fit.pct : -fit.pct);
 
@@ -285,7 +284,7 @@ const offerColumns = (profile: ListProfile): ColumnDef<Job>[] => [
       return (
         <div className="flex items-center gap-2 whitespace-nowrap" title={FIT_TEXT[fit.kind].detail(fit.pct)}>
           <TargetBar fit={fit} className="w-14" />
-          <span className="text-xs text-muted-foreground">{FIT_SHORT[fit.kind]}</span>
+          <span className="text-xs text-muted-foreground">{fitShort(fit)}</span>
         </div>
       );
     },

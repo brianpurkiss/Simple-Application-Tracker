@@ -65,11 +65,17 @@ export const FIT_TEXT: Record<TargetFit["kind"], { label: string; detail: (pct: 
   below: { label: "A step up", detail: (pct) => `The range starts ${pct}% above your target.` },
 };
 
+// A range that tops out within this % of the target reads as close rather than under.
+const CLOSE_TO_TARGET_PCT = 10;
+export const fitLabel = (fit: TargetFit) => (fit.kind === "above" && fit.pct <= CLOSE_TO_TARGET_PCT ? "Close to target" : FIT_TEXT[fit.kind].label);
+export const fitShort = (fit: TargetFit) =>
+  fit.kind === "above" ? (fit.pct <= CLOSE_TO_TARGET_PCT ? "Close to target" : "Under target") : fit.kind === "below" ? "Above target" : "In range";
+
 // Green when the target is in the lower half of the range (room to grow), the Applied amber in the upper half,
-// blue when the whole range is above it, rose when the range tops out under it.
+// blue when the whole range is above it, orange when the range tops out just under it, rose when it falls well short.
 export const fitDot = (fit: TargetFit) =>
   fit.kind === "below" ? "bg-blue-500"
-    : fit.kind === "above" ? "bg-rose-500"
+    : fit.kind === "above" ? (fit.pct <= CLOSE_TO_TARGET_PCT ? "bg-orange-500" : "bg-rose-500")
     : fit.pct <= 50 ? "bg-emerald-500"
     : STATUS_COLORS.Applied.dot;
 
@@ -115,7 +121,7 @@ export function CompensationSummary({ draft, aside }: { draft: Draft; aside?: Re
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">Base vs. target</p>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{FIT_TEXT[fit.kind].label}</span>
+              <span className="text-sm font-medium">{fitLabel(fit)}</span>
               <TargetBar fit={fit} />
             </div>
             <p className="text-xs text-muted-foreground">{FIT_TEXT[fit.kind].detail(fit.pct)}</p>
