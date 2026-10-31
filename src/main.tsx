@@ -31,6 +31,7 @@ import Calendar from "@/pages/Calendar";
 import Segments from "@/pages/Segments";
 import Backups from "@/pages/Backups";
 import Boards from "@/pages/Boards";
+import Exporter from "@/pages/Exporter";
 import Trash from "@/pages/Trash";
 import Shortcuts from "@/pages/Shortcuts";
 import Terminology from "@/pages/Terminology";
@@ -90,6 +91,13 @@ const NAV_ITEMS: [string, string, LucideIcon, string?][] = [
   ["/performance", "Performance", ChartNoAxesCombined],
   ["/activity", "Activity", ActivityIcon],
   ["/calendar", "Cal", CalendarDays, "Calendar"],
+];
+
+const FOOTER_LINKS: [string, string][] = [
+  ["/shortcuts", "Keyboard Shortcuts"],
+  ["/terminology", "Terminology"],
+  ["/exporter", "Exporter"],
+  ...(DEMO ? [] : [["/backups", "Backups"] as [string, string]]),
 ];
 
 // Link color for a nav item, shared by the desktop and mobile menus.
@@ -264,6 +272,7 @@ function App() {
             <Route path="/titles" element={<Navigate to="/segments" replace />} />
             <Route path="/stats" element={<Navigate to="/activity" replace />} />
             {!DEMO && <Route path="/backups" element={<Backups />} />}
+            <Route path="/exporter" element={<Exporter />} />
             <Route path="/boards" element={<Boards />} />
             <Route path="/trash" element={<Trash />} />
             <Route path="/shortcuts" element={<Shortcuts />} />
@@ -275,10 +284,13 @@ function App() {
         <footer className="border-t">
           {DEMO && <DemoBanner />}
           <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="flex flex-wrap items-center gap-4">
-              <Link to="/shortcuts" className="hover:text-foreground">Keyboard Shortcuts</Link>
-              <Link to="/terminology" className="hover:text-foreground">Terminology</Link>
-              {!DEMO && <Link to="/backups" className="hover:text-foreground">Backups</Link>}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {FOOTER_LINKS.map(([to, label], i) => (
+                <Fragment key={to}>
+                  {i > 0 && <span aria-hidden="true">·</span>}
+                  <Link to={to} className="hover:text-foreground">{label}</Link>
+                </Fragment>
+              ))}
             </div>
             <div className="flex items-center gap-4">
               <a href={REPO} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-foreground">
